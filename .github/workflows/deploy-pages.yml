@@ -32,7 +32,7 @@ jobs:
         run: |
           mkdir -p site
           cp index.html site/index.html
-          cp xy-synth.html site/xy-synth.html
+          if [ -f xy-synth.html ]; then cp xy-synth.html site/xy-synth.html; fi
           for file in CNAME .nojekyll robots.txt sitemap.xml manifest.webmanifest; do
             if [ -f "$file" ]; then
               cp "$file" "site/$file"
