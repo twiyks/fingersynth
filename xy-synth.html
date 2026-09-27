@@ -101,13 +101,13 @@
   .seg.pats input:checked + span { box-shadow: 0 0 0 1.5px var(--line); }
   .seg.pats label.playing input:checked + span { box-shadow: 0 0 0 1.5px var(--line), inset 0 -3px 0 var(--hit); }
   .grid {
-    flex: 1; min-height: 0; display: grid; gap: 3px; touch-action: none;
-    grid-template-columns: 2.4rem repeat(16, minmax(0, 1fr));
+    flex: 1; min-height: 0; display: grid; gap: 3px 2px; touch-action: none;
+    grid-template-columns: 1.6rem repeat(16, minmax(0, 1fr));
     grid-template-rows: repeat(8, minmax(0, 1fr));
-    background: var(--field); border-radius: 14px; padding: 8px;
+    background: var(--field); border-radius: 14px; padding: 6px;
   }
   .rowlab {
-    font: inherit; font-size: 0.72rem; font-weight: 800; color: var(--muted);
+    font: inherit; font-size: 0.62rem; font-weight: 800; color: var(--muted);
     background: none; border: 0; border-radius: 6px; padding: 0; cursor: pointer;
   }
   .cell { border: 0; padding: 0; min-width: 0; border-radius: 4px; background: var(--control); cursor: pointer; }
@@ -313,7 +313,7 @@
     <span>Filter <strong id="cutOut">–</strong></span>
   </footer>
 </main>
-<div class="version">v1.5</div>
+<div class="version">v1.6</div>
 
 <script>
 (() => {
