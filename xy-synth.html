@@ -76,7 +76,21 @@
   .axis.y { left: 10px; top: 10px; }
   .axis.y2 { left: 10px; bottom: 30px; }
   .fx {
-    display: grid; grid-template-columns: 3fr 2fr; gap: 10px;
+    display: grid; grid-template-columns: 3fr 2fr 2fr; gap: 10px;
+  }
+  .fxgroup h2 .sub { font-weight: 400; font-size: 0.78rem; color: var(--muted); margin-left: 6px; }
+  .seg { display: flex; gap: 4px; background: var(--band); border-radius: 10px; padding: 3px; }
+  .seg label { flex: 1; position: relative; }
+  .seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .seg span {
+    display: block; text-align: center; font-size: 0.82rem; font-weight: 600; color: var(--muted);
+    padding: 4px 6px; border-radius: 8px;
+  }
+  .seg input:checked + span { background: var(--control); color: var(--ink); box-shadow: 0 0 0 1.5px var(--line); }
+  .seg input:focus-visible + span { outline: 3px solid var(--root); outline-offset: 1px; }
+  @media (max-width: 1000px) {
+    .fx { grid-template-columns: 1fr 1fr; }
+    .fx .fxgroup:first-child { grid-column: 1 / -1; }
   }
   .fxgroup {
     background: var(--field); border-radius: 14px; padding: 10px 14px 12px;
@@ -91,8 +105,10 @@
   input[type="range"] { width: 100%; margin: 4px 0 0; accent-color: var(--root); cursor: pointer; }
   input[type="range"]:focus-visible { outline: 3px solid var(--root); outline-offset: 3px; border-radius: 4px; }
   @media (max-width: 700px) {
-    .fx { grid-template-columns: 1fr; gap: 8px; }
+    .fx { gap: 8px; }
     .fxgroup { padding: 8px 12px 10px; }
+    .fxgroup h2 .sub { display: block; margin: 0; }
+    .fx .fxgroup:not(:first-child) { grid-template-columns: 1fr; }
   }
   footer {
     display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--muted);
@@ -150,6 +166,18 @@
       <div class="slider">
         <div class="top"><label for="rMix">Amount</label><output id="rMixOut"></output></div>
         <input type="range" id="rMix" min="0" max="100" value="25">
+      </div>
+    </div>
+    <div class="fxgroup arpgroup" style="--cols: 1">
+      <h2>Arpeggio <span class="sub">hold two or more notes</span></h2>
+      <div class="slider">
+        <div class="top"><label for="aSpeed">Speed</label><output id="aSpeedOut"></output></div>
+        <input type="range" id="aSpeed" min="2" max="20" value="8">
+      </div>
+      <div class="seg" role="radiogroup" aria-label="Direction">
+        <label><input type="radio" name="aDir" value="up" checked><span>Up</span></label>
+        <label><input type="radio" name="aDir" value="down"><span>Down</span></label>
+        <label><input type="radio" name="aDir" value="random"><span>Random</span></label>
       </div>
     </div>
   </section>
@@ -303,13 +331,13 @@
     sizeTimer = setTimeout(() => applyFx(true), 120);
   });
 
-  function startVoice(midi, cutoff) {
+  function startVoice(midi, cutoff, t) {
     const p = PRESETS[presetSel.value];
-    const now = ctx.currentTime;
+    const now = t ?? ctx.currentTime;
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";
     filter.Q.value = p.q;
-    filter.frequency.value = cutoff;
+    filter.frequency.setValueAtTime(cutoff, now);
     const amp = ctx.createGain();
     amp.gain.setValueAtTime(0, now);
     amp.gain.linearRampToValueAtTime(1, now + p.atk);
@@ -326,7 +354,7 @@
       const osc = ctx.createOscillator();
       osc.type = o.type;
       osc.detune.value = o.det || 0;
-      osc.frequency.value = midiToHz(midi) * Math.pow(2, o.oct || 0);
+      osc.frequency.setValueAtTime(midiToHz(midi) * Math.pow(2, o.oct || 0), now);
       const g = ctx.createGain(); g.gain.value = o.g;
       osc.connect(g).connect(filter);
       if (lfoGain) lfoGain.connect(osc.detune);
@@ -336,6 +364,7 @@
     return { oscs, filter, amp, lfo, rel: p.rel };
   }
 
+  // release a voice now (held notes)
   function stopVoice(v) {
     if (!v) return;
     const now = ctx.currentTime;
@@ -348,12 +377,80 @@
     setTimeout(() => v.amp.disconnect(), (v.rel + 0.2) * 1000);
   }
 
+  // release a voice at a scheduled time (arpeggio notes)
+  function stopVoiceAt(v, when, onDone) {
+    v.amp.gain.setTargetAtTime(0, when, Math.max(v.rel / 4, 0.01));
+    const end = when + v.rel * 1.5 + 0.05;
+    v.oscs.forEach(o => o.osc.stop(end));
+    if (v.lfo) v.lfo.stop(end);
+    v.oscs[0].osc.onended = () => { v.amp.disconnect(); onDone && onDone(); };
+  }
+
   function updateVoice(midi, cutoff) {
     if (!voice) return;
     const now = ctx.currentTime;
     const hz = midiToHz(midi);
     voice.oscs.forEach(o => o.osc.frequency.setTargetAtTime(hz * o.ratio, now, 0.012));
     voice.filter.frequency.setTargetAtTime(cutoff, now, 0.02);
+  }
+
+  // ---------- arpeggiator ----------
+  const arpVoices = new Set();
+  let arp = null;                      // { timer, nextTime, step, lastMidi, queue }
+  const arpRate = () => Number($("aSpeed").value);          // notes per second
+  const arpDir = () => document.querySelector('input[name="aDir"]:checked').value;
+  const GATE = 0.7;
+
+  function heldNotes() {
+    return [...new Set([...pointers.values()].map(p => p.midi))].sort((a, b) => a - b);
+  }
+
+  function nextArpNote() {
+    const list = heldNotes();
+    if (!list.length) return null;
+    const dir = arpDir();
+    let midi;
+    if (dir === "random") {
+      do { midi = list[Math.floor(Math.random() * list.length)]; }
+      while (list.length > 1 && midi === arp.lastMidi);
+    } else {
+      const seq = dir === "down" ? [...list].reverse() : list;
+      midi = seq[arp.step % seq.length];
+      arp.step++;
+    }
+    arp.lastMidi = midi;
+    return midi;
+  }
+
+  function arpTick() {
+    const step = 1 / arpRate();
+    while (arp.nextTime < ctx.currentTime + 0.1) {
+      const midi = nextArpNote();
+      if (midi == null) break;
+      const t = arp.nextTime;
+      const v = startVoice(midi, cutoff, t);
+      arpVoices.add(v);
+      stopVoiceAt(v, t + step * GATE, () => arpVoices.delete(v));
+      arp.queue.push({ time: t, midi });
+      arp.nextTime += step;
+    }
+  }
+
+  function startArp() {
+    arp = { nextTime: ctx.currentTime + 0.02, step: 0, lastMidi: null, queue: [] };
+    arpTick();
+    arp.timer = setInterval(arpTick, 25);
+  }
+
+  function stopArp() {
+    if (!arp) return;
+    clearInterval(arp.timer);
+    arp = null;
+  }
+
+  function setArpCutoff(c) {
+    const now = ctx.currentTime;
+    arpVoices.forEach(v => v.filter.frequency.setTargetAtTime(c, now, 0.02));
   }
 
   // ---------- pad ----------
@@ -365,9 +462,10 @@
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   let W = 0, H = 0, dpr = 1;
-  let pointer = null;      // {x, y} in 0..1 when held
+  const pointers = new Map();     // pointerId -> { x, y, idx, midi }
+  let cutoff = 1000;
+  let sounding = null;            // midi currently heard, for display
   let trail = [];
-  let current = { midi: null, cutoff: null, idx: -1 };
 
   function resize() {
     dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -387,64 +485,104 @@
     };
   }
 
-  function map(pos) {
-    const idx = Math.floor(pos.x * notes.length);
-    const midi = notes[idx];
-    const cutoff = CUT_MIN * Math.pow(CUT_MAX / CUT_MIN, 1 - pos.y);
-    return { idx, midi, cutoff };
+  function mapPointer(p) {
+    p.idx = Math.floor(p.x * notes.length);
+    p.midi = notes[p.idx];
   }
+  const cutoffFor = y => CUT_MIN * Math.pow(CUT_MAX / CUT_MIN, 1 - y);
 
   function showReadout() {
-    if (current.midi == null) { noteOut.textContent = "–"; cutOut.textContent = "–"; return; }
-    noteOut.textContent = noteName(current.midi);
-    const c = current.cutoff;
-    cutOut.textContent = c >= 1000 ? (c / 1000).toFixed(1) + " kHz" : Math.round(c) + " Hz";
+    if (!pointers.size || sounding == null) { noteOut.textContent = "–"; cutOut.textContent = "–"; return; }
+    noteOut.textContent = noteName(sounding) + (pointers.size > 1 ? " (arpeggio)" : "");
+    cutOut.textContent = cutoff >= 1000 ? (cutoff / 1000).toFixed(1) + " kHz" : Math.round(cutoff) + " Hz";
   }
 
-  let activeId = null;
+  // one finger plays a held note, two or more run the arpeggiator
+  function refreshMode(prevCount) {
+    const n = pointers.size;
+    if (n === prevCount) return;
+    if (n === 0) {
+      stopArp(); stopVoice(voice); voice = null; sounding = null;
+    } else if (n === 1) {
+      stopArp();
+      const only = [...pointers.values()][0];
+      if (!voice) voice = startVoice(only.midi, cutoff);
+      else updateVoice(only.midi, cutoff);
+      sounding = only.midi;
+    } else if (prevCount < 2) {
+      stopVoice(voice); voice = null;
+      startArp();
+    }
+  }
+
   canvas.addEventListener("pointerdown", e => {
-    if (activeId !== null) return;
-    activeId = e.pointerId;
+    e.preventDefault();
     canvas.setPointerCapture(e.pointerId);
     ensureAudio();
     hint.classList.add("gone");
-    pointer = readPos(e);
-    current = map(pointer);
-    voice = startVoice(current.midi, current.cutoff);
+    const prev = pointers.size;
+    const p = readPos(e);
+    mapPointer(p);
+    pointers.set(e.pointerId, p);
+    cutoff = cutoffFor(p.y);
+    setArpCutoff(cutoff);
+    refreshMode(prev);
     showReadout();
   });
+
   canvas.addEventListener("pointermove", e => {
-    if (e.pointerId !== activeId) return;
-    pointer = readPos(e);
-    current = map(pointer);
-    updateVoice(current.midi, current.cutoff);
+    const p = pointers.get(e.pointerId);
+    if (!p) return;
+    Object.assign(p, readPos(e));
+    mapPointer(p);
+    cutoff = cutoffFor(p.y);            // whichever finger moved sets the filter
+    if (pointers.size === 1) { updateVoice(p.midi, cutoff); sounding = p.midi; }
+    else setArpCutoff(cutoff);
     showReadout();
   });
+
   const release = e => {
-    if (e.pointerId !== activeId) return;
-    activeId = null;
-    pointer = null;
-    stopVoice(voice); voice = null;
+    if (!pointers.has(e.pointerId)) return;
+    const prev = pointers.size;
+    pointers.delete(e.pointerId);
+    refreshMode(prev);
+    showReadout();
   };
   canvas.addEventListener("pointerup", release);
   canvas.addEventListener("pointercancel", release);
 
   scaleSel.addEventListener("change", () => {
     buildNotes();
-    if (pointer) { current = map(pointer); updateVoice(current.midi, current.cutoff); showReadout(); }
+    pointers.forEach(mapPointer);
+    if (pointers.size === 1) {
+      const only = [...pointers.values()][0];
+      updateVoice(only.midi, cutoff); sounding = only.midi;
+    }
+    showReadout();
   });
   presetSel.addEventListener("change", () => {
-    if (voice && pointer) { stopVoice(voice); voice = startVoice(current.midi, current.cutoff); }
+    if (voice && pointers.size === 1) {
+      stopVoice(voice);
+      voice = startVoice([...pointers.values()][0].midi, cutoff);
+    }
   });
 
   function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  const hueFor = (idx, n) => 260 - (idx / Math.max(n - 1, 1)) * 230;
 
   function draw() {
-    const band = css("--band"), line = css("--line"), root = css("--root"), muted = css("--muted");
+    const band = css("--band"), line = css("--line"), root = css("--root"), muted = css("--muted"), ink = css("--ink");
     g2d.clearRect(0, 0, W, H);
     const n = notes.length, cw = W / n;
 
-    // note columns
+    // work out which arpeggio note is audible right now
+    if (arp && ctx) {
+      while (arp.queue.length && arp.queue[0].time <= ctx.currentTime) {
+        sounding = arp.queue.shift().midi;
+        showReadout();
+      }
+    }
+
     for (let i = 0; i < n; i++) {
       if (i % 2 === 1) { g2d.fillStyle = band; g2d.fillRect(i * cw, 0, cw, H); }
       const isRoot = (notes[i] - LOW) % 12 === 0;
@@ -452,51 +590,54 @@
       g2d.fillRect(Math.round(i * cw), 0, isRoot ? 2 : 1, H);
     }
 
-    // active column
-    if (pointer && current.idx >= 0) {
-      const hue = 260 - (current.idx / Math.max(n - 1, 1)) * 230;
-      g2d.fillStyle = `hsla(${hue}, 80%, 60%, 0.16)`;
-      g2d.fillRect(current.idx * cw, 0, cw, H);
-    }
+    // held columns, with the sounding one brighter
+    const held = new Set([...pointers.values()].map(p => p.idx));
+    held.forEach(idx => {
+      const on = notes[idx] === sounding;
+      g2d.fillStyle = `hsla(${hueFor(idx, n)}, 80%, 60%, ${on ? 0.32 : 0.12})`;
+      g2d.fillRect(idx * cw, 0, cw, H);
+    });
 
-    // note labels
     const fontSize = Math.max(9, Math.min(12, cw * 0.4));
     g2d.font = `600 ${fontSize}px "Bricolage Grotesque", system-ui, sans-serif`;
     g2d.textAlign = "center";
     g2d.textBaseline = "bottom";
     for (let i = 0; i < n; i++) {
-      g2d.fillStyle = i === current.idx && pointer ? css("--ink") : muted;
+      g2d.fillStyle = held.has(i) ? ink : muted;
       if (cw > 18 || (notes[i] - LOW) % 12 === 0) {
         g2d.fillText(NOTE_NAMES[notes[i] % 12], i * cw + cw / 2, H - 8);
       }
     }
 
-    // trail and cursor
-    if (pointer) trail.push({ x: pointer.x * W, y: pointer.y * H, life: 1 });
+    pointers.forEach(p => trail.push({ x: p.x * W, y: p.y * H, idx: p.idx, life: 1 }));
     trail.forEach(t => t.life -= reduceMotion ? 1 : 0.06);
     trail = trail.filter(t => t.life > 0);
     for (const t of trail) {
-      const col = Math.min(Math.floor((t.x / W) * n), n - 1);
-      const hue = 260 - (col / Math.max(n - 1, 1)) * 230;
-      g2d.fillStyle = `hsla(${hue}, 85%, 62%, ${t.life * 0.35})`;
+      g2d.fillStyle = `hsla(${hueFor(t.idx, n)}, 85%, 62%, ${t.life * 0.35})`;
       g2d.beginPath(); g2d.arc(t.x, t.y, 6 + t.life * 10, 0, Math.PI * 2); g2d.fill();
     }
-    if (pointer) {
-      const px = pointer.x * W, py = pointer.y * H;
-      const hue = 260 - (current.idx / Math.max(n - 1, 1)) * 230;
-      const radius = 30 + (1 - pointer.y) * 50;
+
+    pointers.forEach(p => {
+      const px = p.x * W, py = p.y * H;
+      const hue = hueFor(p.idx, n);
+      const on = p.midi === sounding;
+      const radius = (30 + (1 - p.y) * 50) * (on ? 1 : 0.65);
       const grad = g2d.createRadialGradient(px, py, 0, px, py, radius);
-      grad.addColorStop(0, `hsla(${hue}, 95%, 70%, 0.95)`);
-      grad.addColorStop(0.3, `hsla(${hue}, 90%, 60%, 0.5)`);
+      grad.addColorStop(0, `hsla(${hue}, 95%, 70%, ${on ? 0.95 : 0.6})`);
+      grad.addColorStop(0.3, `hsla(${hue}, 90%, 60%, ${on ? 0.5 : 0.3})`);
       grad.addColorStop(1, `hsla(${hue}, 90%, 55%, 0)`);
       g2d.fillStyle = grad;
       g2d.beginPath(); g2d.arc(px, py, radius, 0, Math.PI * 2); g2d.fill();
       g2d.fillStyle = "#fff";
       g2d.beginPath(); g2d.arc(px, py, 5, 0, Math.PI * 2); g2d.fill();
-    }
+    });
     requestAnimationFrame(draw);
   }
   requestAnimationFrame(draw);
+
+  const speedOut = () => $("aSpeedOut").textContent = $("aSpeed").value + " notes/s";
+  $("aSpeed").addEventListener("input", speedOut);
+  speedOut();
 })();
 </script>
 </body>
