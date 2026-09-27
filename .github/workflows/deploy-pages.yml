@@ -28,10 +28,16 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: Prepare site files
+        run: |
+          mkdir -p site
+          cp index.html site/index.html
+          cp xy-synth.html site/xy-synth.html
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: ./site
 
       - name: Deploy to GitHub Pages
         id: deployment
