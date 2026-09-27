@@ -31,27 +31,62 @@ jobs:
       - name: Prepare site files
         run: |
           set -euo pipefail
-          test -f index.html
-          test -f xy-synth.html
+          python - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          import shutil
 
-          mkdir -p site
-          cp index.html site/index.html
-          cp xy-synth.html site/xy-synth.html
+          repo = Path('.')
+          site = repo / 'site'
+          pages = [Path('index.html'), Path('xy-synth.html')]
+          required = [p for p in pages if not p.is_file()]
+          if required:
+              missing = ', '.join(str(p) for p in required)
+              raise SystemExit(f"Missing required page files: {missing}")
 
-          find . -maxdepth 1 -type f \( \
-            -name '*.css' -o -name '*.js' -o -name '*.mjs' -o -name '*.json' -o \
-            -name '*.svg' -o -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o \
-            -name '*.gif' -o -name '*.webp' -o -name '*.ico' -o -name '*.wav' -o \
-            -name '*.mp3' -o -name '*.ogg' -o -name '*.wasm' -o -name '*.txt' -o \
-            -name '*.xml' -o -name '*.webmanifest' -o -name '.nojekyll' -o -name 'CNAME' \
-          \) \
-          ! -path './.git/*' ! -path './.github/*' ! -path './site/*' \
-          ! -name 'index.html' ! -name 'xy-synth.html' \
-          -print0 | while IFS= read -r -d '' file; do
-            target="site/${file#./}"
-            mkdir -p "$(dirname "$target")"
-            cp "$file" "$target"
-          done
+          if site.exists():
+              shutil.rmtree(site)
+          site.mkdir(parents=True)
+
+          for page in pages:
+              target = site / page
+              target.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(page, target)
+
+          class AssetParser(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.assets = set()
+
+              def handle_starttag(self, tag, attrs):
+                  for key, value in attrs:
+                      if key not in {'src', 'href'} or not value:
+                          continue
+                      v = value.strip()
+                      if v.startswith(('#', 'http://', 'https://', 'data:', 'mailto:', 'javascript:')):
+                          continue
+                      asset = v.split('?', 1)[0].split('#', 1)[0]
+                      if asset:
+                          self.assets.add(asset)
+
+          parser = AssetParser()
+          for page in pages:
+              parser.feed(page.read_text(encoding='utf-8'))
+
+          for rel in sorted(parser.assets):
+              src = (repo / rel).resolve()
+              if not src.exists() or not src.is_file() or repo.resolve() not in src.parents:
+                  continue
+              relpath = src.relative_to(repo.resolve())
+              dest = site / relpath
+              dest.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(src, dest)
+
+          for optional in ['CNAME', '.nojekyll', 'robots.txt', 'sitemap.xml', 'manifest.webmanifest']:
+              src = repo / optional
+              if src.is_file():
+                  shutil.copy2(src, site / optional)
+          PY
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
