@@ -28,6 +28,7 @@ voice -> master (0.5) -> out -> compressor (-14 dB, 4:1) -> destination
 ```
 - Delay echoes also feed the reverb.
 - Delay "Decay" is a time in seconds (0.1 to 12, exponential slider). Feedback is derived from it with `feedbackFor(time, decay) = 10^(-3 * time / decay)`, i.e. the echoes fall by 60 dB over the decay time. Capped at 0.95.
+- An "ms / notes" switch in the Delay header (`delayUnit`, `setDelayUnit()`) lets Time and Decay be set in arp notes instead. In notes mode Time steps through `SYNC_TIMES` (fractions of a note) and Decay through `SYNC_DECAYS` (whole notes), both converted to seconds from the arp speed, so moving the Speed slider retimes the delay. Each mode remembers its own slider positions.
 - Reverb uses a generated impulse response (`makeImpulse(size)`): stereo noise with a power-curve fade, 0.3 to 6 seconds long depending on room size. It's rebuilt on a 120 ms debounce when the size slider moves.
 - Effect settings live in `fxState` (read by `readFx()`) so the sliders work before audio has started; `applyFx()` pushes them into the nodes.
 
@@ -64,7 +65,6 @@ voice -> master (0.5) -> out -> compressor (-14 dB, 4:1) -> destination
 
 - Latch mode so a mouse can hold several notes (click to toggle)
 - Root key picker, and octave range control
-- Tempo-synced delay that follows the arp speed
 - More arp directions (up-down), gate length and octave spread
 - Save and recall settings
 

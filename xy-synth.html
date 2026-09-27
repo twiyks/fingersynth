@@ -88,6 +88,9 @@
   }
   .seg input:checked + span { background: var(--control); color: var(--ink); box-shadow: 0 0 0 1.5px var(--line); }
   .seg input:focus-visible + span { outline: 3px solid var(--root); outline-offset: 1px; }
+  .seg.small { padding: 2px; }
+  .seg.small span { font-size: 0.75rem; padding: 2px 9px; }
+  .fxhead { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   @media (max-width: 1000px) {
     .fx { grid-template-columns: 1fr 1fr; }
     .fx .fxgroup:first-child { grid-column: 1 / -1; }
@@ -150,7 +153,13 @@
   </div>
   <section class="fx">
     <div class="fxgroup" style="--cols: 3">
-      <h2>Delay</h2>
+      <div class="fxhead">
+        <h2>Delay</h2>
+        <div class="seg small" role="radiogroup" aria-label="Delay time units">
+          <label><input type="radio" name="dUnit" value="ms" checked><span>ms</span></label>
+          <label><input type="radio" name="dUnit" value="notes"><span>notes</span></label>
+        </div>
+      </div>
       <div class="slider">
         <div class="top"><label for="dAmount">Amount</label><output id="dAmountOut"></output></div>
         <input type="range" id="dAmount" min="0" max="100" value="25">
@@ -193,7 +202,7 @@
     <span>Filter <strong id="cutOut">–</strong></span>
   </footer>
 </main>
-<div class="version">v1.1</div>
+<div class="version">v1.2</div>
 
 <script>
 (() => {
@@ -255,15 +264,47 @@
   // effect settings, readable before audio starts
   const $ = id => document.getElementById(id);
   const fxState = {};
+
+  // delay time and decay can be set in ms, or in arp notes so echoes lock to the arp speed
+  const SYNC_TIMES = [[1,4], [1,3], [1,2], [2,3], [3,4], [1,1], [3,2], [2,1], [3,1], [4,1]];   // fractions of a note
+  const SYNC_DECAYS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64];                              // whole notes
+  const DELAY_RANGES = {                                                                        // [min, max, default]
+    ms:    { dTime: [20, 1000, 350], dDecay: [1, 100, 30] },
+    notes: { dTime: [0, SYNC_TIMES.length - 1, 2], dDecay: [0, SYNC_DECAYS.length - 1, 5] },
+  };
+  const delaySaved = { ms: {}, notes: {} };
+  let delayUnit = "ms";
+  function setDelayUnit(unit) {
+    ["dTime", "dDecay"].forEach(id => {
+      const el = $(id);
+      delaySaved[delayUnit][id] = el.value;             // remember where this mode's slider was
+      const [min, max, def] = DELAY_RANGES[unit][id];
+      el.min = min; el.max = max;
+      el.value = delaySaved[unit][id] ?? def;
+    });
+    delayUnit = unit;
+  }
+  const notesLabel = n => n + (n > 1 ? " notes" : " note");
+
   function readFx() {
     fxState.dAmount = $("dAmount").value / 100;
-    fxState.dTime = $("dTime").value / 1000;                                   // seconds
-    fxState.dDecay = 0.1 * Math.pow(120, ($("dDecay").value - 1) / 99);        // 0.1 to 12 s
+    if (delayUnit === "notes") {
+      const noteLen = 1 / Number($("aSpeed").value);    // one arp note, in seconds
+      const [num, den] = SYNC_TIMES[$("dTime").value];
+      const steps = SYNC_DECAYS[$("dDecay").value];
+      fxState.dTime = Math.min(2, noteLen * num / den);
+      fxState.dDecay = noteLen * steps;
+      $("dTimeOut").textContent = den === 1 ? notesLabel(num) : num + "/" + den + (num > den ? " notes" : " note");
+      $("dDecayOut").textContent = notesLabel(steps);
+    } else {
+      fxState.dTime = $("dTime").value / 1000;                                 // seconds
+      fxState.dDecay = 0.1 * Math.pow(120, ($("dDecay").value - 1) / 99);      // 0.1 to 12 s
+      $("dTimeOut").textContent = $("dTime").value + " ms";
+      $("dDecayOut").textContent = fxState.dDecay < 1 ? Math.round(fxState.dDecay * 1000) + " ms" : fxState.dDecay.toFixed(1) + " s";
+    }
     fxState.rSize = $("rSize").value / 100;
     fxState.rMix = $("rMix").value / 100;
     $("dAmountOut").textContent = $("dAmount").value + "%";
-    $("dTimeOut").textContent = $("dTime").value + " ms";
-    $("dDecayOut").textContent = fxState.dDecay < 1 ? Math.round(fxState.dDecay * 1000) + " ms" : fxState.dDecay.toFixed(1) + " s";
     $("rSizeOut").textContent = $("rSize").value + "%";
     $("rMixOut").textContent = $("rMix").value + "%";
   }
@@ -330,8 +371,10 @@
     if (ctx.state === "suspended") ctx.resume();
   }
 
-  ["dAmount", "dTime", "dDecay", "rMix"].forEach(id =>
+  ["dAmount", "dTime", "dDecay", "rMix", "aSpeed"].forEach(id =>     // aSpeed: synced delay follows the arp
     $(id).addEventListener("input", () => { readFx(); applyFx(false); }));
+  document.querySelectorAll('input[name="dUnit"]').forEach(r =>
+    r.addEventListener("change", () => { setDelayUnit(r.value); readFx(); applyFx(false); }));
   let sizeTimer = null;
   $("rSize").addEventListener("input", () => {
     readFx();
