@@ -16,9 +16,9 @@ A browser synth played on an X/Y pad. X picks a note from the chosen scale, Y se
 All JS sits inside one IIFE. Main pieces, top to bottom:
 
 **Data**
-- `SCALES`: name plus semitone steps from the root. The pad covers two octaves from C3 to C5 (`LOW = 48`, `SPAN = 24`), and `buildNotes()` fills `notes` with the MIDI numbers in the current scale. Each note is one column on the pad.
+- `SCALES`: name plus semitone steps from the root. The pad has `ROWS = 2` stacked keyboards, each two octaves (`SPAN = 24`): bottom row C2 to C4 (`LOW = 36`), top row C4 to C6. `buildNotes()` fills `notes` with the bottom row's MIDI numbers in the current scale; each note is one column, and a higher row adds `row * SPAN`.
 - `PRESETS`: each sound is a list of oscillators (`type`, `oct` offset, `det` detune in cents, `g` gain) plus filter `q`, attack `atk`, release `rel` and vibrato depth `vib` in cents. To add a sound, add an entry here; the dropdown builds itself.
-- Filter cutoff maps exponentially from `CUT_MIN` (60 Hz) at the bottom to `CUT_MAX` (14 kHz) at the top via `cutoffFor(y)`.
+- Filter cutoff maps exponentially from `CUT_MIN` (60 Hz) at the bottom of a row to `CUT_MAX` (14 kHz) at the top of that row via `cutoffFor(ly)`, so each row has its own full filter sweep.
 
 **Audio graph** (built once in `ensureAudio()`)
 ```
@@ -40,7 +40,7 @@ drums -> drumBus (Kit level) -> out          (no delay or reverb on drums)
 - `updateVoice()` glides pitch and cutoff with `setTargetAtTime` for smooth sliding.
 
 **Pointers and modes**
-- `pointers` is a Map of pointerId to `{x, y, idx, midi}` with x and y normalised 0 to 1.
+- `pointers` is a Map of pointerId to `{x, y, row, ly, idx, midi, gi}`. x and y are normalised 0 to 1 over the whole pad; `mapPointer()` works out `row` (0 = bottom), `ly` (height within that row, 0 to 1), the column `idx`, and `gi` (column counted across all rows, used for colour).
 - `refreshMode(prevCount)` handles transitions: 0 fingers stops everything, 1 finger plays a single legato `voice`, 2+ stops that voice and starts the arp. Going from 2 back to 1 returns to the held note.
 - The filter follows whichever finger was last pressed or moved (global `cutoff`). In arp mode, `setArpCutoff()` updates every currently sounding arp voice.
 
@@ -67,7 +67,7 @@ drums -> drumBus (Kit level) -> out          (no delay or reverb on drums)
 - Grid: press a step to toggle it and drag to paint that state across others (`paint`, `elementFromPoint`). Row labels audition the sound. `seq.queue` drives the playhead in `updateSeqUI()` on its own rAF loop.
 
 **Drawing**
-- A canvas redrawn every frame in `draw()`: alternating note columns (C columns marked stronger), held columns tinted, the sounding note brighter, a fading trail, and a glow per finger. Glow size grows as the filter opens. Hue runs across the pitch range via `hueFor()`.
+- A canvas redrawn every frame in `draw()`: each row gets alternating note columns (C columns marked stronger and labelled with their octave, e.g. C3), Bright/Dark hints drawn on the canvas, and a gap between rows. Held columns tinted, the sounding note brighter, a fading trail, and a glow per finger. Glow size grows as the filter opens. Hue runs across the pitch range via `hueFor()`.
 - Canvas is sized to devicePixelRatio (capped at 2) through a ResizeObserver.
 - `prefers-reduced-motion` turns the trail off.
 

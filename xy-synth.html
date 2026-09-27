@@ -123,9 +123,6 @@
     transition: opacity .4s ease;
   }
   .hint.gone { opacity: 0; }
-  .axis { position: absolute; font-size: 0.75rem; color: var(--muted); pointer-events: none; }
-  .axis.y { left: 10px; top: 10px; }
-  .axis.y2 { left: 10px; bottom: 30px; }
   .fx {
     display: grid; grid-template-columns: 3fr 2fr 2fr; gap: 10px;
   }
@@ -244,8 +241,6 @@
   <div class="synthview">
   <div class="padwrap">
     <canvas id="pad" aria-label="Play area. Drag left and right to change pitch, up and down to open or close the filter."></canvas>
-    <div class="axis y">Bright</div>
-    <div class="axis y2">Dark</div>
     <div class="hint" id="hint">Drag anywhere to play</div>
   </div>
   <section class="fx">
@@ -318,7 +313,7 @@
     <span>Filter <strong id="cutOut">–</strong></span>
   </footer>
 </main>
-<div class="version">v1.7</div>
+<div class="version">v1.8</div>
 
 <script>
 (() => {
@@ -350,7 +345,8 @@
   };
 
   const NOTE_NAMES = ["C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B"];
-  const LOW = 48, SPAN = 24;             // C3 to C5
+  const LOW = 36, SPAN = 24;             // each row covers two octaves from C2
+  const ROWS = 2;                        // stacked keyboards: bottom C2 to C4, top C4 to C6
   const CUT_MIN = 60, CUT_MAX = 14000;
 
   const scaleSel = document.getElementById("scale");
@@ -674,8 +670,13 @@
   }
 
   function mapPointer(p) {
+    // which row the finger is in (0 = bottom), and how far up that row it is, 0 to 1
+    const fromTop = Math.min(ROWS - 1, Math.floor(p.y * ROWS));
+    p.row = ROWS - 1 - fromTop;
+    p.ly = p.y * ROWS - fromTop;
     p.idx = Math.floor(p.x * notes.length);
-    p.midi = notes[p.idx];
+    p.midi = notes[p.idx] + p.row * SPAN;
+    p.gi = p.row * notes.length + p.idx;      // column counted across all rows, for colour
   }
   const cutoffFor = y => CUT_MIN * Math.pow(CUT_MAX / CUT_MIN, 1 - y);
 
@@ -712,7 +713,7 @@
     const p = readPos(e);
     mapPointer(p);
     pointers.set(e.pointerId, p);
-    cutoff = cutoffFor(p.y);
+    cutoff = cutoffFor(p.ly);
     setArpCutoff(cutoff);
     refreshMode(prev);
     showReadout();
@@ -723,7 +724,7 @@
     if (!p) return;
     Object.assign(p, readPos(e));
     mapPointer(p);
-    cutoff = cutoffFor(p.y);            // whichever finger moved sets the filter
+    cutoff = cutoffFor(p.ly);           // whichever finger moved sets the filter, measured within its row
     if (pointers.size === 1) { updateVoice(p.midi, cutoff); sounding = p.midi; }
     else setArpCutoff(cutoff);
     showReadout();
@@ -761,7 +762,8 @@
   function draw() {
     const band = css("--band"), line = css("--line"), root = css("--root"), muted = css("--muted"), ink = css("--ink");
     g2d.clearRect(0, 0, W, H);
-    const n = notes.length, cw = W / n;
+    const n = notes.length, cw = W / n, rh = H / ROWS;
+    const rowTop = r => (ROWS - 1 - r) * rh;       // row 0 is at the bottom
 
     // work out which arpeggio note is audible right now
     if (arp && ctx) {
@@ -771,45 +773,63 @@
       }
     }
 
-    for (let i = 0; i < n; i++) {
-      if (i % 2 === 1) { g2d.fillStyle = band; g2d.fillRect(i * cw, 0, cw, H); }
-      const isRoot = (notes[i] - LOW) % 12 === 0;
-      g2d.fillStyle = isRoot ? root : line;
-      g2d.fillRect(Math.round(i * cw), 0, isRoot ? 2 : 1, H);
-    }
-
-    // held columns, with the sounding one brighter
-    const held = new Set([...pointers.values()].map(p => p.idx));
-    held.forEach(idx => {
-      const on = notes[idx] === sounding;
-      g2d.fillStyle = `hsla(${hueFor(idx, n)}, 80%, 60%, ${on ? 0.32 : 0.12})`;
-      g2d.fillRect(idx * cw, 0, cw, H);
-    });
-
-    const fontSize = Math.max(9, Math.min(12, cw * 0.4));
-    g2d.font = `600 ${fontSize}px "Bricolage Grotesque", system-ui, sans-serif`;
-    g2d.textAlign = "center";
-    g2d.textBaseline = "bottom";
-    for (let i = 0; i < n; i++) {
-      g2d.fillStyle = held.has(i) ? ink : muted;
-      if (cw > 18 || (notes[i] - LOW) % 12 === 0) {
-        g2d.fillText(NOTE_NAMES[notes[i] % 12], i * cw + cw / 2, H - 8);
+    for (let r = 0; r < ROWS; r++) {
+      const top = rowTop(r);
+      for (let i = 0; i < n; i++) {
+        if (i % 2 === 1) { g2d.fillStyle = band; g2d.fillRect(i * cw, top, cw, rh); }
+        const isRoot = (notes[i] - LOW) % 12 === 0;
+        g2d.fillStyle = isRoot ? root : line;
+        g2d.fillRect(Math.round(i * cw), top, isRoot ? 2 : 1, rh);
       }
     }
 
-    pointers.forEach(p => trail.push({ x: p.x * W, y: p.y * H, idx: p.idx, life: 1 }));
+    // held columns, with the sounding one brighter
+    const held = new Map();                          // "row:idx" -> pointer
+    pointers.forEach(p => held.set(p.row + ":" + p.idx, p));
+    held.forEach(p => {
+      const on = p.midi === sounding;
+      g2d.fillStyle = `hsla(${hueFor(p.gi, n * ROWS)}, 80%, 60%, ${on ? 0.32 : 0.12})`;
+      g2d.fillRect(p.idx * cw, rowTop(p.row), cw, rh);
+    });
+
+    // gap between the rows
+    g2d.fillStyle = css("--bg");
+    for (let r = 1; r < ROWS; r++) g2d.fillRect(0, r * rh - 2, W, 4);
+
+    const fontSize = Math.max(9, Math.min(12, cw * 0.4));
+    g2d.font = `600 ${fontSize}px "Bricolage Grotesque", system-ui, sans-serif`;
+    for (let r = 0; r < ROWS; r++) {
+      const top = rowTop(r);
+      g2d.textAlign = "center";
+      g2d.textBaseline = "bottom";
+      for (let i = 0; i < n; i++) {
+        const midi = notes[i] + r * SPAN;
+        const isRoot = (notes[i] - LOW) % 12 === 0;
+        g2d.fillStyle = held.has(r + ":" + i) ? ink : muted;
+        // C columns show their octave so you can find your way between rows
+        if (cw > 18 || isRoot) g2d.fillText(isRoot ? noteName(midi) : NOTE_NAMES[midi % 12], i * cw + cw / 2, top + rh - 6);
+      }
+      g2d.textAlign = "left";
+      g2d.fillStyle = muted;
+      g2d.textBaseline = "top";
+      g2d.fillText("Bright", 10, top + 8);
+      g2d.textBaseline = "bottom";
+      g2d.fillText("Dark", 10, top + rh - 24);
+    }
+
+    pointers.forEach(p => trail.push({ x: p.x * W, y: p.y * H, gi: p.gi, life: 1 }));
     trail.forEach(t => t.life -= reduceMotion ? 1 : 0.06);
     trail = trail.filter(t => t.life > 0);
     for (const t of trail) {
-      g2d.fillStyle = `hsla(${hueFor(t.idx, n)}, 85%, 62%, ${t.life * 0.35})`;
+      g2d.fillStyle = `hsla(${hueFor(t.gi, n * ROWS)}, 85%, 62%, ${t.life * 0.35})`;
       g2d.beginPath(); g2d.arc(t.x, t.y, 6 + t.life * 10, 0, Math.PI * 2); g2d.fill();
     }
 
     pointers.forEach(p => {
       const px = p.x * W, py = p.y * H;
-      const hue = hueFor(p.idx, n);
+      const hue = hueFor(p.gi, n * ROWS);
       const on = p.midi === sounding;
-      const radius = (30 + (1 - p.y) * 50) * (on ? 1 : 0.65);
+      const radius = (30 + (1 - p.ly) * 50) * (on ? 1 : 0.65);
       const grad = g2d.createRadialGradient(px, py, 0, px, py, radius);
       grad.addColorStop(0, `hsla(${hue}, 95%, 70%, ${on ? 0.95 : 0.6})`);
       grad.addColorStop(0.3, `hsla(${hue}, 90%, 60%, ${on ? 0.5 : 0.3})`);
