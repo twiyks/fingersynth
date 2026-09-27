@@ -30,13 +30,27 @@ jobs:
 
       - name: Prepare site files
         run: |
+          set -euo pipefail
+          test -f index.html
+          test -f xy-synth.html
+
           mkdir -p site
           cp index.html site/index.html
-          if [ -f xy-synth.html ]; then cp xy-synth.html site/xy-synth.html; fi
-          for file in CNAME .nojekyll robots.txt sitemap.xml manifest.webmanifest; do
-            if [ -f "$file" ]; then
-              cp "$file" "site/$file"
-            fi
+          cp xy-synth.html site/xy-synth.html
+
+          find . -type f \( \
+            -name '*.css' -o -name '*.js' -o -name '*.mjs' -o -name '*.json' -o \
+            -name '*.svg' -o -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o \
+            -name '*.gif' -o -name '*.webp' -o -name '*.ico' -o -name '*.wav' -o \
+            -name '*.mp3' -o -name '*.ogg' -o -name '*.wasm' -o -name '*.txt' -o \
+            -name '*.xml' -o -name '*.webmanifest' -o -name '.nojekyll' -o -name 'CNAME' \
+          \) \
+          ! -path './.git/*' ! -path './.github/*' ! -path './site/*' \
+          ! -name 'index.html' ! -name 'xy-synth.html' \
+          -print0 | while IFS= read -r -d '' file; do
+            target="site/${file#./}"
+            mkdir -p "$(dirname "$target")"
+            cp "$file" "$target"
           done
 
       - name: Upload artifact
