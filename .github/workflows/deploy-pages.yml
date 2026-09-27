@@ -38,7 +38,7 @@ jobs:
           cp index.html site/index.html
           cp xy-synth.html site/xy-synth.html
 
-          find . -type f \( \
+          find . -maxdepth 1 -type f \( \
             -name '*.css' -o -name '*.js' -o -name '*.mjs' -o -name '*.json' -o \
             -name '*.svg' -o -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o \
             -name '*.gif' -o -name '*.webp' -o -name '*.ico' -o -name '*.wav' -o \
