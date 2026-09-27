@@ -313,7 +313,7 @@
     <span>Filter <strong id="cutOut">–</strong></span>
   </footer>
 </main>
-<div class="version">v1.8</div>
+<div class="version">v1.9</div>
 
 <script>
 (() => {
@@ -571,7 +571,7 @@
     const now = ctx.currentTime;
     const hz = midiToHz(midi);
     voice.oscs.forEach(o => o.osc.frequency.setTargetAtTime(hz * o.ratio, now, 0.012));
-    voice.filter.frequency.setTargetAtTime(cutoff, now, 0.02);
+    voice.filter.frequency.setTargetAtTime(cutoff, now, FILTER_GLIDE);
   }
 
   // ---------- arpeggiator ----------
@@ -582,6 +582,7 @@
   const arpStep = () => 60 / tempo() * arpBeats();         // one arp note, in seconds
   const arpDir = () => document.querySelector('input[name="aDir"]:checked').value;
   const GATE = 0.7;
+  const FILTER_GLIDE = 0.08;             // seconds; filter changes settle over about three times this, so moves sweep instead of snap
 
   function heldNotes() {
     return [...new Set([...pointers.values()].map(p => p.midi))].sort((a, b) => a - b);
@@ -610,7 +611,8 @@
       const midi = nextArpNote();
       if (midi == null) break;
       const t = arp.nextTime;
-      const v = startVoice(midi, cutoff, t);
+      const v = startVoice(midi, cutoffOfNote(midi), t);    // each note is as bright as the finger holding it
+      v.midi = midi; v.start = t;
       arpVoices.add(v);
       stopVoiceAt(v, t + step * GATE, () => arpVoices.delete(v));
       arp.queue.push({ time: t, midi });
@@ -632,9 +634,18 @@
     arp = null;
   }
 
-  function setArpCutoff(c) {
+  // the filter setting of the finger holding this note (if two fingers share it, the first one found)
+  function cutoffOfNote(midi) {
+    for (const p of pointers.values()) if (p.midi === midi) return p.cutoff;
+    return cutoff;
+  }
+
+  // a finger moved: retune the filter on just its own arp notes, including ones scheduled but not yet heard
+  function setArpCutoffFor(p) {
     const now = ctx.currentTime;
-    arpVoices.forEach(v => v.filter.frequency.setTargetAtTime(c, now, 0.02));
+    arpVoices.forEach(v => {
+      if (v.midi === p.midi) v.filter.frequency.setTargetAtTime(p.cutoff, Math.max(now, v.start), FILTER_GLIDE);
+    });
   }
 
   // ---------- pad ----------
@@ -646,8 +657,8 @@
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   let W = 0, H = 0, dpr = 1;
-  const pointers = new Map();     // pointerId -> { x, y, idx, midi }
-  let cutoff = 1000;
+  const pointers = new Map();     // pointerId -> { x, y, row, ly, idx, midi, gi, cutoff }
+  let cutoff = 1000;              // the last touched finger's filter setting: drives the held note and the readout
   let sounding = null;            // midi currently heard, for display
   let trail = [];
 
@@ -677,8 +688,9 @@
     p.idx = Math.floor(p.x * notes.length);
     p.midi = notes[p.idx] + p.row * SPAN;
     p.gi = p.row * notes.length + p.idx;      // column counted across all rows, for colour
+    p.cutoff = cutoffFor(p.ly);               // each finger has its own filter setting
   }
-  const cutoffFor = y => CUT_MIN * Math.pow(CUT_MAX / CUT_MIN, 1 - y);
+  function cutoffFor(y) { return CUT_MIN * Math.pow(CUT_MAX / CUT_MIN, 1 - y); }
 
   function showReadout() {
     if (!pointers.size || sounding == null) { noteOut.textContent = "–"; cutOut.textContent = "–"; return; }
@@ -695,6 +707,7 @@
     } else if (n === 1) {
       stopArp();
       const only = [...pointers.values()][0];
+      cutoff = only.cutoff;                   // back to one finger: the held note follows that finger
       if (!voice) voice = startVoice(only.midi, cutoff);
       else updateVoice(only.midi, cutoff);
       sounding = only.midi;
@@ -713,8 +726,7 @@
     const p = readPos(e);
     mapPointer(p);
     pointers.set(e.pointerId, p);
-    cutoff = cutoffFor(p.ly);
-    setArpCutoff(cutoff);
+    cutoff = p.cutoff;
     refreshMode(prev);
     showReadout();
   });
@@ -724,9 +736,9 @@
     if (!p) return;
     Object.assign(p, readPos(e));
     mapPointer(p);
-    cutoff = cutoffFor(p.ly);           // whichever finger moved sets the filter, measured within its row
+    cutoff = p.cutoff;
     if (pointers.size === 1) { updateVoice(p.midi, cutoff); sounding = p.midi; }
-    else setArpCutoff(cutoff);
+    else setArpCutoffFor(p);
     showReadout();
   });
 

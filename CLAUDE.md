@@ -42,7 +42,9 @@ drums -> drumBus (Kit level) -> out          (no delay or reverb on drums)
 **Pointers and modes**
 - `pointers` is a Map of pointerId to `{x, y, row, ly, idx, midi, gi}`. x and y are normalised 0 to 1 over the whole pad; `mapPointer()` works out `row` (0 = bottom), `ly` (height within that row, 0 to 1), the column `idx`, and `gi` (column counted across all rows, used for colour).
 - `refreshMode(prevCount)` handles transitions: 0 fingers stops everything, 1 finger plays a single legato `voice`, 2+ stops that voice and starts the arp. Going from 2 back to 1 returns to the held note.
-- The filter follows whichever finger was last pressed or moved (global `cutoff`). In arp mode, `setArpCutoff()` updates every currently sounding arp voice.
+- Each finger has its own filter setting (`p.cutoff`, from its height within its row). The held note follows the single finger; global `cutoff` tracks the last touched finger for that and the readout.
+- In arp mode each note takes its brightness from the finger holding it (`cutoffOfNote()`), and moving a finger only retunes that finger's arp voices, including ones scheduled but not yet heard (`setArpCutoffFor()`). Arp voices carry `midi` and `start` for this.
+- Filter moves glide with `FILTER_GLIDE` (0.08 s time constant, settling in about a quarter of a second) so changes sweep rather than snap.
 
 **Arpeggiator**
 - Uses a lookahead scheduler: `setInterval(arpTick, 25)` schedules any notes falling within the next 100 ms using `ctx.currentTime`, so timing stays tight even if the page stutters. Don't switch this to plain setTimeout per note.
