@@ -23,7 +23,7 @@ All JS sits inside one IIFE. Main pieces, top to bottom:
 **Audio graph** (built once in `ensureAudio()`)
 ```
 voice -> master (0.5) -> out -> compressor (-14 dB, 4:1) -> destination
-drums -> drumBus (Kit level) -> out          (no delay or reverb on drums)
+drums -> drumBus (Drums level) -> out          (no delay or reverb on drums)
                  |-> delaySend -> delay <-> tone lowpass 5 kHz -> feedback (loop)
                  |                           \-> out, and -> convolver
                  \-> convolver (reverb) -> reverbWet -> out
@@ -57,12 +57,17 @@ drums -> drumBus (Kit level) -> out          (no delay or reverb on drums)
 **Top bar and views**
 - Under the header: a Synth / Beats icon switch (sets `body[data-view]`, CSS hides the other view), play/stop for the beats, and the master Tempo slider (60 to 200 BPM, `tempo()`). Beats keep playing while you're on the synth view.
 
-**Drums**
-- `DRUMS` lists the eight kit pieces (id, short label, name, `play(t)`). Everything is synthesised: kick is a sine sweeping 190 to 48 Hz plus a noise click; snare is two triangle tones plus highpassed noise; clap is bandpassed noise in three quick bursts then a tail; hats are six detuned square waves (`HAT_FREQS`) plus noise, high and bandpassed. A closed hat chokes a ringing open hat via its own `choke` gain.
-- Helpers `gainNode`, `filterNode`, `osc`, `noise` build each hit; `cleanup()` disconnects the output node when the longest source ends. `noiseBuf` is 2 s of white noise made once in `ensureAudio()`.
+**Drums and kits**
+- A Kit menu replaces Sound in beats view (`.kitctl`; `.soundctl` is hidden and `.scalectl` goes invisible but keeps its space). The choice is remembered in localStorage (`xysynth.kit`).
+- `DRUM_ROWS` is the fixed set of eight rows (bd sd cp rs lt ht ch oh). `KITS` maps each kit to a `play` function per row id: `k909` and `k808` are synthesised from shared helpers (`snare`, `clap`, `rim`, `tom`, `hat`, `closedHat`, `openHatHit`) with different settings. The 808 has a longer round kick, sine snare tones and noise-free hats. A closed hat chokes a ringing open hat via its own `choke` gain.
+- `brk` (Break) is special: the user loads an audio file (`#loadBreak` opens the hidden `#breakFile` input), assumed to be a one-bar loop. It's cut into 8 equal slices, one per row. `playSlice()` speeds the loop up or down so one bar fits the current tempo (this also shifts pitch, like a classic sampler), starts at the slice's offset and plays on until the next slice cuts it off (one slice at a time).
+- The loaded file's bytes are kept in IndexedDB (`breakStore()`, db `xysynth`, store `files`, key `break`) and decoded with an `OfflineAudioContext`, so it's ready before the first tap after a reload.
+- `playRow(r, t)` is the single entry point for the sequencer, grid audition and row labels.
+- Helpers `gainNode`, `filterNode`, `osc`, `noise` build each hit; `cleanup()` disconnects the output node when a source ends. `noiseBuf` is 2 s of white noise made once in `ensureAudio()`.
 
 **Sequencer**
-- `patterns[8][8 drums][16 steps]` of 0/1, saved to localStorage (`xysynth.patterns.v2`, wrapped in try/catch). Patterns 1 to 4 start with example beats from `PRESET_BEATS` (1, 3 and 4 are breakbeats, 2 is electro); 5 to 8 start empty. Changing the presets means bumping the storage key, or saved patterns hide them.
+- Two pattern banks (`banks`): the drum kits share `drums` (localStorage `xysynth.patterns.v2`), the break has its own `break` bank (`xysynth.breakPatterns`). `patterns` points at the current kit's bank and is swapped on kit change. Each is `[8 patterns][8 rows][16 steps]` of 0/1.
+- Drum patterns 1 to 4 start from `PRESET_BEATS` (1, 3 and 4 breakbeats, 2 electro). Break patterns 1 to 3 start from `PRESET_CHOPS` (slice per 1/8; pattern 1 plays the loop straight). The rest start empty. Changing presets means bumping that bank's storage key, or saved patterns hide them.
 - Same lookahead idea as the arp: `seqTick()` every 25 ms schedules steps due in the next 100 ms. `seq.count` counts steps since play, used by `nextGridTime()`.
 - `editPat` is the pattern on screen; `playPat` is the one being heard and catches up at the start of each bar, so switching patterns while playing waits for the bar to finish. The playing pattern's button gets an underline.
 - Swing (50 to 75%) pushes every other 1/16 later by up to half a step.

@@ -92,6 +92,11 @@
   /* the two views */
   .synthview, .beatsview { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
   body[data-view="beats"] .synthview, body:not([data-view="beats"]) .beatsview { display: none; }
+  /* beats view swaps Sound for Kit; Scale is hidden but keeps its space so the header doesn't shift */
+  body[data-view="beats"] .soundctl, body:not([data-view="beats"]) .kitctl { display: none; }
+  body[data-view="beats"] .scalectl { visibility: hidden; }
+  .btn[hidden] { display: none; }
+  .btn.wanted { background: var(--hit); border-color: var(--hit); color: var(--bg); }
 
   /* step sequencer */
   .beatsbar { display: flex; gap: 8px; align-items: center; }
@@ -208,14 +213,18 @@
 </head>
 <body>
 <header>
-  <div class="ctl">
+  <div class="ctl scalectl">
     <label for="scale">Scale</label>
     <select id="scale"></select>
   </div>
   <h1>XY Synth</h1>
-  <div class="ctl right">
+  <div class="ctl right soundctl">
     <label for="preset">Sound</label>
     <select id="preset"></select>
+  </div>
+  <div class="ctl right kitctl">
+    <label for="kit">Kit</label>
+    <select id="kit"></select>
   </div>
 </header>
 <nav class="bar">
@@ -294,10 +303,12 @@
     <div class="beatsbar">
       <div class="seg pats" role="radiogroup" aria-label="Pattern" id="pats"></div>
       <button class="btn" id="clearPat">Clear</button>
+      <button class="btn" id="loadBreak" aria-label="Load a break" hidden>Load</button>
+      <input type="file" id="breakFile" accept="audio/*" hidden>
     </div>
     <div class="grid" id="grid"></div>
     <div class="fxgroup" style="--cols: 2">
-      <h2>Kit</h2>
+      <h2>Drums</h2>
       <div class="slider">
         <div class="top"><label for="kLevel">Level</label><output id="kLevelOut"></output></div>
         <input type="range" id="kLevel" min="0" max="100" value="80">
@@ -313,7 +324,7 @@
     <span>Filter <strong id="cutOut">–</strong></span>
   </footer>
 </main>
-<div class="version">v1.9</div>
+<div class="version">v2.0</div>
 
 <script>
 (() => {
@@ -855,7 +866,7 @@
   }
   requestAnimationFrame(draw);
 
-  // ---------- drums (909 style, all synthesised) ----------
+  // ---------- drums (909 and 808 style, all synthesised) ----------
   const decayEnv = (param, t, peak, decay) => {
     param.setValueAtTime(peak, t);
     param.exponentialRampToValueAtTime(0.001, t + decay);
@@ -891,66 +902,153 @@
   // tidy up a hit's output node once its longest sound has finished
   const cleanup = (src, node) => { src.onended = () => node.disconnect(); };
 
-  const HAT_FREQS = [205, 304, 370, 523, 540, 800];      // clashing square waves give the metallic ring
-  function hat(t, peak, decay, dest) {
+  // metallic hats: six clashing square waves, plus some noise on the 909
+  const HAT_FREQS = [205, 304, 370, 523, 540, 800];
+  function hat(t, peak, decay, dest, noiseAmt, hpFreq) {
     const g = gainNode(dest, t, peak, decay);
-    const hp = filterNode("highpass", 7000, 0, g);
+    const hp = filterNode("highpass", hpFreq, 0, g);
     const bp = filterNode("bandpass", 10000, 0.8, hp);
-    HAT_FREQS.forEach(f => osc("square", f, 0, 0, t, decay + 0.05, bp));
-    const ng = ctx.createGain(); ng.gain.value = 0.5; ng.connect(hp);
-    cleanup(noise(t, decay + 0.05, ng), g);
+    const oscs = HAT_FREQS.map(f => osc("square", f, 0, 0, t, decay + 0.05, bp));
+    if (noiseAmt) {
+      const ng = ctx.createGain(); ng.gain.value = noiseAmt; ng.connect(hp);
+      noise(t, decay + 0.05, ng);
+    }
+    cleanup(oscs[0], g);
   }
   let openHat = null;                                    // { choke, start } so a closed hat can cut it off
-
-  function tom(freq) {
-    return t => {
-      const g = gainNode(drumBus, t, 0.8, 0.4);
-      cleanup(osc("sine", freq * 1.6, freq, 0.08, t, 0.45, g), g);
-    };
+  function closedHat(t, peak, decay, noiseAmt, hpFreq) {
+    if (openHat && openHat.start < t) openHat.choke.gain.setTargetAtTime(0, t, 0.008);
+    hat(t, peak, decay, drumBus, noiseAmt, hpFreq);
+  }
+  function openHatHit(t, peak, decay, noiseAmt, hpFreq) {
+    const choke = ctx.createGain(); choke.connect(drumBus);
+    hat(t, peak, decay, choke, noiseAmt, hpFreq);
+    openHat = { choke, start: t };
+    setTimeout(() => choke.disconnect(), (t - ctx.currentTime + decay + 0.3) * 1000);
+  }
+  function tom(t, freq, decay, drop) {
+    const g = gainNode(drumBus, t, 0.8, decay);
+    cleanup(osc("sine", freq * drop, freq, 0.08, t, decay + 0.05, g), g);
+  }
+  function clap(t, bpFreq, tail) {
+    const g = gainNode(drumBus, t);
+    [0, 0.011, 0.022].forEach(d => {                     // a few quick bursts, then the tail
+      g.gain.setValueAtTime(1.4, t + d);
+      g.gain.exponentialRampToValueAtTime(0.15, t + d + 0.009);
+    });
+    decayEnv(g.gain, t + 0.031, 1.2, tail);
+    cleanup(noise(t, tail + 0.04, filterNode("bandpass", bpFreq, 1.4, g)), g);
+  }
+  function snare(t, tones, toneType, toneDecay, noiseHp, noisePeak, noiseDecay) {
+    const g = gainNode(drumBus, t, 0.45, toneDecay);
+    tones.forEach(f => osc(toneType, f * 1.2, f, 0.03, t, toneDecay + 0.02, g));
+    const n = gainNode(drumBus, t, noisePeak, noiseDecay);
+    cleanup(noise(t, noiseDecay + 0.03, filterNode("highpass", noiseHp, 0, n)), n);
+    setTimeout(() => g.disconnect(), (t - ctx.currentTime + toneDecay + 0.3) * 1000);
+  }
+  function rim(t, freqs, type, decay) {
+    const g = gainNode(drumBus, t, 0.6, decay);
+    const f = type === "square" ? filterNode("highpass", 800, 0, g) : filterNode("bandpass", 1700, 3, g);
+    freqs.forEach(fr => osc(type, fr, 0, 0, t, decay + 0.01, f));
+    setTimeout(() => g.disconnect(), (t - ctx.currentTime + 0.3) * 1000);
   }
 
-  const DRUMS = [
-    { id: "bd", short: "BD", name: "Kick", play: t => {
+  // every kit fills the same eight rows, so patterns work across the drum kits
+  const DRUM_ROWS = [
+    { id: "bd", short: "BD", name: "Kick" }, { id: "sd", short: "SD", name: "Snare" },
+    { id: "cp", short: "CP", name: "Clap" }, { id: "rs", short: "RS", name: "Rim" },
+    { id: "lt", short: "LT", name: "Low tom" }, { id: "ht", short: "HT", name: "High tom" },
+    { id: "ch", short: "CH", name: "Closed hat" }, { id: "oh", short: "OH", name: "Open hat" },
+  ];
+  const KITS = {
+    k909: { name: "909", play: {
+      bd: t => {
         const g = gainNode(drumBus, t, 1, 0.55);
         cleanup(osc("sine", 190, 48, 0.09, t, 0.6, g), g);
         const c = gainNode(drumBus, t, 0.35, 0.015);     // click at the front
         cleanup(noise(t, 0.02, filterNode("highpass", 1200, 0, c)), c);
-      } },
-    { id: "sd", short: "SD", name: "Snare", play: t => {
-        const g = gainNode(drumBus, t, 0.45, 0.14);
-        [185, 330].forEach(f => osc("triangle", f * 1.2, f, 0.03, t, 0.16, g));
-        const n = gainNode(drumBus, t, 0.6, 0.22);
-        cleanup(noise(t, 0.25, filterNode("highpass", 1400, 0, n)), n);
-        setTimeout(() => g.disconnect(), (t - ctx.currentTime + 0.4) * 1000);
-      } },
-    { id: "cp", short: "CP", name: "Clap", play: t => {
-        const g = gainNode(drumBus, t);
-        [0, 0.011, 0.022].forEach(d => {                 // a few quick bursts, then the tail
-          g.gain.setValueAtTime(1.4, t + d);
-          g.gain.exponentialRampToValueAtTime(0.15, t + d + 0.009);
-        });
-        decayEnv(g.gain, t + 0.031, 1.2, 0.22);
-        cleanup(noise(t, 0.26, filterNode("bandpass", 1100, 1.4, g)), g);
-      } },
-    { id: "rs", short: "RS", name: "Rim", play: t => {
-        const g = gainNode(drumBus, t, 0.6, 0.04);
-        const bp = filterNode("bandpass", 1700, 3, g);
-        [480, 1650].forEach(f => osc("triangle", f, 0, 0, t, 0.05, bp));
-        setTimeout(() => g.disconnect(), (t - ctx.currentTime + 0.3) * 1000);
-      } },
-    { id: "lt", short: "LT", name: "Low tom", play: tom(95) },
-    { id: "ht", short: "HT", name: "High tom", play: tom(150) },
-    { id: "ch", short: "CH", name: "Closed hat", play: t => {
-        if (openHat && openHat.start < t) openHat.choke.gain.setTargetAtTime(0, t, 0.008);
-        hat(t, 0.3, 0.06, drumBus);
-      } },
-    { id: "oh", short: "OH", name: "Open hat", play: t => {
-        const choke = ctx.createGain(); choke.connect(drumBus);
-        hat(t, 0.25, 0.4, choke);
-        openHat = { choke, start: t };
-        setTimeout(() => choke.disconnect(), (t - ctx.currentTime + 0.6) * 1000);
-      } },
-  ];
+      },
+      sd: t => snare(t, [185, 330], "triangle", 0.14, 1400, 0.6, 0.22),
+      cp: t => clap(t, 1100, 0.22),
+      rs: t => rim(t, [480, 1650], "triangle", 0.04),
+      lt: t => tom(t, 95, 0.4, 1.6),
+      ht: t => tom(t, 150, 0.4, 1.6),
+      ch: t => closedHat(t, 0.3, 0.06, 0.5, 7000),
+      oh: t => openHatHit(t, 0.25, 0.4, 0.5, 7000),
+    } },
+    k808: { name: "808", play: {
+      bd: t => {                                         // long, round boom with only a small pitch drop
+        const g = gainNode(drumBus, t, 1, 0.9);
+        cleanup(osc("sine", 110, 52, 0.04, t, 0.95, g), g);
+      },
+      sd: t => snare(t, [238, 476], "sine", 0.12, 2000, 0.45, 0.17),
+      cp: t => clap(t, 1000, 0.3),
+      rs: t => rim(t, [455, 1750], "square", 0.025),
+      lt: t => tom(t, 85, 0.6, 1.25),
+      ht: t => tom(t, 130, 0.5, 1.25),
+      ch: t => closedHat(t, 0.28, 0.045, 0, 8000),
+      oh: t => openHatHit(t, 0.22, 0.45, 0, 8000),
+    } },
+    brk: { name: "Break", isBreak: true },
+  };
+  const kitSel = $("kit");
+  for (const [k, kit] of Object.entries(KITS)) kitSel.add(new Option(kit.name, k));
+  try { if (KITS[localStorage.getItem("xysynth.kit")]) kitSel.value = localStorage.getItem("xysynth.kit"); } catch {}
+  const isBreakKit = () => !!KITS[kitSel.value].isBreak;
+
+  // ---------- break: a loaded one-bar loop cut into slices, one per row ----------
+  const SLICES = DRUM_ROWS.length;
+  let breakBuf = null, breakName = "", breakVoice = null;
+  function playSlice(i, t) {
+    if (!breakBuf) return;
+    const bar = 240 / tempo();                           // one bar (four beats) at the current tempo
+    const rate = breakBuf.duration / bar;                // speed the loop up or down to fit, which shifts its pitch too
+    const offset = i * breakBuf.duration / SLICES;
+    // one slice at a time, like a sampler: a new slice cuts the last one off
+    if (breakVoice && breakVoice.start < t) breakVoice.g.gain.setTargetAtTime(0, t, 0.004);
+    const src = ctx.createBufferSource();
+    src.buffer = breakBuf; src.playbackRate.value = rate;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1, t + 0.003);   // tiny fade in, no click
+    src.connect(g).connect(drumBus);
+    src.start(t, offset);                                // plays on to the end of the loop unless cut off
+    cleanup(src, g);
+    breakVoice = { g, start: t };
+  }
+  const playRow = (r, t) => isBreakKit() ? playSlice(r, t) : KITS[kitSel.value].play[DRUM_ROWS[r].id](t);
+
+  // the loaded file is kept in IndexedDB so it survives a reload
+  function breakStore(mode, fn) {
+    return new Promise((resolve, reject) => {
+      const open = indexedDB.open("xysynth", 1);
+      open.onupgradeneeded = () => open.result.createObjectStore("files");
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const tx = open.result.transaction("files", mode);
+        const req = fn(tx.objectStore("files"));
+        tx.oncomplete = () => resolve(req.result);
+        tx.onerror = () => reject(tx.error);
+      };
+    });
+  }
+  // decoding doesn't need the live audio context, so a saved break can load before the first tap
+  const decode = bytes => new OfflineAudioContext(2, 1, 44100).decodeAudioData(bytes.slice(0));
+  async function useBreak(bytes, name) {
+    breakBuf = await decode(bytes);
+    breakName = name;
+    updateBreakUI();
+  }
+  $("breakFile").addEventListener("change", async e => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const bytes = await file.arrayBuffer();
+      await useBreak(bytes, file.name);
+      breakStore("readwrite", s => s.put({ bytes, name: file.name }, "break")).catch(() => {});
+    } catch { alert("Sorry, that file couldn't be read as audio."); }
+  });
+  $("loadBreak").addEventListener("click", () => $("breakFile").click());
 
   // ---------- patterns ----------
   const STEPS = 16, PATTERN_COUNT = 8;
@@ -960,25 +1058,40 @@
     { bd: "x.x.......xx....", sd: "....x..x.x..x..x", ch: "x.x.x.x.x.x.x.x." },                         // Amen-style
     { bd: "x.x...x..x....x.", sd: "....x.......x...", rs: ".......x..x....x", ch: "x.xxx.x.x.xxx...", oh: "..............x." },
   ];
-  const emptyPattern = () => DRUMS.map(() => Array(STEPS).fill(0));
-  function defaultPatterns() {
+  // break presets: which slice plays on each 1/8. The first plays the loop straight through
+  const PRESET_CHOPS = [[0, 1, 2, 3, 4, 5, 6, 7], [0, 1, 0, 3, 4, 5, 4, 7], [0, 1, 2, 3, 0, 1, 6, 7]];
+  const emptyPattern = () => DRUM_ROWS.map(() => Array(STEPS).fill(0));
+  function defaultDrumPatterns() {
     return Array.from({ length: PATTERN_COUNT }, (_, i) =>
-      DRUMS.map(d => [...(PRESET_BEATS[i]?.[d.id] ?? ".".repeat(STEPS))].map(c => c === "x" ? 1 : 0)));
+      DRUM_ROWS.map(d => [...(PRESET_BEATS[i]?.[d.id] ?? ".".repeat(STEPS))].map(c => c === "x" ? 1 : 0)));
   }
-  const STORE = "xysynth.patterns.v2";      // bumped when the preset beats change
-  function loadPatterns() {
+  function defaultBreakPatterns() {
+    return Array.from({ length: PATTERN_COUNT }, (_, i) => {
+      const pat = emptyPattern();
+      PRESET_CHOPS[i]?.forEach((slice, k) => { pat[slice][k * 2] = 1; });
+      return pat;
+    });
+  }
+  // the drum kits share one set of patterns, the break has its own
+  const banks = {
+    drums: { key: "xysynth.patterns.v2", defaults: defaultDrumPatterns },   // bump the key when the presets change
+    break: { key: "xysynth.breakPatterns", defaults: defaultBreakPatterns },
+  };
+  function loadBank(bank) {
     try {
-      const p = JSON.parse(localStorage.getItem(STORE));
+      const p = JSON.parse(localStorage.getItem(bank.key));
       const ok = Array.isArray(p) && p.length === PATTERN_COUNT &&
-        p.every(pat => pat.length === DRUMS.length && pat.every(row => row.length === STEPS));
+        p.every(pat => pat.length === DRUM_ROWS.length && pat.every(row => row.length === STEPS));
       if (ok) return p;
     } catch {}
-    return defaultPatterns();
+    return bank.defaults();
   }
+  Object.values(banks).forEach(b => { b.pats = loadBank(b); });
+  const bankName = () => isBreakKit() ? "break" : "drums";
+  let patterns = banks[bankName()].pats;
   function savePatterns() {
-    try { localStorage.setItem(STORE, JSON.stringify(patterns)); } catch {}
+    try { localStorage.setItem(banks[bankName()].key, JSON.stringify(patterns)); } catch {}
   }
-  const patterns = loadPatterns();
   let editPat = 0;     // the pattern on screen
   let playPat = 0;     // the pattern being heard; catches up with editPat at the start of each bar
 
@@ -993,7 +1106,7 @@
       if (seq.step === 0) playPat = editPat;
       const len = stepLen();
       const t = seq.nextTime + (seq.step % 2 ? swingAmount() * len : 0);   // swing pushes back every other 1/16
-      patterns[playPat].forEach((row, r) => { if (row[seq.step]) DRUMS[r].play(t); });
+      patterns[playPat].forEach((row, r) => { if (row[seq.step]) playRow(r, t); });
       seq.queue.push({ time: t, step: seq.step, pat: playPat });
       seq.nextTime += len;
       seq.step = (seq.step + 1) % STEPS;
@@ -1033,22 +1146,32 @@
   // ---------- beats UI ----------
   const gridEl = $("grid");
   const cells = [];                                      // cells[row][step]
-  DRUMS.forEach((d, r) => {
+  const rowLabs = [];
+  DRUM_ROWS.forEach((d, r) => {
     const lab = document.createElement("button");
-    lab.className = "rowlab"; lab.textContent = d.short; lab.title = d.name;
-    lab.setAttribute("aria-label", "Play " + d.name.toLowerCase());
-    lab.addEventListener("click", () => { ensureAudio(); d.play(ctx.currentTime + 0.01); });
+    lab.className = "rowlab";
+    lab.addEventListener("click", () => { ensureAudio(); playRow(r, ctx.currentTime + 0.01); });
     gridEl.append(lab);
+    rowLabs.push(lab);
     cells[r] = [];
     for (let s = 0; s < STEPS; s++) {
       const c = document.createElement("button");
       c.className = "cell" + (Math.floor(s / 4) % 2 ? " alt" : "");
       c.dataset.r = r; c.dataset.s = s;
-      c.setAttribute("aria-label", `${d.name}, step ${s + 1}`);
       gridEl.append(c);
       cells[r][s] = c;
     }
   });
+  // drum kits label rows by drum, the break by slice number
+  function updateRowLabels() {
+    DRUM_ROWS.forEach((d, r) => {
+      const short = isBreakKit() ? String(r + 1) : d.short;
+      const name = isBreakKit() ? "Slice " + (r + 1) : d.name;
+      rowLabs[r].textContent = short; rowLabs[r].title = name;
+      rowLabs[r].setAttribute("aria-label", "Play " + name.toLowerCase());
+      cells[r].forEach((c, s) => c.setAttribute("aria-label", `${name}, step ${s + 1}`));
+    });
+  }
 
   function renderCell(r, s) {
     const on = !!patterns[editPat][r][s];
@@ -1056,7 +1179,7 @@
     cells[r][s].setAttribute("aria-pressed", on);
   }
   function renderGrid() {
-    DRUMS.forEach((_, r) => { for (let s = 0; s < STEPS; s++) renderCell(r, s); });
+    DRUM_ROWS.forEach((_, r) => { for (let s = 0; s < STEPS; s++) renderCell(r, s); });
   }
   function setCell(r, s, on) {
     patterns[editPat][r][s] = on ? 1 : 0;
@@ -1072,7 +1195,7 @@
     const r = +c.dataset.r, s = +c.dataset.s;
     paint = !patterns[editPat][r][s];
     setCell(r, s, paint);
-    if (paint && !seq.playing) { ensureAudio(); DRUMS[r].play(ctx.currentTime + 0.01); }
+    if (paint && !seq.playing) { ensureAudio(); playRow(r, ctx.currentTime + 0.01); }
   });
   gridEl.addEventListener("pointermove", e => {
     if (paint === null) return;
@@ -1107,7 +1230,23 @@
     patterns[editPat] = emptyPattern();
     renderGrid(); savePatterns();
   });
-  renderGrid();
+
+  // the Load button only shows for the break kit, and stands out until a loop is loaded
+  const loadBtn = $("loadBreak");
+  function updateBreakUI() {
+    loadBtn.hidden = !isBreakKit();
+    loadBtn.classList.toggle("wanted", !breakBuf);
+    loadBtn.title = breakName ? "Loaded: " + breakName + ". Tap to change" : "Load a one-bar loop";
+  }
+  kitSel.addEventListener("change", () => {
+    try { localStorage.setItem("xysynth.kit", kitSel.value); } catch {}
+    patterns = banks[bankName()].pats;
+    renderGrid(); updateRowLabels(); updateBreakUI();
+  });
+  breakStore("readonly", s => s.get("break"))
+    .then(saved => saved && useBreak(saved.bytes, saved.name))
+    .catch(() => {});
+  renderGrid(); updateRowLabels(); updateBreakUI();
 
   // playhead and "which pattern is playing", kept in step with what's audible
   let shownStep = -1, shownPlaying = -1;
