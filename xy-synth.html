@@ -117,6 +117,10 @@
     line-height: 1.4; height: 1.4em; flex: none;
   }
   footer strong { color: var(--ink); font-weight: 600; }
+  .version {
+    position: fixed; right: 18px; bottom: calc(env(safe-area-inset-bottom, 0px) + 2px);
+    font-size: 0.68rem; line-height: 1; color: var(--muted); pointer-events: none;
+  }
   footer { display: none; } /* readouts hidden for now; delete this line to bring them back */
   @media (max-width: 520px) {
     header { grid-template-columns: 1fr 1fr; }
@@ -189,6 +193,7 @@
     <span>Filter <strong id="cutOut">–</strong></span>
   </footer>
 </main>
+<div class="version">v1.1</div>
 
 <script>
 (() => {
