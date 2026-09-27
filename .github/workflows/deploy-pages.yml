@@ -31,8 +31,26 @@ jobs:
       - name: Prepare site files
         run: |
           mkdir -p site
-          cp index.html site/index.html
-          cp xy-synth.html site/xy-synth.html
+          rsync -av \
+            --include='*/' \
+            --include='*.html' \
+            --include='*.css' \
+            --include='*.js' \
+            --include='*.mjs' \
+            --include='*.json' \
+            --include='*.svg' \
+            --include='*.png' \
+            --include='*.jpg' \
+            --include='*.jpeg' \
+            --include='*.gif' \
+            --include='*.webp' \
+            --include='*.ico' \
+            --include='*.wav' \
+            --include='*.mp3' \
+            --include='*.ogg' \
+            --include='*.wasm' \
+            --exclude='*' \
+            ./ ./site/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
