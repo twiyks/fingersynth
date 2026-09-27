@@ -28,7 +28,7 @@ voice -> master (0.5) -> out -> compressor (-14 dB, 4:1) -> destination
 ```
 - Delay echoes also feed the reverb.
 - Delay "Decay" is a time in seconds (0.1 to 12, exponential slider). Feedback is derived from it with `feedbackFor(time, decay) = 10^(-3 * time / decay)`, i.e. the echoes fall by 60 dB over the decay time. Capped at 0.95.
-- An "ms / notes" switch in the Delay header (`delayUnit`, `setDelayUnit()`) lets Time and Decay be set in arp notes instead. In notes mode Time steps through `SYNC_TIMES` (fractions of a note) and Decay through `SYNC_DECAYS` (whole notes), both converted to seconds from the arp speed, so moving the Speed slider retimes the delay. Each mode remembers its own slider positions.
+- An "ms / notes" switch in the Delay header (`delayUnit`, `setDelayUnit()`) lets Time and Decay be set as note values instead. In notes mode Time steps through `SYNC_TIMES` (1/16 to 1 bar, with T triplet and D dotted) and Decay through `SYNC_DECAYS` (1/2 beat to 8 bars), both stored in beats and converted to seconds from the arp tempo, so moving the Tempo slider retimes the delay. Each mode remembers its own slider positions. Delay line max is `MAX_DELAY` (6 s, one bar at 40 BPM).
 - Reverb uses a generated impulse response (`makeImpulse(size)`): stereo noise with a power-curve fade, 0.3 to 6 seconds long depending on room size. It's rebuilt on a 120 ms debounce when the size slider moves.
 - Effect settings live in `fxState` (read by `readFx()`) so the sliders work before audio has started; `applyFx()` pushes them into the nodes.
 
@@ -44,6 +44,7 @@ voice -> master (0.5) -> out -> compressor (-14 dB, 4:1) -> destination
 
 **Arpeggiator**
 - Uses a lookahead scheduler: `setInterval(arpTick, 25)` schedules any notes falling within the next 100 ms using `ctx.currentTime`, so timing stays tight even if the page stutters. Don't switch this to plain setTimeout per note.
+- Tempo slider is BPM (40 to 300). Arp notes are 1/16 notes, so `arpRate()` = BPM / 15 notes per second.
 - Each step creates a new voice and releases it after `GATE` (0.7) of the step length. Active arp voices are tracked in `arpVoices`.
 - Direction: up, down (sorted held notes, stepped by `arp.step`) or random (never repeats the previous note when there's a choice).
 - `arp.queue` records scheduled note times so `draw()` can show which note is actually audible right now.

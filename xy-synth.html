@@ -187,8 +187,8 @@
     <div class="fxgroup arpgroup" style="--cols: 1">
       <h2>Arpeggio <span class="sub">hold two or more notes</span></h2>
       <div class="slider">
-        <div class="top"><label for="aSpeed">Speed</label><output id="aSpeedOut"></output></div>
-        <input type="range" id="aSpeed" min="2" max="20" value="8">
+        <div class="top"><label for="aSpeed">Tempo</label><output id="aSpeedOut"></output></div>
+        <input type="range" id="aSpeed" min="40" max="300" value="120">
       </div>
       <div class="seg" role="radiogroup" aria-label="Direction">
         <label><input type="radio" name="aDir" value="up" checked><span>Up</span></label>
@@ -202,7 +202,7 @@
     <span>Filter <strong id="cutOut">–</strong></span>
   </footer>
 </main>
-<div class="version">v1.2</div>
+<div class="version">v1.3</div>
 
 <script>
 (() => {
@@ -265,12 +265,19 @@
   const $ = id => document.getElementById(id);
   const fxState = {};
 
-  // delay time and decay can be set in ms, or in arp notes so echoes lock to the arp speed
-  const SYNC_TIMES = [[1,4], [1,3], [1,2], [2,3], [3,4], [1,1], [3,2], [2,1], [3,1], [4,1]];   // fractions of a note
-  const SYNC_DECAYS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64];                              // whole notes
-  const DELAY_RANGES = {                                                                        // [min, max, default]
+  // delay time and decay can be set in ms, or in note values so echoes lock to the arp tempo
+  const SYNC_TIMES = [                                  // [beats, label]; T = triplet, D = dotted
+    [1/4, "1/16"], [1/3, "1/8T"], [1/2, "1/8"], [2/3, "1/4T"], [3/4, "1/8D"],
+    [1, "1/4"], [3/2, "1/4D"], [2, "1/2"], [3, "1/2D"], [4, "1 bar"],
+  ];
+  const SYNC_DECAYS = [                                 // [beats, label]
+    [1/2, "1/2 beat"], [1, "1 beat"], [2, "2 beats"], [3, "3 beats"], [4, "1 bar"], [6, "1.5 bars"],
+    [8, "2 bars"], [12, "3 bars"], [16, "4 bars"], [24, "6 bars"], [32, "8 bars"],
+  ];
+  const MAX_DELAY = 6;                                  // seconds; one bar at the slowest tempo
+  const DELAY_RANGES = {                                // [min, max, default]
     ms:    { dTime: [20, 1000, 350], dDecay: [1, 100, 30] },
-    notes: { dTime: [0, SYNC_TIMES.length - 1, 2], dDecay: [0, SYNC_DECAYS.length - 1, 5] },
+    notes: { dTime: [0, SYNC_TIMES.length - 1, 4], dDecay: [0, SYNC_DECAYS.length - 1, 2] },
   };
   const delaySaved = { ms: {}, notes: {} };
   let delayUnit = "ms";
@@ -284,18 +291,17 @@
     });
     delayUnit = unit;
   }
-  const notesLabel = n => n + (n > 1 ? " notes" : " note");
 
   function readFx() {
     fxState.dAmount = $("dAmount").value / 100;
     if (delayUnit === "notes") {
-      const noteLen = 1 / Number($("aSpeed").value);    // one arp note, in seconds
-      const [num, den] = SYNC_TIMES[$("dTime").value];
-      const steps = SYNC_DECAYS[$("dDecay").value];
-      fxState.dTime = Math.min(2, noteLen * num / den);
-      fxState.dDecay = noteLen * steps;
-      $("dTimeOut").textContent = den === 1 ? notesLabel(num) : num + "/" + den + (num > den ? " notes" : " note");
-      $("dDecayOut").textContent = notesLabel(steps);
+      const beat = 60 / Number($("aSpeed").value);      // one beat, in seconds
+      const [timeBeats, timeLabel] = SYNC_TIMES[$("dTime").value];
+      const [decayBeats, decayLabel] = SYNC_DECAYS[$("dDecay").value];
+      fxState.dTime = Math.min(MAX_DELAY, beat * timeBeats);
+      fxState.dDecay = beat * decayBeats;
+      $("dTimeOut").textContent = timeLabel;
+      $("dDecayOut").textContent = decayLabel;
     } else {
       fxState.dTime = $("dTime").value / 1000;                                 // seconds
       fxState.dDecay = 0.1 * Math.pow(120, ($("dDecay").value - 1) / 99);      // 0.1 to 12 s
@@ -350,7 +356,7 @@
 
       // delay with a feedback loop, darkened a little each repeat
       const delaySend = ctx.createGain();
-      const delay = ctx.createDelay(2);
+      const delay = ctx.createDelay(MAX_DELAY);
       const feedback = ctx.createGain();
       const tone = ctx.createBiquadFilter();
       tone.type = "lowpass"; tone.frequency.value = 5000;
@@ -448,7 +454,7 @@
   // ---------- arpeggiator ----------
   const arpVoices = new Set();
   let arp = null;                      // { timer, nextTime, step, lastMidi, queue }
-  const arpRate = () => Number($("aSpeed").value);          // notes per second
+  const arpRate = () => Number($("aSpeed").value) / 15;     // notes per second: four 1/16 notes per beat, 60 s per minute
   const arpDir = () => document.querySelector('input[name="aDir"]:checked').value;
   const GATE = 0.7;
 
@@ -686,7 +692,7 @@
   }
   requestAnimationFrame(draw);
 
-  const speedOut = () => $("aSpeedOut").textContent = $("aSpeed").value + " notes/s";
+  const speedOut = () => $("aSpeedOut").textContent = $("aSpeed").value + " BPM";
   $("aSpeed").addEventListener("input", speedOut);
   speedOut();
 })();
