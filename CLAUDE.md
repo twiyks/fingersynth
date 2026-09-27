@@ -60,7 +60,7 @@ drums -> drumBus (Kit level) -> out          (no delay or reverb on drums)
 - Helpers `gainNode`, `filterNode`, `osc`, `noise` build each hit; `cleanup()` disconnects the output node when the longest source ends. `noiseBuf` is 2 s of white noise made once in `ensureAudio()`.
 
 **Sequencer**
-- `patterns[8][8 drums][16 steps]` of 0/1, saved to localStorage (`xysynth.patterns`, wrapped in try/catch). Patterns 1 to 3 start with example beats from `PRESET_BEATS`.
+- `patterns[8][8 drums][16 steps]` of 0/1, saved to localStorage (`xysynth.patterns.v2`, wrapped in try/catch). Patterns 1 to 4 start with example beats from `PRESET_BEATS` (1, 3 and 4 are breakbeats, 2 is electro); 5 to 8 start empty. Changing the presets means bumping the storage key, or saved patterns hide them.
 - Same lookahead idea as the arp: `seqTick()` every 25 ms schedules steps due in the next 100 ms. `seq.count` counts steps since play, used by `nextGridTime()`.
 - `editPat` is the pattern on screen; `playPat` is the one being heard and catches up at the start of each bar, so switching patterns while playing waits for the bar to finish. The playing pattern's button gets an underline.
 - Swing (50 to 75%) pushes every other 1/16 later by up to half a step.
@@ -74,7 +74,7 @@ drums -> drumBus (Kit level) -> out          (no delay or reverb on drums)
 ## Design and UI conventions
 
 - Colours are CSS custom properties on `:root`, with dark values under `prefers-color-scheme: dark` (guarded by `:root:not([data-theme="light"])`) and again under `:root[data-theme="dark"]`. Canvas colours are read from those tokens with `css()`, so add new colours as tokens, not hard-coded values.
-- Layout respects phone safe areas (`viewport-fit=cover` plus `env(safe-area-inset-*)` padding) and uses `height: 100%` rather than `100vh`.
+- Layout respects phone safe areas (`viewport-fit=cover` plus `env(safe-area-inset-*)` padding) and uses `height: 100%` rather than `100vh`. On phone widths (max 520px) the side margins drop from 16px to 8px to give the pad and beat grid more room.
 - Short landscape screens (`orientation: landscape` and `max-height: 540px`) get their own layout: header and bar share one row, the synth view puts the fx panels in a scrolling column right of the pad, and the beats view puts patterns and Kit in a column right of the grid so the steps get wider. Check both orientations after layout changes.
 - The pad uses `touch-action: none` and pointer capture per pointer. Keep that, or scrolling and gestures will fight the instrument.
 - Controls: selects for scale and sound, range inputs with a live `<output>` readout, a segmented radio group for arp direction. Keep focus-visible outlines on anything interactive.

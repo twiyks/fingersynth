@@ -179,6 +179,11 @@
   @media (max-width: 520px) {
     header { grid-template-columns: 1fr 1fr; }
     header h1 { display: none; }
+    /* tighter side margins on phones so the pad and beat steps get more width */
+    header { padding-left: 8px; padding-right: 8px; }
+    .bar, main { padding-left: 8px; padding-right: 8px; }
+    main { padding-bottom: 12px; }
+    .version { right: 10px; }
   }
   /* phone on its side: header and bar share a row, controls move to a column on the right */
   @media (orientation: landscape) and (max-height: 540px) {
@@ -313,7 +318,7 @@
     <span>Filter <strong id="cutOut">–</strong></span>
   </footer>
 </main>
-<div class="version">v1.6</div>
+<div class="version">v1.7</div>
 
 <script>
 (() => {
@@ -918,16 +923,17 @@
   // ---------- patterns ----------
   const STEPS = 16, PATTERN_COUNT = 8;
   const PRESET_BEATS = [
-    { bd: "x...x...x...x...", cp: "....x.......x...", ch: "x...x...x...x...", oh: "..x...x...x...x." },
     { bd: "x.....x...x.....", sd: "....x.......x..x", ch: "x.x.x.x.x.x.x.x.", oh: "..............x." },
     { bd: "x..x..x...x..x..", sd: "....x.......x...", rs: "..x....x.x....x.", lt: "..........x..x..", ch: "xxxxxxxxxxxxxxxx" },
+    { bd: "x.x.......xx....", sd: "....x..x.x..x..x", ch: "x.x.x.x.x.x.x.x." },                         // Amen-style
+    { bd: "x.x...x..x....x.", sd: "....x.......x...", rs: ".......x..x....x", ch: "x.xxx.x.x.xxx...", oh: "..............x." },
   ];
   const emptyPattern = () => DRUMS.map(() => Array(STEPS).fill(0));
   function defaultPatterns() {
     return Array.from({ length: PATTERN_COUNT }, (_, i) =>
       DRUMS.map(d => [...(PRESET_BEATS[i]?.[d.id] ?? ".".repeat(STEPS))].map(c => c === "x" ? 1 : 0)));
   }
-  const STORE = "xysynth.patterns";
+  const STORE = "xysynth.patterns.v2";      // bumped when the preset beats change
   function loadPatterns() {
     try {
       const p = JSON.parse(localStorage.getItem(STORE));
