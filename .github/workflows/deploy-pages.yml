@@ -32,24 +32,9 @@ jobs:
         run: |
           mkdir -p site
           rsync -av \
-            --include='*/' \
-            --include='*.html' \
-            --include='*.css' \
-            --include='*.js' \
-            --include='*.mjs' \
-            --include='*.json' \
-            --include='*.svg' \
-            --include='*.png' \
-            --include='*.jpg' \
-            --include='*.jpeg' \
-            --include='*.gif' \
-            --include='*.webp' \
-            --include='*.ico' \
-            --include='*.wav' \
-            --include='*.mp3' \
-            --include='*.ogg' \
-            --include='*.wasm' \
-            --exclude='*' \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='site/' \
             ./ ./site/
 
       - name: Upload artifact
