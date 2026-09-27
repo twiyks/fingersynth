@@ -1,0 +1,98 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Prepare site files
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          import shutil
+
+          repo = Path('.')
+          site = repo / 'site'
+          pages = [Path('index.html'), Path('xy-synth.html')]
+          required = [p for p in pages if not p.is_file()]
+          if required:
+              missing = ', '.join(str(p) for p in required)
+              raise SystemExit(f"Missing required page files: {missing}")
+
+          if site.exists():
+              shutil.rmtree(site)
+          site.mkdir(parents=True)
+
+          for page in pages:
+              target = site / page
+              target.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(page, target)
+
+          class AssetParser(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.assets = set()
+
+              def handle_starttag(self, tag, attrs):
+                  for key, value in attrs:
+                      if key not in {'src', 'href'} or not value:
+                          continue
+                      v = value.strip()
+                      if v.startswith(('#', 'http://', 'https://', 'data:', 'mailto:', 'javascript:')):
+                          continue
+                      asset = v.split('?', 1)[0].split('#', 1)[0]
+                      if asset:
+                          self.assets.add(asset)
+
+          parser = AssetParser()
+          for page in pages:
+              parser.feed(page.read_text(encoding='utf-8'))
+
+          for rel in sorted(parser.assets):
+              src = (repo / rel).resolve()
+              if not src.exists() or not src.is_file() or repo.resolve() not in src.parents:
+                  continue
+              relpath = src.relative_to(repo.resolve())
+              dest = site / relpath
+              dest.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(src, dest)
+
+          for optional in ['CNAME', '.nojekyll', 'robots.txt', 'sitemap.xml', 'manifest.webmanifest']:
+              src = repo / optional
+              if src.is_file():
+                  shutil.copy2(src, site / optional)
+          PY
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
