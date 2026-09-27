@@ -75,6 +75,7 @@ drums -> drumBus (Kit level) -> out          (no delay or reverb on drums)
 
 - Colours are CSS custom properties on `:root`, with dark values under `prefers-color-scheme: dark` (guarded by `:root:not([data-theme="light"])`) and again under `:root[data-theme="dark"]`. Canvas colours are read from those tokens with `css()`, so add new colours as tokens, not hard-coded values.
 - Layout respects phone safe areas (`viewport-fit=cover` plus `env(safe-area-inset-*)` padding) and uses `height: 100%` rather than `100vh`.
+- Short landscape screens (`orientation: landscape` and `max-height: 540px`) get their own layout: header and bar share one row, the synth view puts the fx panels in a scrolling column right of the pad, and the beats view puts patterns and Kit in a column right of the grid so the steps get wider. Check both orientations after layout changes.
 - The pad uses `touch-action: none` and pointer capture per pointer. Keep that, or scrolling and gestures will fight the instrument.
 - Controls: selects for scale and sound, range inputs with a live `<output>` readout, a segmented radio group for arp direction. Keep focus-visible outlines on anything interactive.
 - UI copy should be short, plain and conversational. No marketing language, and avoid em dashes.
