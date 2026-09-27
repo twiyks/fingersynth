@@ -75,6 +75,25 @@
   .axis { position: absolute; font-size: 0.75rem; color: var(--muted); pointer-events: none; }
   .axis.y { left: 10px; top: 10px; }
   .axis.y2 { left: 10px; bottom: 30px; }
+  .fx {
+    display: grid; grid-template-columns: 3fr 2fr; gap: 10px;
+  }
+  .fxgroup {
+    background: var(--field); border-radius: 14px; padding: 10px 14px 12px;
+    display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 6px 16px;
+  }
+  .fxgroup h2 {
+    grid-column: 1 / -1; margin: 0; font-size: 0.95rem; font-weight: 800;
+  }
+  .slider { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .slider .top { display: flex; justify-content: space-between; gap: 6px; font-size: 0.8rem; color: var(--muted); }
+  .slider output { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  input[type="range"] { width: 100%; margin: 4px 0 0; accent-color: var(--root); cursor: pointer; }
+  input[type="range"]:focus-visible { outline: 3px solid var(--root); outline-offset: 3px; border-radius: 4px; }
+  @media (max-width: 700px) {
+    .fx { grid-template-columns: 1fr; gap: 8px; }
+    .fxgroup { padding: 8px 12px 10px; }
+  }
   footer {
     display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--muted);
     font-variant-numeric: tabular-nums;
@@ -106,6 +125,34 @@
     <div class="axis y2">Dark</div>
     <div class="hint" id="hint">Drag anywhere to play</div>
   </div>
+  <section class="fx">
+    <div class="fxgroup" style="--cols: 3">
+      <h2>Delay</h2>
+      <div class="slider">
+        <div class="top"><label for="dAmount">Amount</label><output id="dAmountOut"></output></div>
+        <input type="range" id="dAmount" min="0" max="100" value="25">
+      </div>
+      <div class="slider">
+        <div class="top"><label for="dTime">Time</label><output id="dTimeOut"></output></div>
+        <input type="range" id="dTime" min="20" max="1000" value="350">
+      </div>
+      <div class="slider">
+        <div class="top"><label for="dDecay">Decay</label><output id="dDecayOut"></output></div>
+        <input type="range" id="dDecay" min="1" max="100" value="30">
+      </div>
+    </div>
+    <div class="fxgroup" style="--cols: 2">
+      <h2>Reverb</h2>
+      <div class="slider">
+        <div class="top"><label for="rSize">Room size</label><output id="rSizeOut"></output></div>
+        <input type="range" id="rSize" min="0" max="100" value="50">
+      </div>
+      <div class="slider">
+        <div class="top"><label for="rMix">Amount</label><output id="rMixOut"></output></div>
+        <input type="range" id="rMix" min="0" max="100" value="25">
+      </div>
+    </div>
+  </section>
   <footer>
     <span>Note <strong id="noteOut">–</strong></span>
     <span>Filter <strong id="cutOut">–</strong></span>
@@ -167,18 +214,94 @@
 
   // ---------- audio ----------
   let ctx = null, master = null, voice = null;
+  let fx = null;
+
+  // effect settings, readable before audio starts
+  const $ = id => document.getElementById(id);
+  const fxState = {};
+  function readFx() {
+    fxState.dAmount = $("dAmount").value / 100;
+    fxState.dTime = $("dTime").value / 1000;                                   // seconds
+    fxState.dDecay = 0.1 * Math.pow(120, ($("dDecay").value - 1) / 99);        // 0.1 to 12 s
+    fxState.rSize = $("rSize").value / 100;
+    fxState.rMix = $("rMix").value / 100;
+    $("dAmountOut").textContent = $("dAmount").value + "%";
+    $("dTimeOut").textContent = $("dTime").value + " ms";
+    $("dDecayOut").textContent = fxState.dDecay < 1 ? Math.round(fxState.dDecay * 1000) + " ms" : fxState.dDecay.toFixed(1) + " s";
+    $("rSizeOut").textContent = $("rSize").value + "%";
+    $("rMixOut").textContent = $("rMix").value + "%";
+  }
+  readFx();
+
+  // decay time is how long the echoes take to fade by 60 dB
+  const feedbackFor = (time, decay) => Math.min(0.95, Math.pow(10, -3 * time / decay));
+
+  function makeImpulse(size) {
+    const len = 0.3 + size * 5.7;
+    const rate = ctx.sampleRate;
+    const n = Math.floor(rate * len);
+    const buf = ctx.createBuffer(2, n, rate);
+    const curve = 2 + (1 - size) * 3;
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, curve);
+    }
+    return buf;
+  }
+
+  function applyFx(rebuildReverb) {
+    if (!fx) return;
+    const now = ctx.currentTime;
+    fx.delaySend.gain.setTargetAtTime(fxState.dAmount, now, 0.03);
+    fx.delay.delayTime.setTargetAtTime(fxState.dTime, now, 0.05);
+    fx.feedback.gain.setTargetAtTime(feedbackFor(fxState.dTime, fxState.dDecay), now, 0.05);
+    fx.reverbWet.gain.setTargetAtTime(fxState.rMix * 1.4, now, 0.03);
+    if (rebuildReverb) fx.convolver.buffer = makeImpulse(fxState.rSize);
+  }
 
   function ensureAudio() {
     if (!ctx) {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
       const comp = ctx.createDynamicsCompressor();
       comp.threshold.value = -14; comp.ratio.value = 4;
+      const out = ctx.createGain();
+      out.connect(comp).connect(ctx.destination);
+
       master = ctx.createGain();
       master.gain.value = 0.5;
-      master.connect(comp).connect(ctx.destination);
+      master.connect(out);                              // dry
+
+      // delay with a feedback loop, darkened a little each repeat
+      const delaySend = ctx.createGain();
+      const delay = ctx.createDelay(2);
+      const feedback = ctx.createGain();
+      const tone = ctx.createBiquadFilter();
+      tone.type = "lowpass"; tone.frequency.value = 5000;
+      master.connect(delaySend).connect(delay);
+      delay.connect(tone).connect(feedback).connect(delay);
+      tone.connect(out);
+
+      // reverb, fed by the dry signal and the echoes
+      const convolver = ctx.createConvolver();
+      const reverbWet = ctx.createGain();
+      master.connect(convolver);
+      tone.connect(convolver);
+      convolver.connect(reverbWet).connect(out);
+
+      fx = { delaySend, delay, feedback, convolver, reverbWet };
+      applyFx(true);
     }
     if (ctx.state === "suspended") ctx.resume();
   }
+
+  ["dAmount", "dTime", "dDecay", "rMix"].forEach(id =>
+    $(id).addEventListener("input", () => { readFx(); applyFx(false); }));
+  let sizeTimer = null;
+  $("rSize").addEventListener("input", () => {
+    readFx();
+    clearTimeout(sizeTimer);
+    sizeTimer = setTimeout(() => applyFx(true), 120);
+  });
 
   function startVoice(midi, cutoff) {
     const p = PRESETS[presetSel.value];
