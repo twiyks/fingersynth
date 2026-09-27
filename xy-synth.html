@@ -111,10 +111,13 @@
     .fx .fxgroup:not(:first-child) { grid-template-columns: 1fr; }
   }
   footer {
-    display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--muted);
+    display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--muted);
     font-variant-numeric: tabular-nums;
+    /* Fixed height: the ♯ glyph comes from a taller fallback font and would otherwise nudge the layout */
+    line-height: 1.4; height: 1.4em; flex: none;
   }
   footer strong { color: var(--ink); font-weight: 600; }
+  footer { display: none; } /* readouts hidden for now; delete this line to bring them back */
   @media (max-width: 520px) {
     header { grid-template-columns: 1fr 1fr; }
     header h1 { display: none; }
