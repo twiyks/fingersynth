@@ -17,6 +17,8 @@
     --ink: #221c3d;
     --muted: #625a85;
     --control: #f7f6fb;
+    --hit: #7c5cff;
+    --hit-now: #4a2fc0;
     box-sizing: border-box;
     padding-top: env(safe-area-inset-top, 0px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -26,12 +28,14 @@
     :root:not([data-theme="light"]) {
       --bg: #15112a; --field: #1c1737; --band: #221c42; --line: #332b5c;
       --root: #6c5fa8; --ink: #ece8ff; --muted: #9d94c9; --control: #241e46;
+      --hit: #9f8cff; --hit-now: #d9d0ff;
       color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
     --bg: #15112a; --field: #1c1737; --band: #221c42; --line: #332b5c;
     --root: #6c5fa8; --ink: #ece8ff; --muted: #9d94c9; --control: #241e46;
+    --hit: #9f8cff; --hit-now: #d9d0ff;
     color-scheme: dark;
   }
   *, *::before, *::after { box-sizing: inherit; }
@@ -64,6 +68,51 @@
   }
   select:focus-visible { outline: 3px solid var(--root); outline-offset: 2px; }
   main { flex: 1; min-height: 0; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 8px; }
+
+  /* top bar: view switch, play, master tempo */
+  .bar { display: flex; align-items: center; gap: 10px; padding: 0 16px 10px; }
+  .seg.icons span { padding: 5px 14px; }
+  .seg.icons svg { display: block; width: 20px; height: 20px; }
+  .btn {
+    font: inherit; font-size: 0.82rem; font-weight: 600; color: var(--ink);
+    background: var(--control); border: 1.5px solid var(--line); border-radius: 10px;
+    padding: 5px 12px; cursor: pointer;
+  }
+  .btn:focus-visible, .rowlab:focus-visible, .cell:focus-visible { outline: 3px solid var(--root); outline-offset: 1px; }
+  .playbtn { padding: 5px 10px; display: grid; place-items: center; }
+  .playbtn svg { display: block; width: 18px; height: 18px; }
+  .playbtn[aria-pressed="true"] { background: var(--hit); border-color: var(--hit); color: var(--bg); }
+  .playbtn[aria-pressed="true"] .ico-play, .playbtn:not([aria-pressed="true"]) .ico-stop { display: none; }
+  .tempo { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--muted); }
+  .tempo input { margin: 0; flex: 1; min-width: 0; }
+  .tempo output { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 4.6em; text-align: right; }
+
+  /* the two views */
+  .synthview, .beatsview { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+  body[data-view="beats"] .synthview, body:not([data-view="beats"]) .beatsview { display: none; }
+
+  /* step sequencer */
+  .beatsbar { display: flex; gap: 8px; align-items: center; }
+  .seg.pats { flex: 1; }
+  .seg.pats span { padding: 4px 0; }
+  .seg.pats label.playing span { box-shadow: inset 0 -3px 0 var(--hit); }
+  .seg.pats input:checked + span { box-shadow: 0 0 0 1.5px var(--line); }
+  .seg.pats label.playing input:checked + span { box-shadow: 0 0 0 1.5px var(--line), inset 0 -3px 0 var(--hit); }
+  .grid {
+    flex: 1; min-height: 0; display: grid; gap: 3px; touch-action: none;
+    grid-template-columns: 2.4rem repeat(16, minmax(0, 1fr));
+    grid-template-rows: repeat(8, minmax(0, 1fr));
+    background: var(--field); border-radius: 14px; padding: 8px;
+  }
+  .rowlab {
+    font: inherit; font-size: 0.72rem; font-weight: 800; color: var(--muted);
+    background: none; border: 0; border-radius: 6px; padding: 0; cursor: pointer;
+  }
+  .cell { border: 0; padding: 0; min-width: 0; border-radius: 4px; background: var(--control); cursor: pointer; }
+  .cell.alt { background: var(--bg); }
+  .cell.now { background: var(--line); }
+  .cell.on { background: var(--hit); }
+  .cell.on.now { background: var(--hit-now); }
   .padwrap { position: relative; flex: 1; min-height: 0; border-radius: 18px; overflow: hidden; background: var(--field); }
   canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
   .hint {
@@ -144,7 +193,27 @@
     <select id="preset"></select>
   </div>
 </header>
+<nav class="bar">
+  <div class="seg icons" role="radiogroup" aria-label="View">
+    <label title="Synth"><input type="radio" name="view" value="synth" aria-label="Synth" checked><span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M2 12C5 3 8 3 12 12S19 21 22 12"/></svg>
+    </span></label>
+    <label title="Beats"><input type="radio" name="view" value="beats" aria-label="Beats"><span>
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>
+    </span></label>
+  </div>
+  <button class="btn playbtn" id="play" aria-pressed="false" aria-label="Play beats">
+    <svg class="ico-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>
+    <svg class="ico-stop" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+  </button>
+  <div class="tempo">
+    <label for="tempo">Tempo</label>
+    <input type="range" id="tempo" min="60" max="200" value="120">
+    <output id="tempoOut"></output>
+  </div>
+</nav>
 <main>
+  <div class="synthview">
   <div class="padwrap">
     <canvas id="pad" aria-label="Play area. Drag left and right to change pitch, up and down to open or close the filter."></canvas>
     <div class="axis y">Bright</div>
@@ -187,8 +256,8 @@
     <div class="fxgroup arpgroup" style="--cols: 1">
       <h2>Arpeggio <span class="sub">hold two or more notes</span></h2>
       <div class="slider">
-        <div class="top"><label for="aSpeed">Tempo</label><output id="aSpeedOut"></output></div>
-        <input type="range" id="aSpeed" min="40" max="300" value="120">
+        <div class="top"><label for="aRate">Rate</label><output id="aRateOut"></output></div>
+        <input type="range" id="aRate" min="0" max="5" value="3">
       </div>
       <div class="seg" role="radiogroup" aria-label="Direction">
         <label><input type="radio" name="aDir" value="up" checked><span>Up</span></label>
@@ -197,12 +266,31 @@
       </div>
     </div>
   </section>
+  </div>
+  <section class="beatsview" aria-label="Beats">
+    <div class="beatsbar">
+      <div class="seg pats" role="radiogroup" aria-label="Pattern" id="pats"></div>
+      <button class="btn" id="clearPat">Clear</button>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="fxgroup" style="--cols: 2">
+      <h2>Kit</h2>
+      <div class="slider">
+        <div class="top"><label for="kLevel">Level</label><output id="kLevelOut"></output></div>
+        <input type="range" id="kLevel" min="0" max="100" value="80">
+      </div>
+      <div class="slider">
+        <div class="top"><label for="kSwing">Swing</label><output id="kSwingOut"></output></div>
+        <input type="range" id="kSwing" min="50" max="75" value="50">
+      </div>
+    </div>
+  </section>
   <footer>
     <span>Note <strong id="noteOut">–</strong></span>
     <span>Filter <strong id="cutOut">–</strong></span>
   </footer>
 </main>
-<div class="version">v1.3</div>
+<div class="version">v1.4</div>
 
 <script>
 (() => {
@@ -260,12 +348,15 @@
   // ---------- audio ----------
   let ctx = null, master = null, voice = null;
   let fx = null;
+  let drumBus = null, noiseBuf = null;
 
   // effect settings, readable before audio starts
   const $ = id => document.getElementById(id);
   const fxState = {};
 
-  // delay time and decay can be set in ms, or in note values so echoes lock to the arp tempo
+  const tempo = () => Number($("tempo").value);         // master tempo, BPM
+
+  // delay time and decay can be set in ms, or in note values so echoes lock to the master tempo
   const SYNC_TIMES = [                                  // [beats, label]; T = triplet, D = dotted
     [1/4, "1/16"], [1/3, "1/8T"], [1/2, "1/8"], [2/3, "1/4T"], [3/4, "1/8D"],
     [1, "1/4"], [3/2, "1/4D"], [2, "1/2"], [3, "1/2D"], [4, "1 bar"],
@@ -274,7 +365,7 @@
     [1/2, "1/2 beat"], [1, "1 beat"], [2, "2 beats"], [3, "3 beats"], [4, "1 bar"], [6, "1.5 bars"],
     [8, "2 bars"], [12, "3 bars"], [16, "4 bars"], [24, "6 bars"], [32, "8 bars"],
   ];
-  const MAX_DELAY = 6;                                  // seconds; one bar at the slowest tempo
+  const MAX_DELAY = 4;                                  // seconds; one bar at the slowest tempo
   const DELAY_RANGES = {                                // [min, max, default]
     ms:    { dTime: [20, 1000, 350], dDecay: [1, 100, 30] },
     notes: { dTime: [0, SYNC_TIMES.length - 1, 4], dDecay: [0, SYNC_DECAYS.length - 1, 2] },
@@ -295,7 +386,7 @@
   function readFx() {
     fxState.dAmount = $("dAmount").value / 100;
     if (delayUnit === "notes") {
-      const beat = 60 / Number($("aSpeed").value);      // one beat, in seconds
+      const beat = 60 / tempo();                        // one beat, in seconds
       const [timeBeats, timeLabel] = SYNC_TIMES[$("dTime").value];
       const [decayBeats, decayLabel] = SYNC_DECAYS[$("dDecay").value];
       fxState.dTime = Math.min(MAX_DELAY, beat * timeBeats);
@@ -373,11 +464,19 @@
 
       fx = { delaySend, delay, feedback, convolver, reverbWet };
       applyFx(true);
+
+      // drums skip the delay and reverb and go straight to the output
+      drumBus = ctx.createGain();
+      drumBus.gain.value = $("kLevel").value / 100;
+      drumBus.connect(out);
+      noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+      const nd = noiseBuf.getChannelData(0);
+      for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
     }
     if (ctx.state === "suspended") ctx.resume();
   }
 
-  ["dAmount", "dTime", "dDecay", "rMix", "aSpeed"].forEach(id =>     // aSpeed: synced delay follows the arp
+  ["dAmount", "dTime", "dDecay", "rMix", "tempo"].forEach(id =>      // tempo: synced delay follows it
     $(id).addEventListener("input", () => { readFx(); applyFx(false); }));
   document.querySelectorAll('input[name="dUnit"]').forEach(r =>
     r.addEventListener("change", () => { setDelayUnit(r.value); readFx(); applyFx(false); }));
@@ -454,7 +553,9 @@
   // ---------- arpeggiator ----------
   const arpVoices = new Set();
   let arp = null;                      // { timer, nextTime, step, lastMidi, queue }
-  const arpRate = () => Number($("aSpeed").value) / 15;     // notes per second: four 1/16 notes per beat, 60 s per minute
+  const ARP_RATES = [[1, "1/4"], [1/2, "1/8"], [1/3, "1/8T"], [1/4, "1/16"], [1/6, "1/16T"], [1/8, "1/32"]];   // [beats, label]
+  const arpBeats = () => ARP_RATES[$("aRate").value][0];
+  const arpStep = () => 60 / tempo() * arpBeats();         // one arp note, in seconds
   const arpDir = () => document.querySelector('input[name="aDir"]:checked').value;
   const GATE = 0.7;
 
@@ -480,7 +581,7 @@
   }
 
   function arpTick() {
-    const step = 1 / arpRate();
+    const step = arpStep();
     while (arp.nextTime < ctx.currentTime + 0.1) {
       const midi = nextArpNote();
       if (midi == null) break;
@@ -494,7 +595,9 @@
   }
 
   function startArp() {
-    arp = { nextTime: ctx.currentTime + 0.02, step: 0, lastMidi: null, queue: [] };
+    // with the beats playing, wait for the next point on the drum grid so the arp lands in time
+    const start = seq.playing ? nextGridTime(arpBeats()) : ctx.currentTime + 0.02;
+    arp = { nextTime: start, step: 0, lastMidi: null, queue: [] };
     arpTick();
     arp.timer = setInterval(arpTick, 25);
   }
@@ -692,9 +795,296 @@
   }
   requestAnimationFrame(draw);
 
-  const speedOut = () => $("aSpeedOut").textContent = $("aSpeed").value + " BPM";
-  $("aSpeed").addEventListener("input", speedOut);
-  speedOut();
+  // ---------- drums (909 style, all synthesised) ----------
+  const decayEnv = (param, t, peak, decay) => {
+    param.setValueAtTime(peak, t);
+    param.exponentialRampToValueAtTime(0.001, t + decay);
+  };
+  function gainNode(dest, t, peak, decay) {
+    const g = ctx.createGain();
+    if (peak != null) decayEnv(g.gain, t, peak, decay);
+    g.connect(dest);
+    return g;
+  }
+  function filterNode(type, freq, q, dest) {
+    const f = ctx.createBiquadFilter();
+    f.type = type; f.frequency.value = freq;
+    if (q) f.Q.value = q;
+    f.connect(dest);
+    return f;
+  }
+  // an oscillator, optionally sweeping from f0 down to f1
+  function osc(type, f0, f1, sweep, t, dur, dest) {
+    const o = ctx.createOscillator();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, t);
+    if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + sweep);
+    o.connect(dest); o.start(t); o.stop(t + dur);
+    return o;
+  }
+  function noise(t, dur, dest) {
+    const s = ctx.createBufferSource();
+    s.buffer = noiseBuf;
+    s.connect(dest); s.start(t, Math.random()); s.stop(t + dur);
+    return s;
+  }
+  // tidy up a hit's output node once its longest sound has finished
+  const cleanup = (src, node) => { src.onended = () => node.disconnect(); };
+
+  const HAT_FREQS = [205, 304, 370, 523, 540, 800];      // clashing square waves give the metallic ring
+  function hat(t, peak, decay, dest) {
+    const g = gainNode(dest, t, peak, decay);
+    const hp = filterNode("highpass", 7000, 0, g);
+    const bp = filterNode("bandpass", 10000, 0.8, hp);
+    HAT_FREQS.forEach(f => osc("square", f, 0, 0, t, decay + 0.05, bp));
+    const ng = ctx.createGain(); ng.gain.value = 0.5; ng.connect(hp);
+    cleanup(noise(t, decay + 0.05, ng), g);
+  }
+  let openHat = null;                                    // { choke, start } so a closed hat can cut it off
+
+  function tom(freq) {
+    return t => {
+      const g = gainNode(drumBus, t, 0.8, 0.4);
+      cleanup(osc("sine", freq * 1.6, freq, 0.08, t, 0.45, g), g);
+    };
+  }
+
+  const DRUMS = [
+    { id: "bd", short: "BD", name: "Kick", play: t => {
+        const g = gainNode(drumBus, t, 1, 0.55);
+        cleanup(osc("sine", 190, 48, 0.09, t, 0.6, g), g);
+        const c = gainNode(drumBus, t, 0.35, 0.015);     // click at the front
+        cleanup(noise(t, 0.02, filterNode("highpass", 1200, 0, c)), c);
+      } },
+    { id: "sd", short: "SD", name: "Snare", play: t => {
+        const g = gainNode(drumBus, t, 0.45, 0.14);
+        [185, 330].forEach(f => osc("triangle", f * 1.2, f, 0.03, t, 0.16, g));
+        const n = gainNode(drumBus, t, 0.6, 0.22);
+        cleanup(noise(t, 0.25, filterNode("highpass", 1400, 0, n)), n);
+        setTimeout(() => g.disconnect(), (t - ctx.currentTime + 0.4) * 1000);
+      } },
+    { id: "cp", short: "CP", name: "Clap", play: t => {
+        const g = gainNode(drumBus, t);
+        [0, 0.011, 0.022].forEach(d => {                 // a few quick bursts, then the tail
+          g.gain.setValueAtTime(1.4, t + d);
+          g.gain.exponentialRampToValueAtTime(0.15, t + d + 0.009);
+        });
+        decayEnv(g.gain, t + 0.031, 1.2, 0.22);
+        cleanup(noise(t, 0.26, filterNode("bandpass", 1100, 1.4, g)), g);
+      } },
+    { id: "rs", short: "RS", name: "Rim", play: t => {
+        const g = gainNode(drumBus, t, 0.6, 0.04);
+        const bp = filterNode("bandpass", 1700, 3, g);
+        [480, 1650].forEach(f => osc("triangle", f, 0, 0, t, 0.05, bp));
+        setTimeout(() => g.disconnect(), (t - ctx.currentTime + 0.3) * 1000);
+      } },
+    { id: "lt", short: "LT", name: "Low tom", play: tom(95) },
+    { id: "ht", short: "HT", name: "High tom", play: tom(150) },
+    { id: "ch", short: "CH", name: "Closed hat", play: t => {
+        if (openHat && openHat.start < t) openHat.choke.gain.setTargetAtTime(0, t, 0.008);
+        hat(t, 0.3, 0.06, drumBus);
+      } },
+    { id: "oh", short: "OH", name: "Open hat", play: t => {
+        const choke = ctx.createGain(); choke.connect(drumBus);
+        hat(t, 0.25, 0.4, choke);
+        openHat = { choke, start: t };
+        setTimeout(() => choke.disconnect(), (t - ctx.currentTime + 0.6) * 1000);
+      } },
+  ];
+
+  // ---------- patterns ----------
+  const STEPS = 16, PATTERN_COUNT = 8;
+  const PRESET_BEATS = [
+    { bd: "x...x...x...x...", cp: "....x.......x...", ch: "x...x...x...x...", oh: "..x...x...x...x." },
+    { bd: "x.....x...x.....", sd: "....x.......x..x", ch: "x.x.x.x.x.x.x.x.", oh: "..............x." },
+    { bd: "x..x..x...x..x..", sd: "....x.......x...", rs: "..x....x.x....x.", lt: "..........x..x..", ch: "xxxxxxxxxxxxxxxx" },
+  ];
+  const emptyPattern = () => DRUMS.map(() => Array(STEPS).fill(0));
+  function defaultPatterns() {
+    return Array.from({ length: PATTERN_COUNT }, (_, i) =>
+      DRUMS.map(d => [...(PRESET_BEATS[i]?.[d.id] ?? ".".repeat(STEPS))].map(c => c === "x" ? 1 : 0)));
+  }
+  const STORE = "xysynth.patterns";
+  function loadPatterns() {
+    try {
+      const p = JSON.parse(localStorage.getItem(STORE));
+      const ok = Array.isArray(p) && p.length === PATTERN_COUNT &&
+        p.every(pat => pat.length === DRUMS.length && pat.every(row => row.length === STEPS));
+      if (ok) return p;
+    } catch {}
+    return defaultPatterns();
+  }
+  function savePatterns() {
+    try { localStorage.setItem(STORE, JSON.stringify(patterns)); } catch {}
+  }
+  const patterns = loadPatterns();
+  let editPat = 0;     // the pattern on screen
+  let playPat = 0;     // the pattern being heard; catches up with editPat at the start of each bar
+
+  // ---------- sequencer ----------
+  // same lookahead idea as the arp: every 25 ms, schedule any steps due in the next 100 ms
+  const seq = { playing: false, timer: null, step: 0, count: 0, nextTime: 0, queue: [] };
+  const stepLen = () => 60 / tempo() / 4;                // one 1/16 step, in seconds
+  const swingAmount = () => ($("kSwing").value / 100 - 0.5) * 2;   // 50% straight, 75% = triplet feel
+
+  function seqTick() {
+    while (seq.nextTime < ctx.currentTime + 0.1) {
+      if (seq.step === 0) playPat = editPat;
+      const len = stepLen();
+      const t = seq.nextTime + (seq.step % 2 ? swingAmount() * len : 0);   // swing pushes back every other 1/16
+      patterns[playPat].forEach((row, r) => { if (row[seq.step]) DRUMS[r].play(t); });
+      seq.queue.push({ time: t, step: seq.step, pat: playPat });
+      seq.nextTime += len;
+      seq.step = (seq.step + 1) % STEPS;
+      seq.count++;
+    }
+  }
+
+  // the next step time that falls on a multiple of `beats`, counted from when the beats started
+  function nextGridTime(beats) {
+    for (let k = 0; k < 64; k++) {
+      const pos = (seq.count + k) / 4 / beats;
+      if (Math.abs(pos - Math.round(pos)) < 1e-6) return seq.nextTime + k * stepLen();
+    }
+    return seq.nextTime;
+  }
+
+  const playBtn = $("play");
+  function startSeq() {
+    ensureAudio();
+    // if the arp is already running, start the beats on its next note so they line up
+    Object.assign(seq, { playing: true, step: 0, count: 0, queue: [],
+                         nextTime: arp ? arp.nextTime : ctx.currentTime + 0.05 });
+    seqTick();
+    seq.timer = setInterval(seqTick, 25);
+    playBtn.setAttribute("aria-pressed", "true");
+    playBtn.setAttribute("aria-label", "Stop beats");
+  }
+  function stopSeq() {
+    clearInterval(seq.timer);
+    seq.playing = false; seq.queue = [];
+    playPat = editPat;
+    playBtn.setAttribute("aria-pressed", "false");
+    playBtn.setAttribute("aria-label", "Play beats");
+  }
+  playBtn.addEventListener("click", () => seq.playing ? stopSeq() : startSeq());
+
+  // ---------- beats UI ----------
+  const gridEl = $("grid");
+  const cells = [];                                      // cells[row][step]
+  DRUMS.forEach((d, r) => {
+    const lab = document.createElement("button");
+    lab.className = "rowlab"; lab.textContent = d.short; lab.title = d.name;
+    lab.setAttribute("aria-label", "Play " + d.name.toLowerCase());
+    lab.addEventListener("click", () => { ensureAudio(); d.play(ctx.currentTime + 0.01); });
+    gridEl.append(lab);
+    cells[r] = [];
+    for (let s = 0; s < STEPS; s++) {
+      const c = document.createElement("button");
+      c.className = "cell" + (Math.floor(s / 4) % 2 ? " alt" : "");
+      c.dataset.r = r; c.dataset.s = s;
+      c.setAttribute("aria-label", `${d.name}, step ${s + 1}`);
+      gridEl.append(c);
+      cells[r][s] = c;
+    }
+  });
+
+  function renderCell(r, s) {
+    const on = !!patterns[editPat][r][s];
+    cells[r][s].classList.toggle("on", on);
+    cells[r][s].setAttribute("aria-pressed", on);
+  }
+  function renderGrid() {
+    DRUMS.forEach((_, r) => { for (let s = 0; s < STEPS; s++) renderCell(r, s); });
+  }
+  function setCell(r, s, on) {
+    patterns[editPat][r][s] = on ? 1 : 0;
+    renderCell(r, s);
+  }
+
+  // press a step to toggle it, then drag to paint the same state across other steps
+  let paint = null;
+  gridEl.addEventListener("pointerdown", e => {
+    const c = e.target.closest(".cell");
+    if (!c) return;
+    e.preventDefault();
+    const r = +c.dataset.r, s = +c.dataset.s;
+    paint = !patterns[editPat][r][s];
+    setCell(r, s, paint);
+    if (paint && !seq.playing) { ensureAudio(); DRUMS[r].play(ctx.currentTime + 0.01); }
+  });
+  gridEl.addEventListener("pointermove", e => {
+    if (paint === null) return;
+    const c = document.elementFromPoint(e.clientX, e.clientY)?.closest(".cell");
+    if (c && gridEl.contains(c)) setCell(+c.dataset.r, +c.dataset.s, paint);
+  });
+  const endPaint = () => { if (paint !== null) { paint = null; savePatterns(); } };
+  window.addEventListener("pointerup", endPaint);
+  window.addEventListener("pointercancel", endPaint);
+  gridEl.addEventListener("click", e => {                // keyboard only; pointers are handled above
+    const c = e.target.closest(".cell");
+    if (!c || e.detail !== 0) return;
+    const r = +c.dataset.r, s = +c.dataset.s;
+    setCell(r, s, !patterns[editPat][r][s]);
+    savePatterns();
+  });
+
+  const patsEl = $("pats");
+  const patLabels = [];
+  for (let i = 0; i < PATTERN_COUNT; i++) {
+    const lab = document.createElement("label");
+    lab.innerHTML = `<input type="radio" name="pat" value="${i}" aria-label="Pattern ${i + 1}"${i === 0 ? " checked" : ""}><span>${i + 1}</span>`;
+    lab.querySelector("input").addEventListener("change", () => {
+      editPat = i;
+      if (!seq.playing) playPat = i;
+      renderGrid();
+    });
+    patsEl.append(lab);
+    patLabels.push(lab);
+  }
+  $("clearPat").addEventListener("click", () => {
+    patterns[editPat] = emptyPattern();
+    renderGrid(); savePatterns();
+  });
+  renderGrid();
+
+  // playhead and "which pattern is playing", kept in step with what's audible
+  let shownStep = -1, shownPlaying = -1;
+  function updateSeqUI() {
+    let step = -1, playing = -1;
+    if (seq.playing && ctx) {
+      step = shownStep; playing = shownPlaying;
+      while (seq.queue.length && seq.queue[0].time <= ctx.currentTime) {
+        const q = seq.queue.shift();
+        step = q.step; playing = q.pat;
+      }
+    }
+    if (step !== shownStep) {
+      if (shownStep >= 0) cells.forEach(row => row[shownStep].classList.remove("now"));
+      if (step >= 0) cells.forEach(row => row[step].classList.add("now"));
+      shownStep = step;
+    }
+    if (playing !== shownPlaying) {
+      patLabels.forEach((l, i) => l.classList.toggle("playing", i === playing));
+      shownPlaying = playing;
+    }
+  }
+  (function seqUILoop() { updateSeqUI(); requestAnimationFrame(seqUILoop); })();
+
+  document.querySelectorAll('input[name="view"]').forEach(r =>
+    r.addEventListener("change", () => { document.body.dataset.view = r.value; }));
+
+  // ---------- readouts ----------
+  const tempoOut = () => $("tempoOut").textContent = tempo() + " BPM";
+  const rateOut = () => $("aRateOut").textContent = ARP_RATES[$("aRate").value][1];
+  const levelOut = () => {
+    $("kLevelOut").textContent = $("kLevel").value + "%";
+    if (drumBus) drumBus.gain.setTargetAtTime($("kLevel").value / 100, ctx.currentTime, 0.03);
+  };
+  const swingOut = () => $("kSwingOut").textContent = $("kSwing").value + "%";
+  [["tempo", tempoOut], ["aRate", rateOut], ["kLevel", levelOut], ["kSwing", swingOut]].forEach(([id, fn]) => {
+    $(id).addEventListener("input", fn); fn();
+  });
 })();
 </script>
 </body>
