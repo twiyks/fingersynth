@@ -6,19 +6,22 @@
 <title>XY Synth</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #eceaf4;
-    --field: #e2dfee;
-    --band: #d8d4e8;
-    --line: #bdb6d6;
-    --root: #8f84b8;
-    --ink: #221c3d;
-    --muted: #625a85;
-    --control: #f7f6fb;
-    --hit: #7c5cff;
-    --hit-now: #4a2fc0;
+    /* a nearly grey teal: the only real colour comes from the notes being played */
+    --bg: #e9eeee;
+    --field: #dfe6e6;
+    --band: #d5dddd;
+    --line: #b7c4c3;
+    --root: #7f9796;
+    --ink: #1a2525;
+    --muted: #5b6b6a;
+    --control: #f6f8f8;
+    --hit: #55827f;
+    --hit-now: #2f5654;
+    --row-bright: rgb(255 255 255 / 0.3);   /* top of each keyboard row: filter open */
+    --row-dark: rgb(20 45 45 / 0.12);        /* bottom of each row: filter closed */
     box-sizing: border-box;
     padding-top: env(safe-area-inset-top, 0px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -28,23 +31,25 @@
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #15112a; --field: #1c1737; --band: #221c42; --line: #332b5c;
-      --root: #6c5fa8; --ink: #ece8ff; --muted: #9d94c9; --control: #241e46;
-      --hit: #9f8cff; --hit-now: #d9d0ff;
+      --bg: #111818; --field: #162020; --band: #1b2626; --line: #2b3938;
+      --root: #587170; --ink: #e4ecec; --muted: #8ea2a1; --control: #1e2a2a;
+      --hit: #7aa9a5; --hit-now: #cfe3e1;
+      --row-bright: rgb(190 230 225 / 0.07); --row-dark: rgb(0 0 0 / 0.28);
       color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #15112a; --field: #1c1737; --band: #221c42; --line: #332b5c;
-    --root: #6c5fa8; --ink: #ece8ff; --muted: #9d94c9; --control: #241e46;
-    --hit: #9f8cff; --hit-now: #d9d0ff;
+    --bg: #111818; --field: #162020; --band: #1b2626; --line: #2b3938;
+    --root: #587170; --ink: #e4ecec; --muted: #8ea2a1; --control: #1e2a2a;
+    --hit: #7aa9a5; --hit-now: #cfe3e1;
+    --row-bright: rgb(190 230 225 / 0.07); --row-dark: rgb(0 0 0 / 0.28);
     color-scheme: dark;
   }
   *, *::before, *::after { box-sizing: inherit; }
   html { height: 100%; scroll-padding-top: env(safe-area-inset-top, 0px); }
   body {
     height: 100%; margin: 0; background: var(--bg); color: var(--ink);
-    font-family: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-family: "Barlow Semi Condensed", system-ui, -apple-system, "Segoe UI", sans-serif;
     display: flex; flex-direction: column; overflow: hidden;
     -webkit-user-select: none; user-select: none;
   }
@@ -185,8 +190,9 @@
   @media (max-width: 520px), (orientation: landscape) and (max-height: 540px) {
     header { display: none; }
     .bar { flex-wrap: wrap; padding: 10px 8px 8px; gap: 8px 6px; }
-    .seg.icons span { padding: 5px 9px; }
-    .menubtns { display: flex; gap: 4px; margin-left: auto; }
+    .seg.icons span { padding: 5px 8px; }
+    .menubtns { display: flex; gap: 3px; margin-left: auto; }
+    .menubtns .iconbtn { padding: 5px 6px; }
     .tempo { flex: 1 0 100%; }
     main { padding: 0 8px 12px; }
     .version { right: 10px; }
@@ -392,7 +398,7 @@
     <span>Filter <strong id="cutOut">–</strong></span>
   </footer>
 </main>
-<div class="version">v2.1</div>
+<div class="version">v2.2</div>
 
 <script>
 (() => {
@@ -856,6 +862,7 @@
 
   function draw() {
     const band = css("--band"), line = css("--line"), root = css("--root"), muted = css("--muted"), ink = css("--ink");
+    const rowBright = css("--row-bright"), rowDark = css("--row-dark");
     g2d.clearRect(0, 0, W, H);
     const n = notes.length, cw = W / n, rh = H / ROWS;
     const rowTop = r => (ROWS - 1 - r) * rh;       // row 0 is at the bottom
@@ -876,6 +883,13 @@
         g2d.fillStyle = isRoot ? root : line;
         g2d.fillRect(Math.round(i * cw), top, isRoot ? 2 : 1, rh);
       }
+      // a soft light-to-shade wash down each row: brighter sound at the top, darker at the bottom
+      const wash = g2d.createLinearGradient(0, top, 0, top + rh);
+      wash.addColorStop(0, rowBright);
+      wash.addColorStop(0.5, "rgba(0,0,0,0)");
+      wash.addColorStop(1, rowDark);
+      g2d.fillStyle = wash;
+      g2d.fillRect(0, top, W, rh);
     }
 
     // held columns, with the sounding one brighter
@@ -892,7 +906,7 @@
     for (let r = 1; r < ROWS; r++) g2d.fillRect(0, r * rh - 2, W, 4);
 
     const fontSize = Math.max(9, Math.min(12, cw * 0.4));
-    g2d.font = `600 ${fontSize}px "Bricolage Grotesque", system-ui, sans-serif`;
+    g2d.font = `600 ${fontSize}px "Barlow Semi Condensed", system-ui, sans-serif`;
     for (let r = 0; r < ROWS; r++) {
       const top = rowTop(r);
       g2d.textAlign = "center";
@@ -904,12 +918,6 @@
         // C columns show their octave so you can find your way between rows
         if (cw > 18 || isRoot) g2d.fillText(isRoot ? noteName(midi) : NOTE_NAMES[midi % 12], i * cw + cw / 2, top + rh - 6);
       }
-      g2d.textAlign = "left";
-      g2d.fillStyle = muted;
-      g2d.textBaseline = "top";
-      g2d.fillText("Bright", 10, top + 8);
-      g2d.textBaseline = "bottom";
-      g2d.fillText("Dark", 10, top + rh - 24);
     }
 
     pointers.forEach(p => trail.push({ x: p.x * W, y: p.y * H, gi: p.gi, life: 1 }));

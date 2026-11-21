@@ -5,7 +5,7 @@ A browser synth played on an X/Y pad. X picks a note from the chosen scale, Y se
 ## Project shape
 
 - Everything lives in one self-contained HTML file (currently `xy-synth.html`; rename to `index.html` for GitHub Pages). CSS and JS are inline.
-- Keep it as a single file with no dependencies unless I ask otherwise. The only external resource is the Bricolage Grotesque font from Google Fonts, with a system font fallback.
+- Keep it as a single file with no dependencies unless I ask otherwise. The only external resource is the Barlow Semi Condensed font from Google Fonts, with a system font fallback.
 - A small version label (`<div class="version">`) sits bottom right so I can tell when a push has reached my phone. Bump it (v1.1, v1.2...) with every commit that changes the page.
 - To test, just open the file in a browser. Audio only starts after a user gesture (first pointerdown calls `ensureAudio()`), which browsers require.
 - GitHub Pages deploys from `main` only. Feature work goes on a branch and gets merged to `main` to test on the phone.
@@ -80,12 +80,13 @@ drums -> drumBus (Drums level) -> out          (no delay or reverb on drums)
 - Grid: press a step to toggle it and drag to paint that state across others (`paint`, `elementFromPoint`). Row labels audition the sound. `seq.queue` drives the playhead in `updateSeqUI()` on its own rAF loop.
 
 **Drawing**
-- A canvas redrawn every frame in `draw()`: each row gets alternating note columns (C columns marked stronger and labelled with their octave, e.g. C3), Bright/Dark hints drawn on the canvas, and a gap between rows. Held columns tinted, the sounding note brighter, a fading trail, and a glow per finger. Glow size grows as the filter opens. Hue runs across the pitch range via `hueFor()`.
+- A canvas redrawn every frame in `draw()`: each row gets alternating note columns (C columns marked stronger and labelled with their octave, e.g. C3), a soft vertical wash per row (`--row-bright` at the top fading to `--row-dark` at the bottom) that hints the filter is open at the top and closed at the bottom, and a gap between rows. Held columns tinted, the sounding note brighter, a fading trail, and a glow per finger. Glow size grows as the filter opens. Hue runs across the pitch range via `hueFor()`.
 - Canvas is sized to devicePixelRatio (capped at 2) through a ResizeObserver.
 - `prefers-reduced-motion` turns the trail off.
 
 ## Design and UI conventions
 
+- The palette is a desaturated, almost monochrome teal. The only strong colour is the per-note hue on the pad while playing (`hueFor()`), which stays as it is.
 - Colours are CSS custom properties on `:root`, with dark values under `prefers-color-scheme: dark` (guarded by `:root:not([data-theme="light"])`) and again under `:root[data-theme="dark"]`. Canvas colours are read from those tokens with `css()`, so add new colours as tokens, not hard-coded values.
 - Layout respects phone safe areas (`viewport-fit=cover` plus `env(safe-area-inset-*)` padding) and uses `height: 100%` rather than `100vh`. On phone widths (max 520px) the side margins drop from 16px to 8px to give the pad and beat grid more room.
 - Short landscape screens (`orientation: landscape` and `max-height: 540px`) use the phone layout above, and the beats view also puts patterns and the Drums panel in a column right of the grid so the steps get wider. Check both orientations after layout changes.
