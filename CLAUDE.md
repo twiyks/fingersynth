@@ -16,7 +16,7 @@ A browser synth played on an X/Y pad. X picks a note from the chosen scale, Y se
 All JS sits inside one IIFE. Main pieces, top to bottom:
 
 **Data**
-- `SCALES`: name plus semitone steps from the root. The pad has `ROWS = 2` stacked keyboards, each two octaves (`SPAN = 24`): bottom row C2 to C4 (`LOW = 36`), top row C4 to C6. `buildNotes()` fills `notes` with the bottom row's MIDI numbers in the current scale; each note is one column, and a higher row adds `row * SPAN`.
+- `SCALES`: name plus semitone steps from the root. The pad has `ROWS` stacked keyboards, each two octaves (`SPAN = 24`) from C2 (`LOW = 36`): 2 rows (to C6) on big screens, 3 rows (to C8) on phones. `ROWS` follows the `phoneMQ` media query and live pointers are remapped (`remapPointers()`) when it changes. `buildNotes()` fills `notes` with the bottom row's MIDI numbers in the current scale; each note is one column, and a higher row adds `row * SPAN`.
 - `PRESETS`: each sound is a list of oscillators (`type`, `oct` offset, `det` detune in cents, `g` gain) plus filter `q`, attack `atk`, release `rel` and vibrato depth `vib` in cents. To add a sound, add an entry here; the dropdown builds itself.
 - Filter cutoff maps exponentially from `CUT_MIN` (60 Hz) at the bottom of a row to `CUT_MAX` (14 kHz) at the top of that row via `cutoffFor(ly)`, so each row has its own full filter sweep.
 
@@ -57,6 +57,12 @@ drums -> drumBus (Drums level) -> out          (no delay or reverb on drums)
 **Top bar and views**
 - Under the header: a Synth / Beats icon switch (sets `body[data-view]`, CSS hides the other view), play/stop for the beats, and the master Tempo slider (60 to 200 BPM, `tempo()`). Beats keep playing while you're on the synth view.
 
+**Phone layout and menus**
+- On phones (`max-width: 520px`, or landscape with `max-height: 540px`; same query as `phoneMQ`) the header is hidden and the pad fills the screen. The top row holds the view switch, play, and icon buttons (`.menubtns`, each with `data-menu` naming its sheet): Scale, Sound, Delay and reverb, Arpeggio (synth view, `.synthonly`), Kit (beats view, `.beatsonly`), and Help. Tempo sits on its own full-width row below.
+- Each menu is a `.sheet` overlay (`openMenu()` / `closeMenu()`, one open at a time, `.scrim` behind it, Escape or tapping outside closes). The Delay/Reverb and Arpeggio sheets wrap the existing fx panels; on bigger screens they're `display: contents` so the panels sit in the `.fx` grid as before.
+- Scale, Sound and Kit sheets (`.listsheet`, phones only) are radio lists built from the header selects and kept in step with them; picking one sets the select and fires its `change` event.
+- Help sheet links to the XY Synth page on my portfolio site.
+
 **Drums and kits**
 - A Kit menu replaces Sound in beats view (`.kitctl`; `.soundctl` is hidden and `.scalectl` goes invisible but keeps its space). The choice is remembered in localStorage (`xysynth.kit`).
 - `DRUM_ROWS` is the fixed set of eight rows (bd sd cp rs lt ht ch oh). `KITS` maps each kit to a `play` function per row id: `k909` and `k808` are synthesised from shared helpers (`snare`, `clap`, `rim`, `tom`, `hat`, `closedHat`, `openHatHit`) with different settings. The 808 has a longer round kick, sine snare tones and noise-free hats. A closed hat chokes a ringing open hat via its own `choke` gain.
@@ -82,9 +88,9 @@ drums -> drumBus (Drums level) -> out          (no delay or reverb on drums)
 
 - Colours are CSS custom properties on `:root`, with dark values under `prefers-color-scheme: dark` (guarded by `:root:not([data-theme="light"])`) and again under `:root[data-theme="dark"]`. Canvas colours are read from those tokens with `css()`, so add new colours as tokens, not hard-coded values.
 - Layout respects phone safe areas (`viewport-fit=cover` plus `env(safe-area-inset-*)` padding) and uses `height: 100%` rather than `100vh`. On phone widths (max 520px) the side margins drop from 16px to 8px to give the pad and beat grid more room.
-- Short landscape screens (`orientation: landscape` and `max-height: 540px`) get their own layout: header and bar share one row, the synth view puts the fx panels in a scrolling column right of the pad, and the beats view puts patterns and Kit in a column right of the grid so the steps get wider. Check both orientations after layout changes.
+- Short landscape screens (`orientation: landscape` and `max-height: 540px`) use the phone layout above, and the beats view also puts patterns and the Drums panel in a column right of the grid so the steps get wider. Check both orientations after layout changes.
 - The pad uses `touch-action: none` and pointer capture per pointer. Keep that, or scrolling and gestures will fight the instrument.
-- Controls: selects for scale and sound, range inputs with a live `<output>` readout, a segmented radio group for arp direction. Keep focus-visible outlines on anything interactive.
+- Controls: selects for scale and sound (radio lists in overlay menus on phones), range inputs with a live `<output>` readout, a segmented radio group for arp direction. Keep focus-visible outlines on anything interactive.
 - UI copy should be short, plain and conversational. No marketing language, and avoid em dashes.
 
 ## Ideas I might pick up next

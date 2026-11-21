@@ -146,8 +146,11 @@
   .fxhead { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   @media (max-width: 1000px) {
     .fx { grid-template-columns: 1fr 1fr; }
-    .fx .fxgroup:first-child { grid-column: 1 / -1; }
+    .fx .delaygroup { grid-column: 1 / -1; }
   }
+  /* on bigger screens the menu wrappers vanish and their panels sit in the .fx grid as before */
+  .sheet { display: contents; }
+  .sheet.listsheet, .menubtns, .scrim { display: none; }
   .fxgroup {
     background: var(--field); border-radius: 14px; padding: 10px 14px 12px;
     display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 6px 16px;
@@ -164,7 +167,7 @@
     .fx { gap: 8px; }
     .fxgroup { padding: 8px 12px 10px; }
     .fxgroup h2 .sub { display: block; margin: 0; }
-    .fx .fxgroup:not(:first-child) { grid-template-columns: 1fr; }
+    .fx .fxgroup:not(.delaygroup) { grid-template-columns: 1fr; }
   }
   footer {
     display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--muted);
@@ -178,28 +181,50 @@
     font-size: 0.68rem; line-height: 1; color: var(--muted); pointer-events: none;
   }
   footer { display: none; } /* readouts hidden for now; delete this line to bring them back */
-  @media (max-width: 520px) {
-    header { grid-template-columns: 1fr 1fr; }
-    header h1 { display: none; }
-    /* tighter side margins on phones so the pad and beat steps get more width */
-    header { padding-left: 8px; padding-right: 8px; }
-    .bar, main { padding-left: 8px; padding-right: 8px; }
-    main { padding-bottom: 12px; }
+  /* phones, either way up: the pad fills the screen and every setting lives in a menu on the top row */
+  @media (max-width: 520px), (orientation: landscape) and (max-height: 540px) {
+    header { display: none; }
+    .bar { flex-wrap: wrap; padding: 10px 8px 8px; gap: 8px 6px; }
+    .seg.icons span { padding: 5px 9px; }
+    .menubtns { display: flex; gap: 4px; margin-left: auto; }
+    .tempo { flex: 1 0 100%; }
+    main { padding: 0 8px 12px; }
     .version { right: 10px; }
+    body[data-view="beats"] .synthonly, body:not([data-view="beats"]) .beatsonly { display: none; }
+
+    .fx { display: contents; }
+    .sheet, .sheet.listsheet { display: none; }
+    .sheet.open {
+      display: grid; gap: 8px; align-content: start;
+      position: fixed; z-index: 20; top: var(--sheet-top, 60px);
+      right: calc(8px + env(safe-area-inset-right, 0px));
+      width: min(440px, calc(100% - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+      max-height: calc(100% - var(--sheet-top, 60px) - 12px - env(safe-area-inset-bottom, 0px));
+      overflow-y: auto; overscroll-behavior: contain;
+      background: var(--bg); border: 1.5px solid var(--line); border-radius: 18px; padding: 8px;
+      box-shadow: 0 12px 32px rgb(0 0 0 / 0.25);
+    }
+    .sheet .fxgroup { grid-template-columns: 1fr; }   /* full-width sliders are easier to hit */
+    .scrim { display: block; position: fixed; inset: 0; z-index: 19; background: rgb(0 0 0 / 0.2); }
+    .scrim[hidden] { display: none; }
   }
-  /* phone on its side: header and bar share a row, controls move to a column on the right */
+  .helpgroup p { margin: 0; font-size: 0.9rem; line-height: 1.4; color: var(--muted); }
+  .helpgroup a { color: var(--hit); font-weight: 600; padding: 4px 0; }
+  .helpgroup a:focus-visible { outline: 3px solid var(--root); outline-offset: 2px; border-radius: 4px; }
+  .iconbtn { padding: 5px 7px; display: grid; place-items: center; }
+  .iconbtn svg { display: block; width: 20px; height: 20px; }
+  .iconbtn[aria-expanded="true"] { background: var(--hit); border-color: var(--hit); color: var(--bg); }
+  .list { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .list label { position: relative; }
+  .list input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .list span {
+    display: block; font-size: 0.9rem; font-weight: 600; color: var(--muted);
+    padding: 9px 12px; border-radius: 10px; background: var(--band);
+  }
+  .list input:checked + span { background: var(--control); color: var(--ink); box-shadow: 0 0 0 1.5px var(--hit); }
+  .list input:focus-visible + span { outline: 3px solid var(--root); outline-offset: 1px; }
+  /* phone on its side: the beats view puts patterns and Kit in a column right of the grid */
   @media (orientation: landscape) and (max-height: 540px) {
-    body { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-    header { grid-template-columns: auto auto; padding: 8px 0 8px 16px; gap: 8px; }
-    header h1, .ctl label { display: none; }
-    select { padding-top: 5px; padding-bottom: 5px; }
-    .bar { padding: 8px 16px; }
-    main { grid-column: 1 / -1; min-height: 0; padding-bottom: 12px; }
-
-    .synthview { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 38%); gap: 10px; }
-    .fx { grid-template-columns: 1fr; align-content: start; overflow-y: auto; min-height: 0; border-radius: 14px; }
-    .fx .fxgroup:first-child { grid-column: auto; }
-
     .beatsview { display: grid; grid-template-columns: minmax(0, 1fr) 210px; grid-template-rows: auto 1fr; gap: 8px 10px; }
     .grid { grid-row: 1 / -1; padding: 6px; }
     .beatsbar { flex-wrap: wrap; align-items: stretch; }
@@ -240,6 +265,26 @@
     <svg class="ico-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>
     <svg class="ico-stop" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
   </button>
+  <div class="menubtns">
+    <button class="btn iconbtn synthonly" data-menu="scaleMenu" aria-label="Scale" title="Scale" aria-haspopup="dialog" aria-expanded="false" aria-controls="scaleMenu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 13v7M15 13v7"/><path d="M7.5 4h3v9h-3zM13.5 4h3v9h-3z" fill="currentColor"/></svg>
+    </button>
+    <button class="btn iconbtn synthonly" data-menu="soundMenu" aria-label="Sound" title="Sound" aria-haspopup="dialog" aria-expanded="false" aria-controls="soundMenu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3" fill="currentColor"/><circle cx="17" cy="16" r="3" fill="currentColor"/></svg>
+    </button>
+    <button class="btn iconbtn synthonly" data-menu="fxMenu" aria-label="Delay and reverb" title="Delay and reverb" aria-haspopup="dialog" aria-expanded="false" aria-controls="fxMenu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="12" r="3" fill="currentColor" stroke="none"/><path d="M12 7a7 7 0 0 1 0 10" opacity=".8"/><path d="M16 4a11 11 0 0 1 0 16" opacity=".5"/></svg>
+    </button>
+    <button class="btn iconbtn synthonly" data-menu="arpMenu" aria-label="Arpeggio" title="Arpeggio" aria-haspopup="dialog" aria-expanded="false" aria-controls="arpMenu">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="4.5" cy="19" r="2.5"/><circle cx="9.5" cy="14" r="2.5"/><circle cx="14.5" cy="9" r="2.5"/><circle cx="19.5" cy="4" r="2.5"/></svg>
+    </button>
+    <button class="btn iconbtn beatsonly" data-menu="kitMenu" aria-label="Kit" title="Kit" aria-haspopup="dialog" aria-expanded="false" aria-controls="kitMenu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><ellipse cx="12" cy="10" rx="8" ry="3"/><path d="M4 10v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/><path d="M8 2.5l3 6M17 3l-4 5.5"/></svg>
+    </button>
+    <button class="btn iconbtn" data-menu="helpMenu" aria-label="Help" title="Help" aria-haspopup="dialog" aria-expanded="false" aria-controls="helpMenu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.2a2.8 2.8 0 1 1 3.9 2.6c-.8.4-1.2 1-1.2 1.8v.6"/><circle cx="12" cy="17.2" r="1.2" fill="currentColor" stroke="none"/></svg>
+    </button>
+  </div>
   <div class="tempo">
     <label for="tempo">Tempo</label>
     <input type="range" id="tempo" min="60" max="200" value="120">
@@ -253,7 +298,9 @@
     <div class="hint" id="hint">Drag anywhere to play</div>
   </div>
   <section class="fx">
-    <div class="fxgroup" style="--cols: 3">
+    <!-- on phones each .sheet is an overlay menu; on bigger screens the wrappers vanish (display: contents) -->
+    <div class="sheet" id="fxMenu" role="dialog" aria-label="Delay and reverb">
+    <div class="fxgroup delaygroup" style="--cols: 3">
       <div class="fxhead">
         <h2>Delay</h2>
         <div class="seg small" role="radiogroup" aria-label="Delay time units">
@@ -285,6 +332,8 @@
         <input type="range" id="rMix" min="0" max="100" value="25">
       </div>
     </div>
+    </div>
+    <div class="sheet" id="arpMenu" role="dialog" aria-label="Arpeggio">
     <div class="fxgroup arpgroup" style="--cols: 1">
       <h2>Arpeggio <span class="sub">hold two or more notes</span></h2>
       <div class="slider">
@@ -297,8 +346,27 @@
         <label><input type="radio" name="aDir" value="random"><span>Random</span></label>
       </div>
     </div>
+    </div>
   </section>
   </div>
+  <!-- phone menus for the header dropdowns; filled from the selects so the two stay in step -->
+  <div class="sheet listsheet" id="scaleMenu" role="dialog" aria-label="Scale">
+    <div class="fxgroup" style="--cols: 1"><h2>Scale</h2><div class="list" role="radiogroup" aria-label="Scale" data-for="scale"></div></div>
+  </div>
+  <div class="sheet listsheet" id="soundMenu" role="dialog" aria-label="Sound">
+    <div class="fxgroup" style="--cols: 1"><h2>Sound</h2><div class="list" role="radiogroup" aria-label="Sound" data-for="preset"></div></div>
+  </div>
+  <div class="sheet listsheet" id="kitMenu" role="dialog" aria-label="Kit">
+    <div class="fxgroup" style="--cols: 1"><h2>Kit</h2><div class="list" role="radiogroup" aria-label="Kit" data-for="kit"></div></div>
+  </div>
+  <div class="sheet listsheet" id="helpMenu" role="dialog" aria-label="Help">
+    <div class="fxgroup helpgroup" style="--cols: 1">
+      <h2>Help</h2>
+      <p>Slide left and right for pitch, up and down for the filter. Hold two or more notes to run the arpeggio.</p>
+      <a href="https://www.davewatson.co.uk/projects/xy-synth" target="_blank" rel="noopener">More about XY Synth on my site</a>
+    </div>
+  </div>
+  <div class="scrim" id="scrim" hidden></div>
   <section class="beatsview" aria-label="Beats">
     <div class="beatsbar">
       <div class="seg pats" role="radiogroup" aria-label="Pattern" id="pats"></div>
@@ -324,7 +392,7 @@
     <span>Filter <strong id="cutOut">–</strong></span>
   </footer>
 </main>
-<div class="version">v2.0</div>
+<div class="version">v2.1</div>
 
 <script>
 (() => {
@@ -357,7 +425,9 @@
 
   const NOTE_NAMES = ["C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B"];
   const LOW = 36, SPAN = 24;             // each row covers two octaves from C2
-  const ROWS = 2;                        // stacked keyboards: bottom C2 to C4, top C4 to C6
+  // stacked keyboards, two octaves each from C2: two rows (to C6) on big screens, three (to C8) on phones
+  const phoneMQ = matchMedia("(max-width: 520px), (orientation: landscape) and (max-height: 540px)");
+  let ROWS = phoneMQ.matches ? 3 : 2;
   const CUT_MIN = 60, CUT_MAX = 14000;
 
   const scaleSel = document.getElementById("scale");
@@ -763,15 +833,17 @@
   canvas.addEventListener("pointerup", release);
   canvas.addEventListener("pointercancel", release);
 
-  scaleSel.addEventListener("change", () => {
-    buildNotes();
+  // the keyboard layout changed under the fingers: work out their notes again
+  function remapPointers() {
     pointers.forEach(mapPointer);
     if (pointers.size === 1) {
       const only = [...pointers.values()][0];
       updateVoice(only.midi, cutoff); sounding = only.midi;
     }
     showReadout();
-  });
+  }
+  scaleSel.addEventListener("change", () => { buildNotes(); remapPointers(); });
+  phoneMQ.addEventListener("change", () => { ROWS = phoneMQ.matches ? 3 : 2; remapPointers(); });
   presetSel.addEventListener("change", () => {
     if (voice && pointers.size === 1) {
       stopVoice(voice);
@@ -1271,8 +1343,55 @@
   }
   (function seqUILoop() { updateSeqUI(); requestAnimationFrame(seqUILoop); })();
 
+  // ---------- phone menus ----------
+  // scale, sound and kit lists mirror their header selects, so either one can drive the change
+  document.querySelectorAll(".list[data-for]").forEach(list => {
+    const sel = $(list.dataset.for);
+    const name = "menu-" + sel.id;
+    [...sel.options].forEach(o => {
+      const lab = document.createElement("label");
+      lab.innerHTML = `<input type="radio" name="${name}" value="${o.value}"><span>${o.text}</span>`;
+      lab.querySelector("input").addEventListener("change", () => {
+        sel.value = o.value;
+        sel.dispatchEvent(new Event("change"));
+        closeMenu();
+      });
+      list.append(lab);
+    });
+    const sync = () => { list.querySelector(`input[value="${sel.value}"]`).checked = true; };
+    sel.addEventListener("change", sync); sync();
+  });
+
+  const scrim = $("scrim");
+  const menuBtns = document.querySelectorAll("[data-menu]");
+  let openMenuBtn = null;
+  function closeMenu() {
+    if (!openMenuBtn) return;
+    $(openMenuBtn.dataset.menu).classList.remove("open");
+    openMenuBtn.setAttribute("aria-expanded", "false");
+    scrim.hidden = true;
+    openMenuBtn = null;
+  }
+  function openMenu(btn) {
+    closeMenu();
+    const sheet = $(btn.dataset.menu);
+    // drop the menu just below the top row of buttons
+    sheet.style.setProperty("--sheet-top", btn.getBoundingClientRect().bottom + 6 + "px");
+    sheet.classList.add("open");
+    btn.setAttribute("aria-expanded", "true");
+    scrim.hidden = false;
+    openMenuBtn = btn;
+    (sheet.querySelector("input:checked") || sheet.querySelector("input, a"))?.focus({ preventScroll: true });
+  }
+  menuBtns.forEach(btn => btn.addEventListener("click", () => openMenuBtn === btn ? closeMenu() : openMenu(btn)));
+  scrim.addEventListener("click", closeMenu);
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && openMenuBtn) { const b = openMenuBtn; closeMenu(); b.focus(); }
+  });
+  phoneMQ.addEventListener("change", closeMenu);
+
   document.querySelectorAll('input[name="view"]').forEach(r =>
-    r.addEventListener("change", () => { document.body.dataset.view = r.value; }));
+    r.addEventListener("change", () => { document.body.dataset.view = r.value; closeMenu(); }));
 
   // ---------- readouts ----------
   const tempoOut = () => $("tempoOut").textContent = tempo() + " BPM";
