@@ -76,10 +76,17 @@
   select:focus-visible { outline: 3px solid var(--root); outline-offset: 2px; }
   main { flex: 1; min-height: 0; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 8px; }
 
-  /* top bar: view switch, play, master tempo */
+  /* top bar: view tabs, play, arp, hold, pad or steps, master tempo. On bigger screens the rows run together on one line */
   .bar { display: flex; align-items: center; gap: 10px; padding: 0 16px 10px; }
+  .barrow { display: contents; }
   .seg.icons span { padding: 5px 14px; }
   .seg.icons svg { display: block; width: 20px; height: 20px; }
+  .seg.icons span.num { line-height: 20px; font-size: 0.95rem; font-weight: 800; min-width: 1.2em; }
+  /* a dot on a synth's tab while its arp is held */
+  .seg.views label.busy::after {
+    content: ""; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--hit); pointer-events: none;
+  }
   .btn {
     font: inherit; font-size: 0.82rem; font-weight: 600; color: var(--ink);
     background: var(--control); border: 1.5px solid var(--line); border-radius: 10px;
@@ -88,30 +95,29 @@
   .btn:focus-visible, .rowlab:focus-visible, .cell:focus-visible { outline: 3px solid var(--root); outline-offset: 1px; }
   .playbtn { padding: 5px 10px; display: grid; place-items: center; }
   .playbtn svg { display: block; width: 18px; height: 18px; }
-  /* arp hold: fills from the left while the notes count up, solid once held */
-  .holdbtn {
-    padding: 5px 10px; display: grid; place-items: center;
-    background: linear-gradient(to right, var(--hit) calc(var(--fill, 0) * 100%), var(--control) 0);
-  }
-  .holdbtn:disabled { cursor: default; }
-  .holdbtn svg { display: block; width: 18px; height: 18px; }
-  .holdbtn.held { background: var(--hit); border-color: var(--hit); color: var(--bg); }
-  .playbtn[aria-pressed="true"] { background: var(--hit); border-color: var(--hit); color: var(--bg); }
+  .playbtn[aria-pressed="true"], .togglebtn[aria-pressed="true"] { background: var(--hit); border-color: var(--hit); color: var(--bg); }
   .playbtn[aria-pressed="true"] .ico-play, .playbtn:not([aria-pressed="true"]) .ico-stop { display: none; }
+  /* arp hold: always takes its space so nothing moves; fills from the left while the notes count up, solid once held */
+  .holdbtn { background: linear-gradient(to right, var(--hit) calc(var(--fill, 0) * 100%), var(--control) 0); }
+  .holdbtn.off { visibility: hidden; }
+  .holdbtn:disabled { cursor: default; }
+  .holdbtn.held { background: var(--hit); border-color: var(--hit); color: var(--bg); }
   .tempo { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--muted); }
   .tempo input { margin: 0; flex: 1; min-width: 0; }
   .tempo output { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 4.6em; text-align: right; }
 
-  /* the two views */
+  /* the views: a synth (pad or steps) or the beats */
   .synthview, .beatsview { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
   body[data-view="beats"] .synthview, body:not([data-view="beats"]) .beatsview { display: none; }
+  body[data-view="beats"] .synthonly, body:not([data-view="beats"]) .beatsonly { display: none; }
+  body[data-mode="steps"] .padonly, body:not([data-mode="steps"]) .stepsonly { display: none; }
   /* beats view swaps Sound for Kit; Scale is hidden but keeps its space so the header doesn't shift */
   body[data-view="beats"] .soundctl, body:not([data-view="beats"]) .kitctl { display: none; }
   body[data-view="beats"] .scalectl { visibility: hidden; }
   .btn[hidden] { display: none; }
   .btn.wanted { background: var(--hit); border-color: var(--hit); color: var(--bg); }
 
-  /* step sequencer */
+  /* step grids: the drums, and a synth in Steps mode */
   .beatsbar { display: flex; gap: 8px; align-items: center; }
   .seg.pats { flex: 1; }
   .seg.pats span { padding: 4px 0; }
@@ -124,15 +130,23 @@
     grid-template-rows: repeat(8, minmax(0, 1fr));
     background: var(--field); border-radius: 14px; padding: 6px;
   }
+  .grid.sgrid { grid-template-columns: 2rem repeat(16, minmax(0, 1fr)); grid-template-rows: repeat(var(--rows, 11), minmax(0, 1fr)); gap: 2px; }
   .rowlab {
     font: inherit; font-size: 0.62rem; font-weight: 800; color: var(--muted);
     background: none; border: 0; border-radius: 6px; padding: 0; cursor: pointer;
   }
+  .sgrid .rowlab { font-weight: 600; }
+  .sgrid .rowlab.root { color: var(--ink); font-weight: 800; }
   .cell { border: 0; padding: 0; min-width: 0; border-radius: 4px; background: var(--control); cursor: pointer; }
   .cell.alt { background: var(--bg); }
   .cell.now { background: var(--line); }
   .cell.on { background: var(--hit); }
   .cell.on.now { background: var(--hit-now); }
+  .synthseq { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+  .octctl { display: flex; align-items: center; gap: 4px; }
+  .octctl .btn { padding: 5px 10px; }
+  .octctl .btn:disabled { opacity: 0.4; cursor: default; }
+  .octctl output { min-width: 2em; text-align: center; font-size: 0.82rem; font-weight: 600; }
   .padwrap { position: relative; flex: 1; min-height: 0; border-radius: 18px; overflow: hidden; background: var(--field); }
   canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
   .hint {
@@ -143,12 +157,13 @@
   .hint.gone { opacity: 0; }
   /* panels under the pad (synth) and under the grid (beats), placed by name */
   .fx {
-    display: grid; gap: 10px; grid-template-columns: 3fr 2fr 2fr;
-    grid-template-areas: "env env arp" "delay rev dist";
+    display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-areas: "env env filt dist" "delay delay rev arp";
   }
   .fx.drumfx { grid-template-columns: 2fr 3fr 2fr 2fr; grid-template-areas: "drums delay rev dist"; }
-  .envgroup { grid-area: env; } .arpgroup { grid-area: arp; } .drumsgroup { grid-area: drums; }
+  .envgroup { grid-area: env; } .filtgroup { grid-area: filt; } .arpgroup { grid-area: arp; } .drumsgroup { grid-area: drums; }
   .delaygroup { grid-area: delay; } .revgroup { grid-area: rev; } .distgroup { grid-area: dist; }
+  .arpgroup .seg { grid-column: 1 / -1; }
   .fxgroup h2 .sub { font-weight: 400; font-size: 0.78rem; color: var(--muted); margin-left: 6px; }
   .seg { display: flex; gap: 4px; background: var(--band); border-radius: 10px; padding: 3px; }
   .seg label { flex: 1; position: relative; }
@@ -161,9 +176,9 @@
   .seg input:focus-visible + span { outline: 3px solid var(--root); outline-offset: 1px; }
   .seg.small { padding: 2px; }
   .seg.small span { font-size: 0.75rem; padding: 2px 9px; }
+  .seg.modes span { padding: 4px 10px; }
   .fxhead { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   @media (max-width: 1000px) {
-    .fx { grid-template-columns: 1fr 1fr; grid-template-areas: "env arp" "delay delay" "rev dist"; }
     .fx.drumfx { grid-template-columns: 1fr 1fr; grid-template-areas: "drums drums" "delay delay" "rev dist"; }
   }
   /* on bigger screens the menu wrappers vanish and their panels sit in the .fx grid as before */
@@ -183,7 +198,7 @@
   input[type="range"] { width: 100%; margin: 4px 0 0; accent-color: var(--root); cursor: pointer; }
   input[type="range"]:focus-visible { outline: 3px solid var(--root); outline-offset: 3px; border-radius: 4px; }
   @media (max-width: 700px) {
-    .fx { gap: 8px; }
+    .fx { gap: 8px; grid-template-columns: 1fr 1fr; grid-template-areas: "env env" "filt dist" "delay delay" "rev arp"; }
     .fxgroup { padding: 8px 12px 10px; }
     .fxgroup h2 .sub { display: block; margin: 0; }
     .fx .fxgroup:not(.delaygroup) { grid-template-columns: 1fr; }
@@ -201,17 +216,17 @@
     font-size: 0.68rem; line-height: 1; color: var(--muted); pointer-events: none;
   }
   footer { display: none; } /* readouts hidden for now; delete this line to bring them back */
-  /* phones, either way up: the pad fills the screen and every setting lives in a menu on the top row */
+  /* phones, either way up: the pad fills the screen and every setting lives in a menu.
+     The top bar is two fixed rows of buttons, then tempo */
   @media (max-width: 520px), (orientation: landscape) and (max-height: 540px) {
     header { display: none; }
-    .bar { flex-wrap: wrap; padding: 10px 8px 8px; gap: 8px 6px; }
+    .bar { flex-direction: column; align-items: stretch; padding: 10px 8px 8px; gap: 8px; }
+    .barrow { display: flex; align-items: center; gap: 6px; }
     .seg.icons span { padding: 5px 8px; }
     .menubtns { display: flex; gap: 3px; margin-left: auto; }
     .menubtns .iconbtn { padding: 5px 6px; }
-    .tempo { flex: 1 0 100%; }
     main { padding: 0 8px 12px; }
     .version { right: 10px; }
-    body[data-view="beats"] .synthonly, body:not([data-view="beats"]) .beatsonly { display: none; }
 
     .fx { display: contents; }
     .sheet, .sheet.listsheet { display: none; }
@@ -247,14 +262,18 @@
   }
   .list input:checked + span { background: var(--control); color: var(--ink); box-shadow: 0 0 0 1.5px var(--hit); }
   .list input:focus-visible + span { outline: 3px solid var(--root); outline-offset: 1px; }
-  /* phone on its side: the beats view puts patterns and Kit in a column right of the grid */
+  /* phone on its side: the two button rows share one line, and the beats view puts patterns and Kit
+     in a column right of the grid */
   @media (orientation: landscape) and (max-height: 540px) {
+    .bar { flex-direction: row; flex-wrap: wrap; align-items: center; }
+    .barrow + .barrow { flex: 1; }
+    .tempo { flex: 1 0 100%; }
     .beatsview { display: grid; grid-template-columns: minmax(0, 1fr) 210px; grid-template-rows: auto 1fr; gap: 8px 10px; }
-    .grid { grid-row: 1 / -1; padding: 6px; }
-    .beatsbar { flex-wrap: wrap; align-items: stretch; }
-    .seg.pats { flex: 1 0 100%; flex-wrap: wrap; }
-    .seg.pats label { flex: 1 0 20%; }
-    .beatsbar .btn { flex: 1; }
+    .beatsview .grid { grid-row: 1 / -1; padding: 6px; }
+    .beatsview .beatsbar { flex-wrap: wrap; align-items: stretch; }
+    .beatsview .seg.pats { flex: 1 0 100%; flex-wrap: wrap; }
+    .beatsview .seg.pats label { flex: 1 0 20%; }
+    .beatsview .beatsbar .btn { flex: 1; }
     .beatsview .fxgroup { align-self: start; grid-template-columns: 1fr; }
   }
   @media (prefers-reduced-motion: reduce) { .hint { transition: none; } }
@@ -277,44 +296,51 @@
   </div>
 </header>
 <nav class="bar">
-  <div class="seg icons" role="radiogroup" aria-label="View">
-    <label title="Synth"><input type="radio" name="view" value="synth" aria-label="Synth" checked><span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M2 12C5 3 8 3 12 12S19 21 22 12"/></svg>
-    </span></label>
-    <label title="Beats"><input type="radio" name="view" value="beats" aria-label="Beats"><span>
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>
-    </span></label>
+  <div class="barrow">
+    <div class="seg icons views" role="radiogroup" aria-label="View">
+      <label title="Synth 1" id="tab0"><input type="radio" name="view" value="0" aria-label="Synth 1" checked><span class="num">1</span></label>
+      <label title="Synth 2" id="tab1"><input type="radio" name="view" value="1" aria-label="Synth 2"><span class="num">2</span></label>
+      <label title="Synth 3" id="tab2"><input type="radio" name="view" value="2" aria-label="Synth 3"><span class="num">3</span></label>
+      <label title="Beats"><input type="radio" name="view" value="beats" aria-label="Beats"><span>
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>
+      </span></label>
+    </div>
+    <button class="btn playbtn" id="play" aria-pressed="false" aria-label="Play beats">
+      <svg class="ico-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>
+      <svg class="ico-stop" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+    </button>
+    <button class="btn togglebtn synthonly padonly" id="arpOn" aria-pressed="true" title="Arpeggio on or off. Off, fingers play chords">Arp</button>
+    <!-- fills while a held set of notes counts up, solid once the arp is held; tap to stop the arp -->
+    <button class="btn holdbtn padonly off" id="arpHold" disabled aria-label="Stop the held arpeggio" title="Arpeggio held. Tap to stop">Hold</button>
   </div>
-  <button class="btn playbtn" id="play" aria-pressed="false" aria-label="Play beats">
-    <svg class="ico-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>
-    <svg class="ico-stop" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-  </button>
-  <!-- shows while a held set of notes counts up, and stays once the arp is held; tap to stop the arp -->
-  <button class="btn holdbtn" id="arpHold" hidden disabled aria-label="Stop the held arpeggio" title="Arpeggio held. Tap to stop">
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="4.5" cy="19" r="2.5"/><circle cx="9.5" cy="14" r="2.5"/><circle cx="14.5" cy="9" r="2.5"/><circle cx="19.5" cy="4" r="2.5"/></svg>
-  </button>
-  <div class="menubtns">
-    <button class="btn iconbtn synthonly" data-menu="scaleMenu" aria-label="Scale" title="Scale" aria-haspopup="dialog" aria-expanded="false" aria-controls="scaleMenu">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 13v7M15 13v7"/><path d="M7.5 4h3v9h-3zM13.5 4h3v9h-3z" fill="currentColor"/></svg>
-    </button>
-    <button class="btn iconbtn synthonly" data-menu="soundMenu" aria-label="Sound" title="Sound" aria-haspopup="dialog" aria-expanded="false" aria-controls="soundMenu">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3" fill="currentColor"/><circle cx="17" cy="16" r="3" fill="currentColor"/></svg>
-    </button>
-    <button class="btn iconbtn synthonly" data-menu="fxMenu" aria-label="Effects" title="Effects" aria-haspopup="dialog" aria-expanded="false" aria-controls="fxMenu">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="12" r="3" fill="currentColor" stroke="none"/><path d="M12 7a7 7 0 0 1 0 10" opacity=".8"/><path d="M16 4a11 11 0 0 1 0 16" opacity=".5"/></svg>
-    </button>
-    <button class="btn iconbtn beatsonly" data-menu="drumFxMenu" aria-label="Drum effects" title="Drum effects" aria-haspopup="dialog" aria-expanded="false" aria-controls="drumFxMenu">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="12" r="3" fill="currentColor" stroke="none"/><path d="M12 7a7 7 0 0 1 0 10" opacity=".8"/><path d="M16 4a11 11 0 0 1 0 16" opacity=".5"/></svg>
-    </button>
-    <button class="btn iconbtn synthonly" data-menu="arpMenu" aria-label="Arpeggio" title="Arpeggio" aria-haspopup="dialog" aria-expanded="false" aria-controls="arpMenu">
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="4.5" cy="19" r="2.5"/><circle cx="9.5" cy="14" r="2.5"/><circle cx="14.5" cy="9" r="2.5"/><circle cx="19.5" cy="4" r="2.5"/></svg>
-    </button>
-    <button class="btn iconbtn beatsonly" data-menu="kitMenu" aria-label="Kit" title="Kit" aria-haspopup="dialog" aria-expanded="false" aria-controls="kitMenu">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><ellipse cx="12" cy="10" rx="8" ry="3"/><path d="M4 10v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/><path d="M8 2.5l3 6M17 3l-4 5.5"/></svg>
-    </button>
-    <button class="btn iconbtn" data-menu="helpMenu" aria-label="Help" title="Help" aria-haspopup="dialog" aria-expanded="false" aria-controls="helpMenu">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.2a2.8 2.8 0 1 1 3.9 2.6c-.8.4-1.2 1-1.2 1.8v.6"/><circle cx="12" cy="17.2" r="1.2" fill="currentColor" stroke="none"/></svg>
-    </button>
+  <div class="barrow">
+    <div class="seg small modes synthonly" role="radiogroup" aria-label="Play with">
+      <label><input type="radio" name="mode" value="pad" checked><span>Pad</span></label>
+      <label><input type="radio" name="mode" value="steps"><span>Steps</span></label>
+    </div>
+    <div class="menubtns">
+      <button class="btn iconbtn synthonly" data-menu="scaleMenu" aria-label="Scale" title="Scale" aria-haspopup="dialog" aria-expanded="false" aria-controls="scaleMenu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 13v7M15 13v7"/><path d="M7.5 4h3v9h-3zM13.5 4h3v9h-3z" fill="currentColor"/></svg>
+      </button>
+      <button class="btn iconbtn synthonly" data-menu="soundMenu" aria-label="Sound" title="Sound" aria-haspopup="dialog" aria-expanded="false" aria-controls="soundMenu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3" fill="currentColor"/><circle cx="17" cy="16" r="3" fill="currentColor"/></svg>
+      </button>
+      <button class="btn iconbtn synthonly" data-menu="fxMenu" aria-label="Effects" title="Effects" aria-haspopup="dialog" aria-expanded="false" aria-controls="fxMenu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="12" r="3" fill="currentColor" stroke="none"/><path d="M12 7a7 7 0 0 1 0 10" opacity=".8"/><path d="M16 4a11 11 0 0 1 0 16" opacity=".5"/></svg>
+      </button>
+      <button class="btn iconbtn synthonly padonly" data-menu="arpMenu" aria-label="Arpeggio settings" title="Arpeggio settings" aria-haspopup="dialog" aria-expanded="false" aria-controls="arpMenu">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="4.5" cy="19" r="2.5"/><circle cx="9.5" cy="14" r="2.5"/><circle cx="14.5" cy="9" r="2.5"/><circle cx="19.5" cy="4" r="2.5"/></svg>
+      </button>
+      <button class="btn iconbtn beatsonly" data-menu="drumFxMenu" aria-label="Drum effects" title="Drum effects" aria-haspopup="dialog" aria-expanded="false" aria-controls="drumFxMenu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="12" r="3" fill="currentColor" stroke="none"/><path d="M12 7a7 7 0 0 1 0 10" opacity=".8"/><path d="M16 4a11 11 0 0 1 0 16" opacity=".5"/></svg>
+      </button>
+      <button class="btn iconbtn beatsonly" data-menu="kitMenu" aria-label="Kit" title="Kit" aria-haspopup="dialog" aria-expanded="false" aria-controls="kitMenu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><ellipse cx="12" cy="10" rx="8" ry="3"/><path d="M4 10v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/><path d="M8 2.5l3 6M17 3l-4 5.5"/></svg>
+      </button>
+      <button class="btn iconbtn" data-menu="helpMenu" aria-label="Help" title="Help" aria-haspopup="dialog" aria-expanded="false" aria-controls="helpMenu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.2a2.8 2.8 0 1 1 3.9 2.6c-.8.4-1.2 1-1.2 1.8v.6"/><circle cx="12" cy="17.2" r="1.2" fill="currentColor" stroke="none"/></svg>
+      </button>
+    </div>
   </div>
   <div class="tempo">
     <label for="tempo">Tempo</label>
@@ -324,9 +350,22 @@
 </nav>
 <main>
   <div class="synthview">
-  <div class="padwrap">
+  <div class="padwrap padonly">
     <canvas id="pad" aria-label="Play area. Drag left and right to change pitch, up and down to open or close the filter."></canvas>
     <div class="hint" id="hint">Drag anywhere to play</div>
+  </div>
+  <!-- Steps mode: a note grid for the synth on screen, played in time with the beats -->
+  <div class="synthseq stepsonly">
+    <div class="beatsbar">
+      <div class="seg pats" role="radiogroup" aria-label="Pattern" id="spats"></div>
+      <div class="octctl">
+        <button class="btn" id="octDown" aria-label="Octave down">−</button>
+        <output id="octOut" title="Lowest note"></output>
+        <button class="btn" id="octUp" aria-label="Octave up">+</button>
+      </div>
+      <button class="btn" id="sClear">Clear</button>
+    </div>
+    <div class="grid sgrid" id="sgrid"></div>
   </div>
   <section class="fx">
     <!-- on phones each .sheet is an overlay menu; on bigger screens the wrappers vanish (display: contents) -->
@@ -351,11 +390,23 @@
           <input type="range" id="envR" min="0" max="100">
         </div>
       </div>
+      <div class="fxgroup filtgroup" style="--cols: 2">
+        <h2>Filter <span class="sub padonly">Cutoff is the top of the pad</span></h2>
+        <div class="slider">
+          <div class="top"><label for="fCut">Cutoff</label><output id="fCutOut"></output></div>
+          <input type="range" id="fCut" min="0" max="100">
+        </div>
+        <div class="slider">
+          <div class="top"><label for="fRes">Resonance</label><output id="fResOut"></output></div>
+          <input type="range" id="fRes" min="0" max="100">
+        </div>
+      </div>
+      <!-- the Distortion panel is added here by distHTML() -->
     </div>
-    <!-- distortion, delay and reverb panels are built by rackHTML(), the same for the synth and the drums -->
+    <!-- delay and reverb panels are built by delayRevHTML(), the same for the synths and the drums -->
     <div class="sheet" id="fxMenu" role="dialog" aria-label="Effects"></div>
-    <div class="sheet" id="arpMenu" role="dialog" aria-label="Arpeggio">
-    <div class="fxgroup arpgroup" style="--cols: 1">
+    <div class="sheet padonly" id="arpMenu" role="dialog" aria-label="Arpeggio settings">
+    <div class="fxgroup arpgroup" style="--cols: 2">
       <h2>Arpeggio <span class="sub">play two or more notes</span></h2>
       <div class="slider">
         <div class="top"><label for="aRate">Rate</label><output id="aRateOut"></output></div>
@@ -384,8 +435,9 @@
   <div class="sheet listsheet" id="helpMenu" role="dialog" aria-label="Help">
     <div class="fxgroup helpgroup" style="--cols: 1">
       <h2>Help</h2>
-      <p>Slide left and right for pitch, up and down for the filter. Hold two or more notes to run the arpeggio.</p>
-      <p>Keep the same notes down for a couple of seconds and the arpeggio holds, so you can let go and change the sound. Tap the arpeggio button next to play to stop it.</p>
+      <p>Slide left and right for pitch, up and down for the filter. With Arp on, two or more notes run the arpeggio. With it off, they play as a chord.</p>
+      <p>Keep the same notes down for a couple of seconds and the arpeggio holds, so you can let go and change the sound. Tap Hold to stop it.</p>
+      <p>Each of the three synths has its own sound, scale and effects. Switch one to Steps to write a pattern that plays along with the beats.</p>
       <a href="https://www.davewatson.co.uk/projects/xy-synth" target="_blank" rel="noopener">More about XY Synth on my site</a>
     </div>
   </div>
@@ -410,7 +462,7 @@
           <input type="range" id="kSwing" min="50" max="75" value="50">
         </div>
       </div>
-      <!-- filled by rackHTML(), like the synth's effects -->
+      <!-- filled by distHTML() and delayRevHTML(), like the synths' -->
       <div class="sheet" id="drumFxMenu" role="dialog" aria-label="Drum effects"></div>
     </section>
   </section>
@@ -419,7 +471,7 @@
     <span>Filter <strong id="cutOut">–</strong></span>
   </footer>
 </main>
-<div class="version">v2.5</div>
+<div class="version">v2.6</div>
 
 <script>
 (() => {
@@ -435,7 +487,8 @@
     chromatic:  { name: "Chromatic",        steps: [0,1,2,3,4,5,6,7,8,9,10,11] }
   };
 
-  // atk, dec, rel in seconds and sus 0 to 1 are each sound's starting envelope; the Envelope sliders take over from there
+  // q is the filter resonance; atk, dec, rel in seconds and sus 0 to 1 are the starting envelope.
+  // Picking a sound loads these into the Sound panel, and the sliders take over from there
   const PRESETS = {
     soft:     { name: "Soft sine", q: 0.8, atk: 0.04, dec: 0.3, sus: 1, rel: 0.5, vib: 6,
                 oscs: [{type:"sine", g:0.55}, {type:"triangle", oct:-1, g:0.3}] },
@@ -452,70 +505,41 @@
   };
 
   const NOTE_NAMES = ["C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B"];
-  const LOW = 36, SPAN = 24;             // each row covers two octaves from C2
+  const LOW = 36, SPAN = 24;             // each pad row covers two octaves from C2
   // stacked keyboards, two octaves each from C2: two rows (to C6) on big screens, three (to C8) on phones
   const phoneMQ = matchMedia("(max-width: 520px), (orientation: landscape) and (max-height: 540px)");
   let ROWS = phoneMQ.matches ? 3 : 2;
-  const CUT_MIN = 60, CUT_MAX = 14000;
-
-  const scaleSel = document.getElementById("scale");
-  const presetSel = document.getElementById("preset");
-  for (const [k, s] of Object.entries(SCALES)) scaleSel.add(new Option(s.name, k));
-  for (const [k, p] of Object.entries(PRESETS)) presetSel.add(new Option(p.name, k));
-  scaleSel.value = "minPenta";
-  presetSel.value = "warm";
-
-  let notes = [];
-  function buildNotes() {
-    const steps = SCALES[scaleSel.value].steps;
-    notes = [];
-    for (let m = LOW; m <= LOW + SPAN; m++) {
-      if (steps.includes((m - LOW) % 12)) notes.push(m);
-    }
-  }
-  buildNotes();
-
-  const midiToHz = m => 440 * Math.pow(2, (m - 69) / 12);
-  const noteName = m => NOTE_NAMES[m % 12] + (Math.floor(m / 12) - 1);
-
-  // ---------- audio ----------
-  let ctx = null, master = null, voice = null;
-  let drumBus = null, noiseBuf = null;
+  const CUT_MIN = 60, CUT_MAX = 14000;   // the pad's filter range at the bottom and top of a row (top follows Cutoff)
+  const CUT_LOW = 100;                   // the Cutoff slider runs from here up to CUT_MAX, exponentially
+  const cutFromSlider = v => CUT_LOW * Math.pow(CUT_MAX / CUT_LOW, v / 100);
+  const cutToSlider = f => Math.round(100 * Math.log(f / CUT_LOW) / Math.log(CUT_MAX / CUT_LOW));
+  const RES_SCALE = 5;                   // Resonance slider 0 to 100 is a filter Q of 0 to 20
 
   const $ = id => document.getElementById(id);
   const tempo = () => Number($("tempo").value);         // master tempo, BPM
   const fmtTime = s => s < 1 ? Math.round(s * 1000) + " ms" : s.toFixed(1) + " s";
+  const fmtHz = f => f >= 1000 ? (f / 1000).toFixed(1) + " kHz" : Math.round(f) + " Hz";
+  const midiToHz = m => 440 * Math.pow(2, (m - 69) / 12);
+  const noteName = m => NOTE_NAMES[m % 12] + (Math.floor(m / 12) - 1);
 
-  // ---------- envelope ----------
-  // attack, decay, sustain, release. Picking a sound loads its own envelope; the sliders change it from there.
-  // The time sliders run 0 to 100 and map exponentially, so short times get most of the travel
-  const ENV_TIMES = { envA: [0.002, 3], envD: [0.02, 4], envR: [0.02, 6] };    // [shortest, longest] in seconds
-  const env = { a: 0.01, d: 0.3, s: 1, r: 0.3 };
-  const sliderToSec = id => { const [lo, hi] = ENV_TIMES[id]; return lo * Math.pow(hi / lo, $(id).value / 100); };
-  const secToSlider = (id, sec) => { const [lo, hi] = ENV_TIMES[id]; return Math.round(100 * Math.log(sec / lo) / Math.log(hi / lo)); };
-  function showEnv() {
-    $("envAOut").textContent = fmtTime(env.a);
-    $("envDOut").textContent = fmtTime(env.d);
-    $("envSOut").textContent = Math.round(env.s * 100) + "%";
-    $("envROut").textContent = fmtTime(env.r);
-  }
-  function loadEnv() {
-    const p = PRESETS[presetSel.value];
-    Object.assign(env, { a: p.atk, d: p.dec, s: p.sus, r: p.rel });
-    $("envA").value = secToSlider("envA", env.a);
-    $("envD").value = secToSlider("envD", env.d);
-    $("envS").value = Math.round(env.s * 100);
-    $("envR").value = secToSlider("envR", env.r);
-    showEnv();
-  }
-  [["envA", "a"], ["envD", "d"], ["envR", "r"]].forEach(([id, k]) =>
-    $(id).addEventListener("input", () => { env[k] = sliderToSec(id); showEnv(); }));
-  $("envS").addEventListener("input", () => { env.s = $("envS").value / 100; showEnv(); });
-  loadEnv();
+  const scaleSel = $("scale");
+  const presetSel = $("preset");
+  for (const [k, s] of Object.entries(SCALES)) scaleSel.add(new Option(s.name, k));
+  for (const [k, p] of Object.entries(PRESETS)) presetSel.add(new Option(p.name, k));
 
-  // ---------- effects ----------
-  // the synth and the drums each have their own rack: distortion, then a delay and a reverb fed from it.
-  // Both racks share this markup and code; the drum rack's ids start with "k"
+  // two octaves of a scale (and the C on top), starting from a C
+  function scaleNotes(scale, from) {
+    const steps = SCALES[scale].steps, out = [];
+    for (let m = from; m <= from + SPAN; m++) if (steps.includes((m - from) % 12)) out.push(m);
+    return out;
+  }
+
+  let ctx = null, drumBus = null, noiseBuf = null;
+
+  // ---------- effects racks ----------
+  // each synth and the drums have their own rack: distortion, then a delay and a reverb fed from it.
+  // A rack's settings are plain data (rack.values, the raw slider positions), so the three synths can share
+  // one set of sliders: the sliders show whichever synth is on screen. The drum rack's ids start with "k"
 
   // delay time and decay can be set in ms, or in note values so echoes lock to the master tempo
   const SYNC_TIMES = [                                  // [beats, label]; T = triplet, D = dotted
@@ -531,16 +555,19 @@
     ms:    { dTime: [20, 1000, 350], dDecay: [1, 100, 30] },
     notes: { dTime: [0, SYNC_TIMES.length - 1, 4], dDecay: [0, SYNC_DECAYS.length - 1, 2] },
   };
+  const FX_NAMES = ["dAmount", "dTime", "dDecay", "rSize", "rMix", "xAmount", "xTone"];
+  const RACK_DEFAULTS = { dAmount: 25, dTime: 350, dDecay: 30, rSize: 50, rMix: 25, xAmount: 0, xTone: 70 };
 
-  const sliderHTML = (id, label, min, max, value) =>
+  const sliderHTML = (id, label, min, max) =>
     `<div class="slider"><div class="top"><label for="${id}">${label}</label><output id="${id}Out"></output></div>` +
-    `<input type="range" id="${id}" min="${min}" max="${max}" value="${value}"></div>`;
-  const rackHTML = (p, amounts) => `
+    `<input type="range" id="${id}" min="${min}" max="${max}"></div>`;
+  const distHTML = p => `
     <div class="fxgroup distgroup" style="--cols: 2">
       <h2>Distortion</h2>
-      ${sliderHTML(p + "xAmount", "Amount", 0, 100, amounts.xAmount)}
-      ${sliderHTML(p + "xTone", "Tone", 0, 100, 70)}
-    </div>
+      ${sliderHTML(p + "xAmount", "Amount", 0, 100)}
+      ${sliderHTML(p + "xTone", "Tone", 0, 100)}
+    </div>`;
+  const delayRevHTML = p => `
     <div class="fxgroup delaygroup" style="--cols: 3">
       <div class="fxhead">
         <h2>Delay</h2>
@@ -549,62 +576,75 @@
           <label><input type="radio" name="${p}dUnit" value="notes"><span>notes</span></label>
         </div>
       </div>
-      ${sliderHTML(p + "dAmount", "Amount", 0, 100, amounts.dAmount)}
-      ${sliderHTML(p + "dTime", "Time", ...DELAY_RANGES.ms.dTime)}
-      ${sliderHTML(p + "dDecay", "Decay", ...DELAY_RANGES.ms.dDecay)}
+      ${sliderHTML(p + "dAmount", "Amount", 0, 100)}
+      ${sliderHTML(p + "dTime", "Time", 20, 1000)}
+      ${sliderHTML(p + "dDecay", "Decay", 1, 100)}
     </div>
     <div class="fxgroup revgroup" style="--cols: 2">
       <h2>Reverb</h2>
-      ${sliderHTML(p + "rSize", "Room size", 0, 100, 50)}
-      ${sliderHTML(p + "rMix", "Amount", 0, 100, amounts.rMix)}
+      ${sliderHTML(p + "rSize", "Room size", 0, 100)}
+      ${sliderHTML(p + "rMix", "Amount", 0, 100)}
     </div>`;
+  // synths: distortion sits in the Sound panel, delay and reverb in Effects. Drums: all three in Drum effects
+  $("soundMenu").insertAdjacentHTML("beforeend", distHTML(""));
+  $("fxMenu").innerHTML = delayRevHTML("");
+  $("drumFxMenu").innerHTML = distHTML("k") + delayRevHTML("k");
 
-  // a rack's settings live in rack.st (read from its sliders by readFx), so the sliders work before audio has
-  // started; its audio nodes live in rack.n once buildRack() has made them
-  function makeRack(p, sheetId, amounts) {
-    $(sheetId).innerHTML = rackHTML(p, amounts);
-    const rack = { p, el: name => $(p + name), unit: "ms", saved: { ms: {}, notes: {} }, st: {}, n: null };
-    readFx(rack);
+  // p is the prefix of the sliders that show this rack; its audio nodes live in rack.n once buildRack() has made them
+  function makeRack(p, values) {
+    const rack = { p, values: { ...RACK_DEFAULTS, ...values }, unit: "ms", saved: { ms: {}, notes: {} }, st: {}, out: {}, n: null };
+    calcFx(rack);
     return rack;
   }
 
   function setDelayUnit(rack, unit) {
-    ["dTime", "dDecay"].forEach(id => {
-      const el = rack.el(id);
-      rack.saved[rack.unit][id] = el.value;             // remember where this mode's slider was
-      const [min, max, def] = DELAY_RANGES[unit][id];
-      el.min = min; el.max = max;
-      el.value = rack.saved[unit][id] ?? def;
+    ["dTime", "dDecay"].forEach(n => {
+      rack.saved[rack.unit][n] = rack.values[n];       // remember where this mode's slider was
+      rack.values[n] = rack.saved[unit][n] ?? DELAY_RANGES[unit][n][2];
     });
     rack.unit = unit;
   }
 
-  function readFx(rack) {
-    const el = rack.el, st = rack.st;
-    st.dAmount = el("dAmount").value / 100;
+  // slider positions -> settings (rack.st) and readout text (rack.out)
+  function calcFx(rack) {
+    const v = rack.values, st = rack.st, out = rack.out;
+    st.dAmount = v.dAmount / 100;
     if (rack.unit === "notes") {
       const beat = 60 / tempo();                        // one beat, in seconds
-      const [timeBeats, timeLabel] = SYNC_TIMES[el("dTime").value];
-      const [decayBeats, decayLabel] = SYNC_DECAYS[el("dDecay").value];
+      const [timeBeats, timeLabel] = SYNC_TIMES[v.dTime];
+      const [decayBeats, decayLabel] = SYNC_DECAYS[v.dDecay];
       st.dTime = Math.min(MAX_DELAY, beat * timeBeats);
       st.dDecay = beat * decayBeats;
-      el("dTimeOut").textContent = timeLabel;
-      el("dDecayOut").textContent = decayLabel;
+      out.dTime = timeLabel;
+      out.dDecay = decayLabel;
     } else {
-      st.dTime = el("dTime").value / 1000;                                 // seconds
-      st.dDecay = 0.1 * Math.pow(120, (el("dDecay").value - 1) / 99);      // 0.1 to 12 s
-      el("dTimeOut").textContent = el("dTime").value + " ms";
-      el("dDecayOut").textContent = fmtTime(st.dDecay);
+      st.dTime = v.dTime / 1000;                                      // seconds
+      st.dDecay = 0.1 * Math.pow(120, (v.dDecay - 1) / 99);           // 0.1 to 12 s
+      out.dTime = v.dTime + " ms";
+      out.dDecay = fmtTime(st.dDecay);
     }
-    st.rSize = el("rSize").value / 100;
-    st.rMix = el("rMix").value / 100;
-    st.xAmount = el("xAmount").value / 100;
-    st.xTone = 1000 * Math.pow(16, el("xTone").value / 100);              // lowpass after the distortion, 1 to 16 kHz
-    el("dAmountOut").textContent = el("dAmount").value + "%";
-    el("rSizeOut").textContent = el("rSize").value + "%";
-    el("rMixOut").textContent = el("rMix").value + "%";
-    el("xAmountOut").textContent = el("xAmount").value + "%";
-    el("xToneOut").textContent = (st.xTone / 1000).toFixed(1) + " kHz";
+    st.rSize = v.rSize / 100;
+    st.rMix = v.rMix / 100;
+    st.xAmount = v.xAmount / 100;
+    st.xTone = 1000 * Math.pow(16, v.xTone / 100);                    // lowpass after the distortion, 1 to 16 kHz
+    out.dAmount = v.dAmount + "%";
+    out.rSize = v.rSize + "%";
+    out.rMix = v.rMix + "%";
+    out.xAmount = v.xAmount + "%";
+    out.xTone = (st.xTone / 1000).toFixed(1) + " kHz";
+  }
+  function showFx(rack) {
+    FX_NAMES.forEach(n => { $(rack.p + n + "Out").textContent = rack.out[n]; });
+  }
+  // put a rack's settings on its sliders
+  function loadFxUI(rack) {
+    FX_NAMES.forEach(n => {
+      const el = $(rack.p + n);
+      if (DELAY_RANGES[rack.unit][n]) { const [min, max] = DELAY_RANGES[rack.unit][n]; el.min = min; el.max = max; }
+      el.value = rack.values[n];
+    });
+    document.querySelector(`input[name="${rack.p}dUnit"][value="${rack.unit}"]`).checked = true;
+    showFx(rack);
   }
 
   // decay time is how long the echoes take to fade by 60 dB
@@ -690,8 +730,8 @@
     delay.connect(tone).connect(feedback).connect(delay);
     tone.connect(out);
 
-    // reverb, fed by the sound and the echoes. Its Amount sits before the convolver, so at 0 the browser
-    // can let the reverb go idle. The convolver itself is made by swapReverb()
+    // reverb, fed by the sound and the echoes. Its Amount sits before the convolver, so at 0 (or with nothing
+    // playing) the browser can let the reverb go idle. The convolver itself is made by swapReverb()
     const reverbIn = ctx.createGain();
     mix.connect(reverbIn);
     tone.connect(reverbIn);
@@ -730,9 +770,49 @@
     n.fresh = false;
   }
 
-  const synthFx = makeRack("", "fxMenu", { xAmount: 0, dAmount: 25, rMix: 25 });
-  const drumFx = makeRack("k", "drumFxMenu", { xAmount: 0, dAmount: 0, rMix: 0 });     // drums start dry
-  const racks = [synthFx, drumFx];
+  // ---------- synths ----------
+  // three synths, each with its own sound, scale, envelope, filter, effects, arp settings and mode (pad or steps).
+  // They all keep playing (held arps, step patterns) whichever one is on screen; `cur` is the one on screen
+  const ARP_RATES = [[1, "1/4"], [1/2, "1/8"], [1/3, "1/8T"], [1/4, "1/16"], [1/6, "1/16T"], [1/8, "1/32"]];   // [beats, label]
+  const ARP_HOLDS = [[0, "Off"], [0.5, "0.5 s"], [1, "1 s"], [1.5, "1.5 s"], [2, "2 s"], [3, "3 s"], [4, "4 s"], [5, "5 s"]];
+  const GATE = 0.7;                      // arp and step notes last this much of a step
+  const MAX_TAILS = 12;                  // more arp or step notes than this still ringing and the oldest tail is faded out
+  const FILTER_GLIDE = 0.08;             // seconds; filter changes settle over about three times this, so moves sweep instead of snap
+  const SYNTH_DEFAULTS = [{ preset: "acid", scale: "minPenta" }, { preset: "supersaw", scale: "minPenta" }, { preset: "glass", scale: "minPenta" }];
+
+  // a sound's resonance goes into the filter of the mode you're in
+  function loadPreset(syn, key) {
+    const p = PRESETS[key];
+    syn.preset = key;
+    syn.env = { a: p.atk, d: p.dec, s: p.sus, r: p.rel };
+    syn.filt[syn.mode].res = p.q;
+  }
+  // the pad's notes (two octaves per row from C2) and the step grid's rows (two octaves from the chosen C)
+  function buildNotes(syn) {
+    syn.notes = scaleNotes(syn.scale, LOW);
+    syn.seqNotes = scaleNotes(syn.scale, 24 + 12 * syn.oct);
+  }
+  function makeSynth(d, i) {
+    const syn = {
+      i, scale: d.scale, mode: "pad", oct: 1,
+      // each mode has its own filter (cut in Hz, res a filter Q). Pad starts fully open, Steps at the sliders' midpoints
+      filt: { pad: { cut: CUT_MAX, res: 0 }, steps: { cut: cutFromSlider(50), res: 50 / RES_SCALE } },
+      arpOn: true, arpRate: 3, arpDir: "up", arpHold: 4,
+      rack: makeRack("", { xAmount: 0, dAmount: 25, rMix: 25 }),
+      bus: null,                         // everything this synth plays goes through here, then its rack
+      voices: new Map(),                 // pointerId -> voice, for fingers playing their own note
+      tails: new Set(),                  // arp and step notes, scheduled with their own release
+      arp: null, latch: null,
+      pats: null, editPat: 0, playPat: 0,
+    };
+    loadPreset(syn, d.preset);
+    buildNotes(syn);
+    return syn;
+  }
+  const synths = SYNTH_DEFAULTS.map(makeSynth);
+  let cur = synths[0];
+  const drumRack = makeRack("k", { dAmount: 0, rMix: 0, xAmount: 0 });    // drums start dry
+  const allRacks = () => [...synths.map(s => s.rack), drumRack];
 
   function ensureAudio() {
     if (!ctx) {
@@ -741,15 +821,14 @@
       comp.threshold.value = -14; comp.ratio.value = 4;
       const out = ctx.createGain();
       out.connect(comp).connect(ctx.destination);
-
-      master = ctx.createGain();
-      master.gain.value = 0.5;
-      master.connect(buildRack(synthFx, out));
-
-      // the drums have their own effects, separate from the synth's
+      synths.forEach(syn => {
+        syn.bus = ctx.createGain();
+        syn.bus.gain.value = 0.5;
+        syn.bus.connect(buildRack(syn.rack, out));
+      });
       drumBus = ctx.createGain();
       drumBus.gain.value = $("kLevel").value / 100;
-      drumBus.connect(buildRack(drumFx, out));
+      drumBus.connect(buildRack(drumRack, out));
       noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
       const nd = noiseBuf.getChannelData(0);
       for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
@@ -757,32 +836,50 @@
     if (ctx.state === "suspended") ctx.resume();
   }
 
-  racks.forEach(rack => {
-    ["dAmount", "dTime", "dDecay", "rMix", "xAmount", "xTone"].forEach(name =>
-      rack.el(name).addEventListener("input", () => { readFx(rack); applyFx(rack); }));
-    document.querySelectorAll(`input[name="${rack.p}dUnit"]`).forEach(r =>
-      r.addEventListener("change", () => { setDelayUnit(rack, r.value); readFx(rack); applyFx(rack); }));
-    let sizeTimer = null;
-    rack.el("rSize").addEventListener("input", () => {
-      readFx(rack);
-      clearTimeout(sizeTimer);
-      sizeTimer = setTimeout(() => applyFx(rack, true), 120);
+  // the effect sliders drive whichever rack they're showing: the drums', or the synth on screen
+  const boundRack = p => p === "k" ? drumRack : cur.rack;
+  ["", "k"].forEach(p => {
+    FX_NAMES.forEach(n => {
+      const el = $(p + n);
+      el.addEventListener("input", () => {
+        const rack = boundRack(p);
+        rack.values[n] = Number(el.value);
+        calcFx(rack); showFx(rack);
+        if (n !== "rSize") return applyFx(rack);
+        clearTimeout(rack.sizeTimer);                   // the reverb is rebuilt once the slider settles
+        rack.sizeTimer = setTimeout(() => applyFx(rack, true), 120);
+      });
     });
+    document.querySelectorAll(`input[name="${p}dUnit"]`).forEach(r => r.addEventListener("change", () => {
+      const rack = boundRack(p);
+      setDelayUnit(rack, r.value); calcFx(rack); loadFxUI(rack); applyFx(rack);
+    }));
   });
   // synced delays follow the tempo
-  $("tempo").addEventListener("input", () => racks.forEach(rack => { readFx(rack); applyFx(rack); }));
+  $("tempo").addEventListener("input", () => {
+    allRacks().forEach(rack => { calcFx(rack); applyFx(rack); });
+    showFx(cur.rack); showFx(drumRack);
+  });
+
+  // ---------- voices ----------
+  // the pad's filter: from CUT_MIN at the bottom of a row (ly = 1) up to the Pad Cutoff at the top (ly = 0)
+  const cutoffFor = (ly, syn) => CUT_MIN * Math.pow(syn.filt.pad.cut / CUT_MIN, 1 - ly);
+  // step notes (no ly) use the Steps filter; everything else the Pad filter
+  const filtFor = (ly, syn) => ly == null ? syn.filt.steps : syn.filt.pad;
+  const voiceCut = (v, syn) => v.ly == null ? syn.filt.steps.cut : cutoffFor(v.ly, syn);
 
   // the amp follows the envelope: up to full over the attack, then down to the sustain level over the decay.
-  // gate (arp notes): seconds until the release starts. If that comes before the attack has finished, the
+  // gate (arp and step notes): seconds until the release starts. If that comes before the attack has finished, the
   // fade-in stops partway there. Otherwise the pending fade-in wins over the release and the note rings on at full volume
-  function startVoice(midi, cutoff, t, gate) {
-    const p = PRESETS[presetSel.value];
-    const { a, d, s, r } = env;
+  // ly: the pad height the note takes its filter from, or null for a step note
+  function startVoice(syn, midi, ly, t, gate) {
+    const p = PRESETS[syn.preset];
+    const { a, d, s, r } = syn.env;
     const now = t ?? ctx.currentTime;
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";
-    filter.Q.value = p.q;
-    filter.frequency.setValueAtTime(cutoff, now);
+    filter.Q.value = filtFor(ly, syn).res;
+    filter.frequency.setValueAtTime(ly == null ? syn.filt.steps.cut : cutoffFor(ly, syn), now);
     const amp = ctx.createGain();
     amp.gain.setValueAtTime(0, now);
     if (gate != null && gate < a) amp.gain.linearRampToValueAtTime(gate / a, now + gate);
@@ -790,7 +887,7 @@
       amp.gain.linearRampToValueAtTime(1, now + a);
       if (s < 1) amp.gain.setTargetAtTime(s, now + a, d / 3);   // a curve that's most of the way to sustain by the decay time
     }
-    filter.connect(amp).connect(master);
+    filter.connect(amp).connect(syn.bus);
 
     let lfo = null, lfoGain = null;
     if (p.vib) {
@@ -810,10 +907,10 @@
       osc.start(now);
       return { osc, ratio: Math.pow(2, o.oct || 0) };
     });
-    return { oscs, filter, amp, lfo, rel: r };
+    return { oscs, filter, amp, lfo, rel: r, ly };
   }
 
-  // release a voice now (held notes)
+  // release a voice now (fingers)
   function stopVoice(v) {
     if (!v) return;
     const now = ctx.currentTime;
@@ -825,7 +922,7 @@
     setTimeout(() => v.amp.disconnect(), (v.rel + 0.2) * 1000);
   }
 
-  // release a voice at a scheduled time (arpeggio notes)
+  // release a voice at a scheduled time (arp and step notes)
   function stopVoiceAt(v, when, onDone) {
     v.amp.gain.setTargetAtTime(0, when, Math.max(v.rel / 4, 0.01));
     const end = when + v.rel * 1.5 + 0.05;
@@ -835,177 +932,221 @@
     v.oscs[0].osc.onended = () => { v.amp.disconnect(); onDone && onDone(); };
   }
 
-  // cut a voice short with a quick fade at time t (used when too many arp notes are still ringing)
+  // cut a voice short with a quick fade at time t (used when too many notes are still ringing)
   function stealVoice(v, t) {
     v.amp.gain.setTargetAtTime(0, t, 0.015);
     const end = Math.min(v.end, t + 0.1);
     [...v.oscs.map(o => o.osc), v.lfo].forEach(s => { if (s) try { s.stop(end); } catch {} });
   }
 
-  function updateVoice(midi, cutoff) {
-    if (!voice) return;
+  // a finger slid: glide its note's pitch and filter
+  function glideVoice(v, midi, cutoff) {
     const now = ctx.currentTime;
     const hz = midiToHz(midi);
-    voice.oscs.forEach(o => o.osc.frequency.setTargetAtTime(hz * o.ratio, now, 0.012));
-    voice.filter.frequency.setTargetAtTime(cutoff, now, FILTER_GLIDE);
+    v.oscs.forEach(o => o.osc.frequency.setTargetAtTime(hz * o.ratio, now, 0.012));
+    v.filter.frequency.setTargetAtTime(cutoff, now, FILTER_GLIDE);
   }
 
-  // ---------- arpeggiator ----------
-  const arpVoices = new Set();
-  let arp = null;                      // { timer, nextTime, step, lastMidi, queue }
-  const ARP_RATES = [[1, "1/4"], [1/2, "1/8"], [1/3, "1/8T"], [1/4, "1/16"], [1/6, "1/16T"], [1/8, "1/32"]];   // [beats, label]
-  const arpBeats = () => ARP_RATES[$("aRate").value][0];
-  const arpStep = () => 60 / tempo() * arpBeats();         // one arp note, in seconds
-  const arpDir = () => document.querySelector('input[name="aDir"]:checked').value;
-  const GATE = 0.7;
-  const MAX_ARP_VOICES = 10;             // more than this still ringing and the oldest release tail is faded out
-  const FILTER_GLIDE = 0.08;             // seconds; filter changes settle over about three times this, so moves sweep instead of snap
+  // an arp or step note: starts at t, releases after gate. ly is the pad height it takes its filter from (null for steps)
+  function playTail(syn, midi, t, gate, ly) {
+    if (syn.tails.size >= MAX_TAILS) {                 // a Set keeps its order, so the first one is the oldest
+      const oldest = syn.tails.values().next().value;
+      syn.tails.delete(oldest);
+      stealVoice(oldest, t);
+    }
+    const v = startVoice(syn, midi, ly, t, gate);
+    v.midi = midi; v.start = t;
+    syn.tails.add(v);
+    stopVoiceAt(v, t + gate, () => syn.tails.delete(v));
+  }
+
+  // Cutoff or Resonance moved: sweep everything this synth is sounding, including notes scheduled but not yet heard
+  function retune(syn) {
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    [...syn.voices.values(), ...syn.tails].forEach(v => {
+      const at = Math.max(now, v.start ?? 0);
+      v.filter.frequency.setTargetAtTime(voiceCut(v, syn), at, FILTER_GLIDE);
+      v.filter.Q.setTargetAtTime(filtFor(v.ly, syn).res, at, 0.03);
+    });
+  }
+
+  // ---------- fingers on the pad (they always belong to the synth on screen) ----------
+  const pointers = new Map();     // pointerId -> { id, x, y, row, ly, idx, midi, gi, latched }
+  let lastLy = 0.5;               // the last touched finger's height in its row, for notes that have no finger of their own
+  let sounding = null;            // the arp note heard right now, for display
 
   function heldNotes() {
     return [...new Set([...pointers.values()].map(p => p.midi))].sort((a, b) => a - b);
   }
+  const leadFinger = () => {
+    const only = pointers.size === 1 ? pointers.values().next().value : null;
+    return only && !only.latched ? only : null;          // a finger that made a hold doesn't start a note as the last one down
+  };
+  // with the arp off every finger plays its own note (chords); with it on, only a single finger does, over a held arp if there is one
+  const playsOwnNote = (syn, p) => syn.mode === "pad" && (!syn.arpOn || p === leadFinger());
+
+  // which sounds should be running for this synth right now: its arp, and a voice for each finger that plays its own note
+  function refresh(syn) {
+    const fingers = syn === cur ? pointers.size : 0;
+    const wantArp = syn.mode === "pad" && syn.arpOn && (fingers >= 2 || !!syn.latch);
+    if (wantArp && !syn.arp) startArp(syn);
+    if (!wantArp && syn.arp) stopArp(syn);
+    syn.voices.forEach((v, id) => {
+      const p = syn === cur ? pointers.get(id) : null;
+      if (!p || !playsOwnNote(syn, p)) { stopVoice(v); syn.voices.delete(id); }
+    });
+    if (syn !== cur) return;
+    pointers.forEach((p, id) => {
+      if (!playsOwnNote(syn, p) || syn.voices.has(id)) return;
+      syn.voices.set(id, startVoice(syn, p.midi, p.ly));
+    });
+  }
+
+  // ---------- arpeggiator ----------
+  // each synth runs its own: a lookahead scheduler, every 25 ms schedule any notes due in the next 100 ms
+  const arpBeats = syn => ARP_RATES[syn.arpRate][0];
+  const arpStep = syn => 60 / tempo() * arpBeats(syn);          // one arp note, in seconds
+
+  // keep the same notes down for the hold time and the arp holds (syn.latch): it keeps playing them after you
+  // let go, until Hold is tapped. Fingers drive the arp when two or more are down, unless they're only (some of)
+  // the held notes, so lifting the fingers that made the hold, one by one, doesn't play the leftovers
+  function fingersDriveArp(syn) {
+    if (syn !== cur || pointers.size < 2) return false;
+    return !syn.latch || heldNotes().some(m => !syn.latch.info.has(m));
+  }
+  const arpNotes = syn => fingersDriveArp(syn) ? heldNotes() : syn.latch ? syn.latch.notes : [];
+  // each arp note is as bright as the finger holding it (or that held it when the arp was held)
+  function lyOfNote(syn, midi) {
+    if (fingersDriveArp(syn)) for (const p of pointers.values()) if (p.midi === midi) return p.ly;
+    if (syn.latch && syn.latch.info.has(midi)) return syn.latch.info.get(midi).ly;
+    return lastLy;
+  }
+
+  function nextArpNote(syn) {
+    const list = arpNotes(syn), a = syn.arp;
+    if (!list.length) return null;
+    let midi;
+    if (syn.arpDir === "random") {
+      do { midi = list[Math.floor(Math.random() * list.length)]; }
+      while (list.length > 1 && midi === a.lastMidi);
+    } else {
+      const order = syn.arpDir === "down" ? [...list].reverse() : list;
+      midi = order[a.step % order.length];
+      a.step++;
+    }
+    a.lastMidi = midi;
+    return midi;
+  }
+
+  function arpTick(syn) {
+    const a = syn.arp, step = arpStep(syn);
+    while (a.nextTime < ctx.currentTime + 0.1) {
+      const midi = nextArpNote(syn);
+      if (midi == null) break;
+      playTail(syn, midi, a.nextTime, step * GATE, lyOfNote(syn, midi));
+      a.queue.push({ time: a.nextTime, midi });
+      a.nextTime += step;
+    }
+  }
+
+  function startArp(syn) {
+    // with the beats playing, wait for the next point on the drum grid so the arp lands in time
+    const start = seq.playing ? nextGridTime(arpBeats(syn)) : ctx.currentTime + 0.02;
+    syn.arp = { nextTime: start, step: 0, lastMidi: null, queue: [] };
+    arpTick(syn);
+    syn.arp.timer = setInterval(() => arpTick(syn), 25);
+  }
+
+  function stopArp(syn) {
+    if (!syn.arp) return;
+    clearInterval(syn.arp.timer);
+    syn.arp = null;
+    if (syn === cur) sounding = null;
+  }
+
+  // a finger moved: retune the filter on just its own arp notes, including ones scheduled but not yet heard
+  function setArpCutoffFor(syn, p) {
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    syn.tails.forEach(v => {
+      if (v.midi !== p.midi || v.ly == null) return;
+      v.ly = p.ly;
+      v.filter.frequency.setTargetAtTime(cutoffFor(p.ly, syn), Math.max(now, v.start), FILTER_GLIDE);
+    });
+  }
 
   // ---------- arp hold ----------
-  // keep the same notes down for the hold time and the arp holds: it keeps playing them after you let go,
-  // until the hold button is tapped
-  const ARP_HOLDS = [[0, "Off"], [0.5, "0.5 s"], [1, "1 s"], [1.5, "1.5 s"], [2, "2 s"], [3, "3 s"], [4, "4 s"], [5, "5 s"]];
-  const holdSecs = () => ARP_HOLDS[$("aHold").value][0];
-  let latch = null;                    // { notes: sorted midis, info: Map midi -> { row, cutoff } }
   let holdKey = "", holdSince = 0;     // the notes the fingers are holding now, and since when (ms)
+  const holdSecs = syn => ARP_HOLDS[syn.arpHold][0];
 
-  // fingers drive the arp when two or more are down, unless they're only (some of) the held notes.
-  // That way lifting the fingers that made the hold, one by one, doesn't play the leftovers
-  function fingersDriveArp() {
-    if (pointers.size < 2) return false;
-    return !latch || heldNotes().some(m => !latch.info.has(m));
-  }
-  const arpNotes = () => fingersDriveArp() ? heldNotes() : latch ? latch.notes : [];
-
-  function setLatch() {
+  function setLatch(syn) {
     const info = new Map();
     pointers.forEach(p => {
-      p.latched = true;                // a finger that made the hold won't start a lead note if it's the last one down
-      if (!info.has(p.midi)) info.set(p.midi, { row: p.row, cutoff: p.cutoff });
+      p.latched = true;
+      if (!info.has(p.midi)) info.set(p.midi, { row: p.row, ly: p.ly });
     });
-    latch = { notes: [...info.keys()].sort((a, b) => a - b), info };
+    syn.latch = { notes: [...info.keys()].sort((a, b) => a - b), info };
+    updateTabs();
   }
 
-  // the hold button: stops a held arp. The beats carry on
-  function releaseHold() {
-    if (!latch) return;
-    latch = null;
+  // the Hold button: stops a held arp. The beats and the other synths carry on
+  function releaseHold(syn) {
+    if (!syn.latch) return;
+    syn.latch = null;
     holdSince = performance.now();     // fingers still down have to count up again before they hold
-    if (pointers.size < 2) stopArp();
-    if (!pointers.size) sounding = null;
+    refresh(syn);
+    updateTabs();
     updateHoldBtn(0);
   }
 
-  // every frame: count up while a new set of notes is held, and hold it when the time is up
+  // every frame: count up while a new set of notes is held, and hold it when the time is up.
+  // Once an arp is held, any new set of notes replaces it straight away, so letting go keeps the newest notes
   function checkHold(now) {
+    const syn = cur;
     const key = pointers.size >= 2 ? heldNotes().join(",") : "";
     if (key !== holdKey) { holdKey = key; holdSince = now; }
     let progress = 0;
-    if (key && holdSecs() > 0 && fingersDriveArp()) {
-      progress = Math.min(1, (now - holdSince) / 1000 / holdSecs());
-      if (progress >= 1) setLatch();
+    if (key && syn.mode === "pad" && syn.arpOn && fingersDriveArp(syn)) {
+      if (syn.latch) setLatch(syn);
+      else if (holdSecs(syn) > 0) {
+        progress = Math.min(1, (now - holdSince) / 1000 / holdSecs(syn));
+        if (progress >= 1) setLatch(syn);
+      }
     }
     updateHoldBtn(progress);
   }
 
-  // hidden, then filling up while you hold (after a short moment, so quick chords don't flash it), then solid when held
+  // hidden (but keeping its space), then filling while you hold (after a moment, so quick chords don't flash it),
+  // then solid once held. It shows the synth on screen
   const holdBtn = $("arpHold");
-  let shownHold = "";
+  let shownHold = null;
   function updateHoldBtn(progress) {
-    const state = latch ? "held" : progress > 0.2 ? "count:" + progress.toFixed(2) : "";
+    const held = !!cur.latch;
+    const state = held ? "held" : progress > 0.2 ? progress.toFixed(2) : "";
     if (state === shownHold) return;
     shownHold = state;
-    holdBtn.hidden = !state;
-    holdBtn.disabled = !latch;
-    holdBtn.classList.toggle("held", !!latch);
-    holdBtn.style.setProperty("--fill", latch ? 1 : progress);
+    holdBtn.classList.toggle("off", !state);
+    holdBtn.classList.toggle("held", held);
+    holdBtn.disabled = !held;
+    holdBtn.style.setProperty("--fill", held ? 1 : progress);
   }
-  holdBtn.addEventListener("click", releaseHold);
+  holdBtn.addEventListener("click", () => releaseHold(cur));
 
-  function nextArpNote() {
-    const list = arpNotes();
-    if (!list.length) return null;
-    const dir = arpDir();
-    let midi;
-    if (dir === "random") {
-      do { midi = list[Math.floor(Math.random() * list.length)]; }
-      while (list.length > 1 && midi === arp.lastMidi);
-    } else {
-      const seq = dir === "down" ? [...list].reverse() : list;
-      midi = seq[arp.step % seq.length];
-      arp.step++;
-    }
-    arp.lastMidi = midi;
-    return midi;
-  }
-
-  function arpTick() {
-    const step = arpStep();
-    while (arp.nextTime < ctx.currentTime + 0.1) {
-      const midi = nextArpNote();
-      if (midi == null) break;
-      const t = arp.nextTime;
-      const gate = step * GATE;
-      if (arpVoices.size >= MAX_ARP_VOICES) {               // a Set keeps its order, so the first one is the oldest
-        const oldest = arpVoices.values().next().value;
-        arpVoices.delete(oldest);
-        stealVoice(oldest, t);
-      }
-      const v = startVoice(midi, cutoffOfNote(midi), t, gate);   // each note is as bright as the finger holding it
-      v.midi = midi; v.start = t;
-      arpVoices.add(v);
-      stopVoiceAt(v, t + gate, () => arpVoices.delete(v));
-      arp.queue.push({ time: t, midi });
-      arp.nextTime += step;
-    }
-  }
-
-  function startArp() {
-    // with the beats playing, wait for the next point on the drum grid so the arp lands in time
-    const start = seq.playing ? nextGridTime(arpBeats()) : ctx.currentTime + 0.02;
-    arp = { nextTime: start, step: 0, lastMidi: null, queue: [] };
-    arpTick();
-    arp.timer = setInterval(arpTick, 25);
-  }
-
-  function stopArp() {
-    if (!arp) return;
-    clearInterval(arp.timer);
-    arp = null;
-  }
-
-  // the filter setting of the finger holding this note (if two fingers share it, the first one found),
-  // or of the finger that held it when the arp was held
-  function cutoffOfNote(midi) {
-    if (fingersDriveArp()) for (const p of pointers.values()) if (p.midi === midi) return p.cutoff;
-    if (latch && latch.info.has(midi)) return latch.info.get(midi).cutoff;
-    return cutoff;
-  }
-
-  // a finger moved: retune the filter on just its own arp notes, including ones scheduled but not yet heard
-  function setArpCutoffFor(p) {
-    const now = ctx.currentTime;
-    arpVoices.forEach(v => {
-      if (v.midi === p.midi) v.filter.frequency.setTargetAtTime(p.cutoff, Math.max(now, v.start), FILTER_GLIDE);
-    });
+  // a dot on each synth's tab while its arp is held
+  function updateTabs() {
+    synths.forEach(syn => $("tab" + syn.i).classList.toggle("busy", !!syn.latch));
   }
 
   // ---------- pad ----------
-  const canvas = document.getElementById("pad");
+  const canvas = $("pad");
   const g2d = canvas.getContext("2d");
-  const hint = document.getElementById("hint");
-  const noteOut = document.getElementById("noteOut");
-  const cutOut = document.getElementById("cutOut");
+  const hint = $("hint");
+  const noteOut = $("noteOut");
+  const cutOut = $("cutOut");
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   let W = 0, H = 0, dpr = 1;
-  const pointers = new Map();     // pointerId -> { x, y, row, ly, idx, midi, gi, cutoff }
-  let cutoff = 1000;              // the last touched finger's filter setting: drives the held note and the readout
-  let sounding = null;            // midi currently heard, for display
   let trail = [];
 
   function resize() {
@@ -1027,45 +1168,21 @@
   }
 
   function mapPointer(p) {
-    // which row the finger is in (0 = bottom), and how far up that row it is, 0 to 1
+    // which row the finger is in (0 = bottom), and how far down that row it is, 0 (top) to 1 (bottom)
+    const notes = cur.notes;
     const fromTop = Math.min(ROWS - 1, Math.floor(p.y * ROWS));
     p.row = ROWS - 1 - fromTop;
     p.ly = p.y * ROWS - fromTop;
     p.idx = Math.floor(p.x * notes.length);
     p.midi = notes[p.idx] + p.row * SPAN;
     p.gi = p.row * notes.length + p.idx;      // column counted across all rows, for colour
-    p.cutoff = cutoffFor(p.ly);               // each finger has its own filter setting
   }
-  function cutoffFor(y) { return CUT_MIN * Math.pow(CUT_MAX / CUT_MIN, 1 - y); }
 
   function showReadout() {
-    if (!pointers.size || sounding == null) { noteOut.textContent = "–"; cutOut.textContent = "–"; return; }
-    noteOut.textContent = noteName(sounding) + (pointers.size > 1 ? " (arpeggio)" : "");
-    cutOut.textContent = cutoff >= 1000 ? (cutoff / 1000).toFixed(1) + " kHz" : Math.round(cutoff) + " Hz";
-  }
-
-  // one finger plays a held note, two or more run the arpeggiator. A held arp keeps running with no fingers down,
-  // and one new finger plays a note over the top of it
-  const leadFinger = () => {
-    const only = pointers.size === 1 ? pointers.values().next().value : null;
-    return only && !only.latched ? only : null;
-  };
-  function refreshMode(prevCount) {
-    const n = pointers.size;
-    if (n === prevCount) return;
-    const wantArp = n >= 2 || !!latch;
-    if (wantArp && !arp) startArp();
-    if (!wantArp && arp) stopArp();
-    const lead = leadFinger();
-    if (lead) {
-      cutoff = lead.cutoff;                   // back to one finger: the held note follows that finger
-      if (!voice) voice = startVoice(lead.midi, cutoff);
-      else updateVoice(lead.midi, cutoff);
-      sounding = lead.midi;
-    } else {
-      stopVoice(voice); voice = null;
-      if (!wantArp) sounding = null;
-    }
+    if (!pointers.size) { noteOut.textContent = "–"; cutOut.textContent = "–"; return; }
+    const last = [...pointers.values()].pop();
+    noteOut.textContent = noteName(sounding ?? last.midi) + (cur.arp ? " (arpeggio)" : "");
+    cutOut.textContent = fmtHz(cutoffFor(lastLy, cur));
   }
 
   canvas.addEventListener("pointerdown", e => {
@@ -1073,12 +1190,11 @@
     canvas.setPointerCapture(e.pointerId);
     ensureAudio();
     hint.classList.add("gone");
-    const prev = pointers.size;
-    const p = readPos(e);
+    const p = { id: e.pointerId, ...readPos(e) };
     mapPointer(p);
     pointers.set(e.pointerId, p);
-    cutoff = p.cutoff;
-    refreshMode(prev);
+    lastLy = p.ly;
+    refresh(cur);
     showReadout();
   });
 
@@ -1087,42 +1203,38 @@
     if (!p) return;
     Object.assign(p, readPos(e));
     mapPointer(p);
-    cutoff = p.cutoff;
-    if (p === leadFinger()) { updateVoice(p.midi, cutoff); sounding = p.midi; }
+    lastLy = p.ly;
+    const v = cur.voices.get(p.id);
+    if (v) { v.ly = p.ly; glideVoice(v, p.midi, cutoffFor(p.ly, cur)); }
     else {
       // fingers resting on held notes still set their brightness
-      if (latch && latch.info.has(p.midi) && !fingersDriveArp()) latch.info.get(p.midi).cutoff = p.cutoff;
-      setArpCutoffFor(p);
+      if (cur.latch && cur.latch.info.has(p.midi) && !fingersDriveArp(cur)) cur.latch.info.get(p.midi).ly = p.ly;
+      setArpCutoffFor(cur, p);
     }
     showReadout();
   });
 
   const release = e => {
-    if (!pointers.has(e.pointerId)) return;
-    const prev = pointers.size;
-    pointers.delete(e.pointerId);
-    refreshMode(prev);
+    if (!pointers.delete(e.pointerId)) return;
+    refresh(cur);
     showReadout();
   };
   canvas.addEventListener("pointerup", release);
   canvas.addEventListener("pointercancel", release);
 
+  // the fingers stop counting for this synth (a tab or mode change): let go of whatever they were playing
+  function dropPointers() {
+    pointers.clear();
+    refresh(cur);
+  }
+
   // the keyboard layout changed under the fingers: work out their notes again
   function remapPointers() {
     pointers.forEach(mapPointer);
-    const lead = leadFinger();
-    if (lead) { updateVoice(lead.midi, cutoff); sounding = lead.midi; }
+    cur.voices.forEach((v, id) => { const p = pointers.get(id); if (p) glideVoice(v, p.midi, cutoffFor(p.ly, cur)); });
     showReadout();
   }
-  scaleSel.addEventListener("change", () => { buildNotes(); remapPointers(); });
   phoneMQ.addEventListener("change", () => { ROWS = phoneMQ.matches ? 3 : 2; remapPointers(); });
-  presetSel.addEventListener("change", () => {
-    loadEnv();                                // each sound brings its own envelope
-    if (voice && pointers.size === 1) {
-      stopVoice(voice);
-      voice = startVoice([...pointers.values()][0].midi, cutoff);
-    }
-  });
 
   function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
   const hueFor = (idx, n) => 260 - (idx / Math.max(n - 1, 1)) * 230;
@@ -1132,16 +1244,18 @@
     const band = css("--band"), line = css("--line"), root = css("--root"), muted = css("--muted"), ink = css("--ink");
     const rowBright = css("--row-bright"), rowDark = css("--row-dark");
     g2d.clearRect(0, 0, W, H);
+    const notes = cur.notes;
     const n = notes.length, cw = W / n, rh = H / ROWS;
     const rowTop = r => (ROWS - 1 - r) * rh;       // row 0 is at the bottom
 
-    // work out which arpeggio note is audible right now
-    if (arp && ctx) {
-      while (arp.queue.length && arp.queue[0].time <= ctx.currentTime) {
-        sounding = arp.queue.shift().midi;
-        showReadout();
+    // work out which arpeggio note is audible right now (and keep the other synths' queues short)
+    if (ctx) synths.forEach(syn => {
+      const q = syn.arp && syn.arp.queue;
+      while (q && q.length && q[0].time <= ctx.currentTime) {
+        const midi = q.shift().midi;
+        if (syn === cur) { sounding = midi; showReadout(); }
       }
-    }
+    });
 
     for (let r = 0; r < ROWS; r++) {
       const top = rowTop(r);
@@ -1160,18 +1274,18 @@
       g2d.fillRect(0, top, W, rh);
     }
 
-    // held columns, with the sounding one brighter. A held arp's notes stay lit after the fingers lift
-    const lead = leadFinger();                       // a single finger always sounds, even over a held arp
+    // held columns, with the sounding ones brighter. A held arp's notes stay lit after the fingers lift
+    const syn = cur;
+    const isOn = p => (p.id != null && syn.voices.has(p.id)) || p.midi === sounding;
     const held = new Map();                          // "row:idx" -> pointer, or { row, idx, midi, gi } for a held note
     pointers.forEach(p => held.set(p.row + ":" + p.idx, p));
-    if (latch && !fingersDriveArp()) latch.notes.forEach(midi => {
-      const { row } = latch.info.get(midi);
+    if (syn.latch && !fingersDriveArp(syn)) syn.latch.notes.forEach(midi => {
+      const { row } = syn.latch.info.get(midi);
       const idx = row < ROWS ? notes.indexOf(midi - row * SPAN) : -1;   // gone if the scale or rows have changed
       if (idx >= 0 && !held.has(row + ":" + idx)) held.set(row + ":" + idx, { row, idx, midi, gi: row * n + idx });
     });
     held.forEach(p => {
-      const on = p === lead || p.midi === sounding;
-      g2d.fillStyle = `hsla(${hueFor(p.gi, n * ROWS)}, 80%, 60%, ${on ? 0.32 : 0.12})`;
+      g2d.fillStyle = `hsla(${hueFor(p.gi, n * ROWS)}, 80%, 60%, ${isOn(p) ? 0.32 : 0.12})`;
       g2d.fillRect(p.idx * cw, rowTop(p.row), cw, rh);
     });
 
@@ -1205,7 +1319,7 @@
     pointers.forEach(p => {
       const px = p.x * W, py = p.y * H;
       const hue = hueFor(p.gi, n * ROWS);
-      const on = p === lead || p.midi === sounding;
+      const on = isOn(p);
       const radius = (30 + (1 - p.ly) * 50) * (on ? 1 : 0.65);
       const grad = g2d.createRadialGradient(px, py, 0, px, py, radius);
       grad.addColorStop(0, `hsla(${hue}, 95%, 70%, ${on ? 0.95 : 0.6})`);
@@ -1453,7 +1567,8 @@
   let playPat = 0;     // the pattern being heard; catches up with editPat at the start of each bar
 
   // ---------- sequencer ----------
-  // same lookahead idea as the arp: every 25 ms, schedule any steps due in the next 100 ms
+  // same lookahead idea as the arp: every 25 ms, schedule any steps due in the next 100 ms.
+  // One clock runs the drums and every synth in Steps mode
   const seq = { playing: false, timer: null, step: 0, count: 0, nextTime: 0, queue: [] };
   const stepLen = () => 60 / tempo() / 4;                // one 1/16 step, in seconds
   const swingAmount = () => ($("kSwing").value / 100 - 0.5) * 2;   // 50% straight, 75% = triplet feel
@@ -1464,7 +1579,13 @@
       const len = stepLen();
       const t = seq.nextTime + (seq.step % 2 ? swingAmount() * len : 0);   // swing pushes back every other 1/16
       patterns[playPat].forEach((row, r) => { if (row[seq.step]) playRow(r, t); });
-      seq.queue.push({ time: t, step: seq.step, pat: playPat });
+      synths.forEach(syn => {
+        if (seq.step === 0) syn.playPat = syn.editPat;
+        if (syn.mode !== "steps") return;
+        const pat = syn.pats[syn.playPat];
+        syn.seqNotes.forEach((midi, r) => { if (pat[r][seq.step]) playTail(syn, midi, t, len * GATE, null); });
+      });
+      seq.queue.push({ time: t, step: seq.step, pat: playPat, spats: synths.map(syn => syn.playPat) });
       seq.nextTime += len;
       seq.step = (seq.step + 1) % STEPS;
       seq.count++;
@@ -1483,9 +1604,10 @@
   const playBtn = $("play");
   function startSeq() {
     ensureAudio();
-    // if the arp is already running, start the beats on its next note so they line up
+    // if an arp is already running, start the beats on its next note so they line up
+    const running = synths.find(syn => syn.arp);
     Object.assign(seq, { playing: true, step: 0, count: 0, queue: [],
-                         nextTime: arp ? arp.nextTime : ctx.currentTime + 0.05 });
+                         nextTime: running ? running.arp.nextTime : ctx.currentTime + 0.05 });
     seqTick();
     seq.timer = setInterval(seqTick, 25);
     playBtn.setAttribute("aria-pressed", "true");
@@ -1495,10 +1617,61 @@
     clearInterval(seq.timer);
     seq.playing = false; seq.queue = [];
     playPat = editPat;
+    synths.forEach(syn => { syn.playPat = syn.editPat; });
     playBtn.setAttribute("aria-pressed", "false");
     playBtn.setAttribute("aria-label", "Play beats");
   }
   playBtn.addEventListener("click", () => seq.playing ? stopSeq() : startSeq());
+
+  // ---------- step grids ----------
+  // press a step to toggle it, then drag to paint the same state across other steps. Shared by the drum grid and the
+  // synth grid: cells carry data-r and data-s, and the grid says how to read, write, audition and save them
+  function paintable(el, { get, set, audition, save }) {
+    let paint = null;
+    el.addEventListener("pointerdown", e => {
+      const c = e.target.closest(".cell");
+      if (!c) return;
+      e.preventDefault();
+      const r = +c.dataset.r, s = +c.dataset.s;
+      paint = !get(r, s);
+      set(r, s, paint);
+      if (paint && !seq.playing) { ensureAudio(); audition(r); }
+    });
+    el.addEventListener("pointermove", e => {
+      if (paint === null) return;
+      const c = document.elementFromPoint(e.clientX, e.clientY)?.closest(".cell");
+      if (c && el.contains(c)) set(+c.dataset.r, +c.dataset.s, paint);
+    });
+    const endPaint = () => { if (paint !== null) { paint = null; save(); } };
+    window.addEventListener("pointerup", endPaint);
+    window.addEventListener("pointercancel", endPaint);
+    el.addEventListener("click", e => {                  // keyboard only; pointers are handled above
+      const c = e.target.closest(".cell");
+      if (!c || e.detail !== 0) return;
+      const r = +c.dataset.r, s = +c.dataset.s;
+      set(r, s, !get(r, s));
+      save();
+    });
+  }
+  const makeCell = (r, s, label) => {
+    const c = document.createElement("button");
+    c.className = "cell" + (Math.floor(s / 4) % 2 ? " alt" : "");
+    c.dataset.r = r; c.dataset.s = s;
+    if (label) c.setAttribute("aria-label", label);
+    return c;
+  };
+  // pattern buttons 1 to 8; onPick(i) when one is chosen
+  function patternButtons(el, name, onPick) {
+    const labels = [];
+    for (let i = 0; i < PATTERN_COUNT; i++) {
+      const lab = document.createElement("label");
+      lab.innerHTML = `<input type="radio" name="${name}" value="${i}" aria-label="Pattern ${i + 1}"${i === 0 ? " checked" : ""}><span>${i + 1}</span>`;
+      lab.querySelector("input").addEventListener("change", () => onPick(i));
+      el.append(lab);
+      labels.push(lab);
+    }
+    return labels;
+  }
 
   // ---------- beats UI ----------
   const gridEl = $("grid");
@@ -1512,9 +1685,7 @@
     rowLabs.push(lab);
     cells[r] = [];
     for (let s = 0; s < STEPS; s++) {
-      const c = document.createElement("button");
-      c.className = "cell" + (Math.floor(s / 4) % 2 ? " alt" : "");
-      c.dataset.r = r; c.dataset.s = s;
+      const c = makeCell(r, s);
       gridEl.append(c);
       cells[r][s] = c;
     }
@@ -1538,51 +1709,18 @@
   function renderGrid() {
     DRUM_ROWS.forEach((_, r) => { for (let s = 0; s < STEPS; s++) renderCell(r, s); });
   }
-  function setCell(r, s, on) {
-    patterns[editPat][r][s] = on ? 1 : 0;
-    renderCell(r, s);
-  }
-
-  // press a step to toggle it, then drag to paint the same state across other steps
-  let paint = null;
-  gridEl.addEventListener("pointerdown", e => {
-    const c = e.target.closest(".cell");
-    if (!c) return;
-    e.preventDefault();
-    const r = +c.dataset.r, s = +c.dataset.s;
-    paint = !patterns[editPat][r][s];
-    setCell(r, s, paint);
-    if (paint && !seq.playing) { ensureAudio(); playRow(r, ctx.currentTime + 0.01); }
-  });
-  gridEl.addEventListener("pointermove", e => {
-    if (paint === null) return;
-    const c = document.elementFromPoint(e.clientX, e.clientY)?.closest(".cell");
-    if (c && gridEl.contains(c)) setCell(+c.dataset.r, +c.dataset.s, paint);
-  });
-  const endPaint = () => { if (paint !== null) { paint = null; savePatterns(); } };
-  window.addEventListener("pointerup", endPaint);
-  window.addEventListener("pointercancel", endPaint);
-  gridEl.addEventListener("click", e => {                // keyboard only; pointers are handled above
-    const c = e.target.closest(".cell");
-    if (!c || e.detail !== 0) return;
-    const r = +c.dataset.r, s = +c.dataset.s;
-    setCell(r, s, !patterns[editPat][r][s]);
-    savePatterns();
+  paintable(gridEl, {
+    get: (r, s) => patterns[editPat][r][s],
+    set: (r, s, on) => { patterns[editPat][r][s] = on ? 1 : 0; renderCell(r, s); },
+    audition: r => playRow(r, ctx.currentTime + 0.01),
+    save: savePatterns,
   });
 
-  const patsEl = $("pats");
-  const patLabels = [];
-  for (let i = 0; i < PATTERN_COUNT; i++) {
-    const lab = document.createElement("label");
-    lab.innerHTML = `<input type="radio" name="pat" value="${i}" aria-label="Pattern ${i + 1}"${i === 0 ? " checked" : ""}><span>${i + 1}</span>`;
-    lab.querySelector("input").addEventListener("change", () => {
-      editPat = i;
-      if (!seq.playing) playPat = i;
-      renderGrid();
-    });
-    patsEl.append(lab);
-    patLabels.push(lab);
-  }
+  const patLabels = patternButtons($("pats"), "pat", i => {
+    editPat = i;
+    if (!seq.playing) playPat = i;
+    renderGrid();
+  });
   $("clearPat").addEventListener("click", () => {
     patterns[editPat] = emptyPattern();
     renderGrid(); savePatterns();
@@ -1605,31 +1743,230 @@
     .catch(() => {});
   renderGrid(); updateRowLabels(); updateBreakUI();
 
-  // playhead and "which pattern is playing", kept in step with what's audible
-  let shownStep = -1, shownPlaying = -1;
-  function updateSeqUI() {
-    let step = -1, playing = -1;
-    if (seq.playing && ctx) {
-      step = shownStep; playing = shownPlaying;
-      while (seq.queue.length && seq.queue[0].time <= ctx.currentTime) {
-        const q = seq.queue.shift();
-        step = q.step; playing = q.pat;
+  // ---------- synth steps ----------
+  // each synth has 8 patterns of [row][step], rows counted up the scale from the grid's lowest note, so a pattern
+  // follows the synth's scale and octave. Saved in localStorage like the drum patterns
+  const SEQ_ROWS_MAX = 25;                                // two octaves of the chromatic scale, the most rows a grid can have
+  const SYNTH_PATS_KEY = "xysynth.synthPatterns.v1";      // bump when the defaults change
+  const emptySynthPattern = () => Array.from({ length: SEQ_ROWS_MAX }, () => Array(STEPS).fill(0));
+  function defaultSynthPatterns() {
+    const all = synths.map(() => Array.from({ length: PATTERN_COUNT }, emptySynthPattern));
+    // synth 1, pattern 1: a starter acid line, as rows up the scale (-1 is a rest)
+    [0, 0, 5, 0, 1, 0, 6, 5, 0, 0, 5, 7, 2, -1, 4, 3].forEach((r, s) => { if (r >= 0) all[0][0][r][s] = 1; });
+    return all;
+  }
+  function loadSynthPatterns() {
+    try {
+      const p = JSON.parse(localStorage.getItem(SYNTH_PATS_KEY));
+      const ok = Array.isArray(p) && p.length === synths.length && p.every(bank => bank.length === PATTERN_COUNT &&
+        bank.every(pat => pat.length === SEQ_ROWS_MAX && pat.every(row => row.length === STEPS)));
+      if (ok) return p;
+    } catch {}
+    return defaultSynthPatterns();
+  }
+  loadSynthPatterns().forEach((bank, i) => { synths[i].pats = bank; });
+  function saveSynthPatterns() {
+    try { localStorage.setItem(SYNTH_PATS_KEY, JSON.stringify(synths.map(syn => syn.pats))); } catch {}
+  }
+
+  const sgridEl = $("sgrid");
+  let sCells = [];                                       // sCells[row][step] for the synth on screen, row 0 = lowest note
+  function renderSCell(r, s) {
+    const on = !!cur.pats[cur.editPat][r][s];
+    sCells[r][s].classList.toggle("on", on);
+    sCells[r][s].setAttribute("aria-pressed", on);
+  }
+  // rebuilt whenever the synth, its scale or its octave changes, since the number of rows changes
+  function renderSynthGrid() {
+    const rows = cur.seqNotes;
+    sgridEl.style.setProperty("--rows", rows.length);
+    sgridEl.textContent = "";
+    sCells = [];
+    for (let r = rows.length - 1; r >= 0; r--) {         // highest note at the top
+      const midi = rows[r], isRoot = midi % 12 === 0;
+      const lab = document.createElement("button");
+      lab.className = "rowlab" + (isRoot ? " root" : "");
+      lab.textContent = isRoot ? noteName(midi) : NOTE_NAMES[midi % 12];
+      lab.dataset.r = r;
+      lab.setAttribute("aria-label", "Play " + noteName(midi));
+      sgridEl.append(lab);
+      sCells[r] = [];
+      for (let s = 0; s < STEPS; s++) {
+        const c = makeCell(r, s, `${noteName(midi)}, step ${s + 1}`);
+        sgridEl.append(c);
+        sCells[r][s] = c;
+        renderSCell(r, s);
       }
     }
-    if (step !== shownStep) {
-      if (shownStep >= 0) cells.forEach(row => row[shownStep].classList.remove("now"));
-      if (step >= 0) cells.forEach(row => row[step].classList.add("now"));
-      shownStep = step;
-    }
-    if (playing !== shownPlaying) {
-      patLabels.forEach((l, i) => l.classList.toggle("playing", i === playing));
-      shownPlaying = playing;
-    }
+    $("spats").querySelectorAll("input")[cur.editPat].checked = true;
+    $("octOut").textContent = noteName(rows[0]);
+    $("octDown").disabled = cur.oct <= 0;
+    $("octUp").disabled = cur.oct >= 4;
+    heads.synth.step = -1; heads.synth.pat = -1;         // fresh cells: the playhead goes back on next frame
+  }
+  const auditionStep = r => playTail(cur, cur.seqNotes[r], ctx.currentTime + 0.01, stepLen() * GATE, null);
+  paintable(sgridEl, {
+    get: (r, s) => cur.pats[cur.editPat][r][s],
+    set: (r, s, on) => { cur.pats[cur.editPat][r][s] = on ? 1 : 0; renderSCell(r, s); },
+    audition: auditionStep,
+    save: saveSynthPatterns,
+  });
+  sgridEl.addEventListener("click", e => {               // row labels play their note
+    const lab = e.target.closest(".rowlab");
+    if (!lab) return;
+    ensureAudio();
+    auditionStep(+lab.dataset.r);
+  });
+  const sPatLabels = patternButtons($("spats"), "spat", i => {
+    cur.editPat = i;
+    if (!seq.playing) cur.playPat = i;
+    renderSynthGrid();
+  });
+  $("sClear").addEventListener("click", () => {
+    cur.pats[cur.editPat] = emptySynthPattern();
+    renderSynthGrid(); saveSynthPatterns();
+  });
+  [["octDown", -1], ["octUp", 1]].forEach(([id, d]) => $(id).addEventListener("click", () => {
+    cur.oct = Math.min(4, Math.max(0, cur.oct + d));
+    buildNotes(cur);
+    renderSynthGrid();
+  }));
+
+  // playheads and "which pattern is playing", kept in step with what's audible
+  const heads = { drums: { step: -1, pat: -1 }, synth: { step: -1, pat: -1 } };
+  function moveHead(h, grid, step) {
+    if (step === h.step) return;
+    if (h.step >= 0) grid.forEach(row => row[h.step].classList.remove("now"));
+    if (step >= 0) grid.forEach(row => row[step].classList.add("now"));
+    h.step = step;
+  }
+  function markPat(h, labels, pat) {
+    if (pat === h.pat) return;
+    labels.forEach((l, i) => l.classList.toggle("playing", i === pat));
+    h.pat = pat;
+  }
+  let seqNow = null;                                     // the step being heard
+  function updateSeqUI() {
+    if (!seq.playing || !ctx) seqNow = null;
+    else while (seq.queue.length && seq.queue[0].time <= ctx.currentTime) seqNow = seq.queue.shift();
+    const steps = cur.mode === "steps";
+    moveHead(heads.drums, cells, seqNow ? seqNow.step : -1);
+    markPat(heads.drums, patLabels, seqNow ? seqNow.pat : -1);
+    moveHead(heads.synth, sCells, seqNow && steps ? seqNow.step : -1);
+    markPat(heads.synth, sPatLabels, seqNow && steps ? seqNow.spats[cur.i] : -1);
   }
   (function seqUILoop() { updateSeqUI(); requestAnimationFrame(seqUILoop); })();
 
+  // ---------- sound panel: envelope and filter ----------
+  // the time sliders run 0 to 100 and map exponentially, so short times get most of the travel
+  const ENV_TIMES = { envA: [0.002, 3], envD: [0.02, 4], envR: [0.02, 6] };    // [shortest, longest] in seconds
+  const envToSec = (id, v) => { const [lo, hi] = ENV_TIMES[id]; return lo * Math.pow(hi / lo, v / 100); };
+  const envToSlider = (id, sec) => { const [lo, hi] = ENV_TIMES[id]; return Math.round(100 * Math.log(sec / lo) / Math.log(hi / lo)); };
+  // the Filter sliders show the filter of the mode the synth is in
+  function showSound(syn) {
+    const f = syn.filt[syn.mode];
+    $("envAOut").textContent = fmtTime(syn.env.a);
+    $("envDOut").textContent = fmtTime(syn.env.d);
+    $("envSOut").textContent = Math.round(syn.env.s * 100) + "%";
+    $("envROut").textContent = fmtTime(syn.env.r);
+    $("fCutOut").textContent = fmtHz(f.cut);
+    $("fResOut").textContent = Math.round(f.res * RES_SCALE) + "%";
+  }
+  function loadSoundUI(syn) {
+    const f = syn.filt[syn.mode];
+    ["envA", "envD", "envR"].forEach(id => { $(id).value = envToSlider(id, syn.env[id[3].toLowerCase()]); });
+    $("envS").value = Math.round(syn.env.s * 100);
+    $("fCut").value = cutToSlider(f.cut);
+    $("fRes").value = Math.round(f.res * RES_SCALE);
+    showSound(syn);
+  }
+  // envelope changes apply to the next note
+  [["envA", "a"], ["envD", "d"], ["envR", "r"]].forEach(([id, k]) =>
+    $(id).addEventListener("input", () => { cur.env[k] = envToSec(id, $(id).value); showSound(cur); }));
+  $("envS").addEventListener("input", () => { cur.env.s = $("envS").value / 100; showSound(cur); });
+  // filter changes sweep what's already sounding
+  $("fCut").addEventListener("input", () => { cur.filt[cur.mode].cut = cutFromSlider($("fCut").value); showSound(cur); retune(cur); showReadout(); });
+  $("fRes").addEventListener("input", () => { cur.filt[cur.mode].res = $("fRes").value / RES_SCALE; showSound(cur); retune(cur); });
+
+  scaleSel.addEventListener("change", () => {
+    cur.scale = scaleSel.value;
+    buildNotes(cur);
+    remapPointers();
+    renderSynthGrid();
+  });
+  // a new sound brings its own envelope and resonance; fingers already down switch to it
+  presetSel.addEventListener("change", () => {
+    loadPreset(cur, presetSel.value);
+    loadSoundUI(cur);
+    cur.voices.forEach((v, id) => {
+      stopVoice(v);
+      const p = pointers.get(id);
+      cur.voices.set(id, startVoice(cur, p.midi, p.ly));
+    });
+  });
+
+  // ---------- arp controls ----------
+  function showArpUI(syn) {
+    $("aRate").value = syn.arpRate;
+    $("aHold").value = syn.arpHold;
+    document.querySelector(`input[name="aDir"][value="${syn.arpDir}"]`).checked = true;
+    $("aRateOut").textContent = ARP_RATES[syn.arpRate][1];
+    $("aHoldOut").textContent = ARP_HOLDS[syn.arpHold][1];
+    $("arpOn").setAttribute("aria-pressed", syn.arpOn);
+  }
+  $("aRate").addEventListener("input", () => { cur.arpRate = +$("aRate").value; showArpUI(cur); });
+  $("aHold").addEventListener("input", () => { cur.arpHold = +$("aHold").value; showArpUI(cur); });
+  document.querySelectorAll('input[name="aDir"]').forEach(r =>
+    r.addEventListener("change", () => { cur.arpDir = r.value; }));
+  // Arp off: fingers play chords, and a held arp stops
+  $("arpOn").addEventListener("click", () => {
+    cur.arpOn = !cur.arpOn;
+    if (!cur.arpOn) cur.latch = null;
+    refresh(cur);
+    showArpUI(cur); updateTabs();
+    shownHold = null; updateHoldBtn(0);
+  });
+
+  // ---------- pad or steps, and which synth is on screen ----------
+  document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener("change", () => {
+    cur.latch = null;                                    // a held arp stops when the synth changes mode
+    cur.mode = r.value;
+    dropPointers();
+    document.body.dataset.mode = cur.mode;
+    loadSoundUI(cur);                                    // each mode has its own filter settings
+    updateTabs();
+    shownHold = null; updateHoldBtn(0);
+    closeMenu();
+  }));
+
+  // put the synth on screen into every synth control
+  function bindSynthUI() {
+    scaleSel.value = cur.scale;
+    presetSel.value = cur.preset;
+    listSyncs.scale(); listSyncs.preset();
+    loadSoundUI(cur);
+    loadFxUI(cur.rack);
+    showArpUI(cur);
+    document.querySelector(`input[name="mode"][value="${cur.mode}"]`).checked = true;
+    document.body.dataset.mode = cur.mode;
+    renderSynthGrid();
+    holdKey = "";
+    shownHold = null; updateHoldBtn(0);
+  }
+
+  document.querySelectorAll('input[name="view"]').forEach(r => r.addEventListener("change", () => {
+    dropPointers();                                      // fingers on the pad belong to the synth that was on screen
+    if (r.value === "beats") document.body.dataset.view = "beats";
+    else {
+      document.body.dataset.view = "synth";
+      if (cur !== synths[+r.value]) { cur = synths[+r.value]; bindSynthUI(); }
+    }
+    closeMenu();
+  }));
+
   // ---------- phone menus ----------
   // scale, sound and kit lists mirror their header selects, so either one can drive the change
+  const listSyncs = {};
   document.querySelectorAll(".list[data-for]").forEach(list => {
     const sel = $(list.dataset.for);
     const name = "menu-" + sel.id;
@@ -1644,7 +1981,8 @@
       list.append(lab);
     });
     const sync = () => { list.querySelector(`input[value="${sel.value}"]`).checked = true; };
-    sel.addEventListener("change", sync); sync();
+    sel.addEventListener("change", sync);
+    listSyncs[sel.id] = sync;
   });
 
   const scrim = $("scrim");
@@ -1660,7 +1998,7 @@
   function openMenu(btn) {
     closeMenu();
     const sheet = $(btn.dataset.menu);
-    // drop the menu just below the top row of buttons
+    // drop the menu just below the rows of buttons
     sheet.style.setProperty("--sheet-top", btn.getBoundingClientRect().bottom + 6 + "px");
     sheet.classList.add("open");
     btn.setAttribute("aria-expanded", "true");
@@ -1675,21 +2013,21 @@
   });
   phoneMQ.addEventListener("change", closeMenu);
 
-  document.querySelectorAll('input[name="view"]').forEach(r =>
-    r.addEventListener("change", () => { document.body.dataset.view = r.value; closeMenu(); }));
-
   // ---------- readouts ----------
   const tempoOut = () => $("tempoOut").textContent = tempo() + " BPM";
-  const rateOut = () => $("aRateOut").textContent = ARP_RATES[$("aRate").value][1];
-  const holdOut = () => $("aHoldOut").textContent = ARP_HOLDS[$("aHold").value][1];
   const levelOut = () => {
     $("kLevelOut").textContent = $("kLevel").value + "%";
     if (drumBus) drumBus.gain.setTargetAtTime($("kLevel").value / 100, ctx.currentTime, 0.03);
   };
   const swingOut = () => $("kSwingOut").textContent = $("kSwing").value + "%";
-  [["tempo", tempoOut], ["aRate", rateOut], ["aHold", holdOut],["kLevel", levelOut], ["kSwing", swingOut]].forEach(([id, fn]) => {
+  [["tempo", tempoOut], ["kLevel", levelOut], ["kSwing", swingOut]].forEach(([id, fn]) => {
     $(id).addEventListener("input", fn); fn();
   });
+
+  // ---------- start ----------
+  listSyncs.kit();
+  loadFxUI(drumRack);
+  bindSynthUI();
 })();
 </script>
 </body>
