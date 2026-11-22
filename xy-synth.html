@@ -111,8 +111,44 @@
 
   /* the views: a synth (pad or steps) or the beats */
   .synthview, .beatsview { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
-  body[data-view="beats"] .synthview, body:not([data-view="beats"]) .beatsview { display: none; }
-  body[data-view="beats"] .synthonly, body:not([data-view="beats"]) .beatsonly { display: none; }
+  body:not([data-view="synth"]) .synthview, body:not([data-view="beats"]) .beatsview, body:not([data-view="song"]) .songview { display: none; }
+  body:not([data-view="synth"]) .synthonly, body:not([data-view="beats"]) .beatsonly, body:not([data-view="song"]) .songonly { display: none; }
+  body[data-view="song"] header .ctl { visibility: hidden; }
+
+  /* under the top bar: Live or Song, which drum machine (beats), a hint (song) */
+  .modebar { display: flex; align-items: center; gap: 10px; padding: 0 16px 10px; min-height: 32px; }
+  .modebar .seg span { padding: 3px 12px; }
+  .songhint { margin: 0; font-size: 0.8rem; color: var(--muted); min-width: 0; }
+  .modelabel { font-size: 0.8rem; color: var(--muted); margin-left: 6px; margin-right: -4px; }
+
+  /* the song: a row per bar, bar number, six pattern slots (a little gap between the synths and the drums), remove */
+  .songview { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 4px; background: var(--field); border-radius: 14px; padding: 6px; }
+  .songrow {
+    display: grid; grid-template-columns: 2.2rem repeat(6, minmax(0, 1fr)) 2rem; gap: 4px; align-items: center;
+    border-radius: 9px; padding: 2px; width: 100%; max-width: 720px; margin: 0 auto;
+  }
+  .songrow .first { margin-left: 8px; }
+  .songhead { font-size: 0.8rem; font-weight: 800; color: var(--muted); text-align: center; padding-right: 8px; }
+  .songlist { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 2px; padding-right: 2px; }
+  .songrow.now { background: var(--line); }
+  .barnum { font-size: 0.75rem; font-weight: 600; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+  .songrow.now .barnum { color: var(--ink); font-weight: 800; }
+  .songlist .slot {
+    font: inherit; font-size: 0.9rem; font-weight: 800; color: var(--ink); min-width: 0; height: 34px;
+    background: var(--control); border: 1.5px solid var(--line); border-radius: 8px; cursor: pointer;
+  }
+  .songlist .slot.off { background: var(--band); border-color: transparent; color: var(--muted); font-weight: 600; }
+  .rowdel { font: inherit; font-size: 1.1rem; color: var(--muted); background: none; border: 0; border-radius: 8px; height: 34px; cursor: pointer; }
+  .slot:focus-visible, .rowdel:focus-visible { outline: 3px solid var(--root); outline-offset: 1px; }
+  .addrow { margin: 6px auto 4px; padding: 8px 18px; flex: none; }
+  /* the pattern picker that opens from a slot */
+  .patpick {
+    position: fixed; z-index: 21; display: grid; grid-template-columns: repeat(3, 3rem); gap: 4px; padding: 6px;
+    background: var(--bg); border: 1.5px solid var(--line); border-radius: 14px; box-shadow: 0 12px 32px rgb(0 0 0 / 0.25);
+  }
+  .patpick[hidden] { display: none; }
+  .patpick .btn { padding: 8px 0; font-size: 0.95rem; }
+  .patpick .btn[aria-pressed="true"] { background: var(--hit); border-color: var(--hit); color: var(--bg); }
   body[data-mode="steps"] .padonly, body:not([data-mode="steps"]) .stepsonly { display: none; }
   /* beats view swaps Sound for Kit; Scale is hidden but keeps its space so the header doesn't shift */
   body[data-view="beats"] .soundctl, body:not([data-view="beats"]) .kitctl { display: none; }
@@ -204,16 +240,27 @@
   }
   .scrim { position: fixed; inset: 0; z-index: 19; background: rgb(0 0 0 / 0.2); }
   .scrim[hidden] { display: none; }
-  /* the mixer: a channel for each synth and the drums, two across on bigger screens, one on phones */
+  /* the mixer: six strips side by side, each with mute and solo, three effect amounts and a level fader that takes
+     whatever height is left, so everything fits on one screen */
   #mixMenu.open {
-    width: min(860px, calc(100% - 32px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: min(820px, calc(100% - 32px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+    height: min(560px, calc(100% - var(--sheet-top, 60px) - 12px - env(safe-area-inset-bottom, 0px)));
+    grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); align-content: stretch; gap: 6px;
   }
-  .sheet .fxgroup.mixch { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .fxgroup.mixch h2 .sub { display: inline; margin-left: 6px; }
-  .mixch .fxhead + .slider { grid-column: 1 / -1; }      /* Level runs the full width, the effects sit three across */
-  .mixbtns { display: flex; gap: 4px; }
-  .mixbtns .btn { padding: 3px 0; min-width: 2.2em; }
+  .strip { background: var(--field); border-radius: 12px; padding: 8px 6px; display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; }
+  .stname { text-align: center; min-width: 0; }
+  .stname b { display: block; font-size: 1.05rem; font-weight: 800; }
+  .stname .sub { display: block; font-size: 0.72rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mixbtns { display: flex; gap: 3px; }
+  .mixbtns .btn { flex: 1; min-width: 0; padding: 3px 0; }
+  .msend { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 3px; font-size: 0.74rem; color: var(--muted); }
+  .msend label { overflow: hidden; white-space: nowrap; }
+  .msend .short { display: none; }
+  .msend output { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .msend input { grid-column: 1 / -1; margin: 2px 0 0; }
+  .fader { flex: 1; min-height: 60px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .vfader { flex: 1; min-height: 0; width: 28px; margin: 0; writing-mode: vertical-lr; direction: rtl; }
+  .fader output { font-size: 0.74rem; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .fxgroup {
     background: var(--field); border-radius: 14px; padding: 10px 14px 12px;
     display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 6px 16px; align-content: start;
@@ -257,10 +304,12 @@
     .fx { display: contents; }
     .sheet:not(.open) { display: none; }               /* every panel lives in a menu */
     .sheet.open { right: calc(8px + env(safe-area-inset-right, 0px)); }
-    #mixMenu.open {
-      width: min(440px, calc(100% - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
-      grid-template-columns: minmax(0, 1fr);
-    }
+    #mixMenu.open { width: calc(100% - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)); gap: 4px; padding: 6px; }
+    .strip { padding: 6px 3px; gap: 5px; }
+    .msend { font-size: 0.68rem; }
+    .msend .long { display: none; }
+    .msend .short { display: inline; }
+    .modebar { padding: 0 8px 8px; }
     .sheet .fxgroup { grid-template-columns: 1fr; }   /* full-width sliders are easier to hit */
     .sheet .fxgroup.envgroup { grid-template-columns: 1fr 1fr; }
     .fxgroup { grid-area: auto; }                      /* the named areas are for bigger screens only */
@@ -308,7 +357,7 @@
   @media (prefers-reduced-motion: reduce) { .hint { transition: none; } }
 </style>
 </head>
-<body>
+<body data-view="synth" data-mode="pad" data-play="live">
 <header>
   <div class="ctl scalectl">
     <label for="scale">Scale</label>
@@ -334,7 +383,7 @@
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>
       </span></label>
     </div>
-    <button class="btn playbtn" id="play" aria-pressed="false" aria-label="Play beats">
+    <button class="btn playbtn" id="play" aria-pressed="false" aria-label="Play">
       <svg class="ico-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>
       <svg class="ico-stop" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
     </button>
@@ -386,6 +435,20 @@
     <output id="tempoOut"></output>
   </div>
 </nav>
+<!-- under the top bar: Live or Song, and on the beats screen which drum machine is showing -->
+<div class="modebar">
+  <div class="seg small playmodes" role="radiogroup" aria-label="Play mode">
+    <label title="Play the patterns picked on each screen"><input type="radio" name="playMode" value="live" checked><span>Live</span></label>
+    <label title="Play the song, and show it"><input type="radio" name="playMode" value="song"><span>Song</span></label>
+  </div>
+  <span class="modelabel beatsonly" aria-hidden="true">Drums</span>
+  <div class="seg small machines beatsonly" role="radiogroup" aria-label="Drum machine">
+    <label><input type="radio" name="machine" value="0" aria-label="Drums A" checked><span>A</span></label>
+    <label><input type="radio" name="machine" value="1" aria-label="Drums B"><span>B</span></label>
+    <label><input type="radio" name="machine" value="2" aria-label="Drums C"><span>C</span></label>
+  </div>
+  <p class="songhint songonly">A row is a bar. Tap a slot to pick its pattern.</p>
+</div>
 <main>
   <div class="synthview">
   <div class="padwrap padonly">
@@ -508,18 +571,23 @@
         <h3>Steps</h3>
         <p>Switch a synth to <strong>Steps</strong> to write a pattern on a grid of its notes. Steps play along with the beats, so press play to hear them.</p>
         <h3>Beats</h3>
-        <p>The grid tab is the drum machine. Tap steps to add hits, pick a kit, and switch between 8 patterns. The Break kit cuts a loop you load into 8 slices. It guesses whether the loop is 1, 2 or 4 bars long and fits it to the tempo; if it sounds too fast or slow, tap the bars button next to Load.</p>
+        <p>The grid tab has three drum machines, <strong>A B C</strong>, picked just under the top bar. They all play together, each with its own kit, patterns and effects. Tap steps to add hits, pick a kit, and switch between 8 patterns. The Break kit cuts a loop you load into 8 slices. It guesses whether the loop is 1, 2 or 4 bars long and fits it to the tempo; if it sounds too fast or slow, tap the bars button next to Load.</p>
         <h3>Sound and effects</h3>
         <p>The <strong>Sound</strong> menu has the envelope, filter and distortion. <strong>Effects</strong> has delay and reverb. Tempo sets the speed of everything.</p>
         <h3>Mixer</h3>
-        <p>The faders button opens the <strong>Mixer</strong>: a level for each synth and the drums, <strong>M</strong> to mute, <strong>S</strong> to solo, and how much reverb, delay and distortion each one gets. These are the same as the Amount sliders in the effects panels.</p>
-        <p>The stop button stops the beats and any arpeggios that are playing.</p>
+        <p>The faders button opens the <strong>Mixer</strong>: a level for each synth and drum machine, <strong>M</strong> to mute, <strong>S</strong> to solo, and how much reverb, delay and distortion each one gets. These are the same as the Amount sliders in the effects panels.</p>
+        <h3>Live and Song</h3>
+        <p>In <strong>Live</strong>, play loops the patterns picked on each screen. In <strong>Song</strong>, it plays the song from the top, one row per bar, and goes round again at the end.</p>
+        <p>Each row has a slot for synths 1 2 3 and drums A B C. Tap a slot to pick a pattern, or Off. <strong>+ Add a bar</strong> copies the last row; × removes one. In Song the synths play their Steps patterns even in Pad mode, so you can still play the pad over the top.</p>
+        <p>While the song plays, the tabs still open each synth and the drums so you can change patterns. Tap <strong>Song</strong> to get back to the song.</p>
+        <p>Stop cuts all sound, echoes and reverb too, and stops any arpeggios.</p>
         <h3>Crackles?</h3>
         <p>Turn up <strong>Latency</strong> in Settings, the sliders button. The sound lags your fingers a little more but has more time to keep up.</p>
       </div>
       <div class="helppane historypane">
         <!-- newest first; the first entry's number is shown next to the title -->
         <ul class="history" id="history">
+          <li><span class="ver">v3.2</span>Song mode: chain patterns into a song, a bar per row. Three drum machines that play together. The mixer fits all six on one screen. Stop cuts all sound.</li>
           <li><span class="ver">v3.1</span>Breaks can be 1, 2 or 4 bars long, so longer loops no longer play too fast. Delays start in note values. No camera option when loading a break.</li>
           <li><span class="ver">v3.0</span>A mixer with levels, mute, solo and effect amounts. Stop also stops arpeggios. Latency goes up to 1 second. Load a break from your files.</li>
           <li><span class="ver">v2.9</span>Fewer crackles: effects rest when a synth goes quiet, and the pad only redraws when something changes. A new Settings menu with Latency.</li>
@@ -546,6 +614,13 @@
     </div>
   </div>
   <div class="scrim" id="scrim" hidden></div>
+  <!-- the pattern picker for a song slot; its buttons are added by the song code -->
+  <div class="patpick" id="patPick" role="dialog" aria-label="Pick a pattern" hidden></div>
+  <!-- the song: a row per bar, a column per synth and drum machine. Rows are built by renderSong() -->
+  <section class="songview" aria-label="Song">
+    <div class="songrow songhead" id="songHead" aria-hidden="true"></div>
+    <div class="songlist" id="songList"></div>
+  </section>
   <section class="beatsview" aria-label="Beats">
     <div class="beatsbar">
       <div class="seg pats" role="radiogroup" aria-label="Pattern" id="pats"></div>
@@ -559,7 +634,7 @@
     <div class="grid" id="grid"></div>
     <section class="fx drumfx">
       <div class="fxgroup drumsgroup" style="--cols: 2">
-        <h2>Drums</h2>
+        <h2>Drums <span id="dmName">A</span></h2>
         <div class="slider">
           <div class="top"><label for="kLevel">Level</label><output id="kLevelOut"></output></div>
           <input type="range" id="kLevel" min="0" max="100" value="80">
@@ -640,7 +715,7 @@
     return out;
   }
 
-  let ctx = null, drumBus = null, noiseBuf = null;
+  let ctx = null, noiseBuf = null;
 
   // ---------- effects racks ----------
   // each synth and the drums have their own rack: distortion, then a delay and a reverb fed from it.
@@ -844,7 +919,7 @@
     mix.connect(reverbIn);
     tone.connect(reverbIn);
 
-    rack.n = { input, distDry, drive, distTone, distWet, distOn: false, delaySend, delay, feedback, reverbIn, out,
+    rack.n = { input, distDry, drive, distTone, distWet, distOn: false, delaySend, delay, feedback, tone, reverbIn, out,
                reverb: null, reverbStale: true, fresh: true, asleep: false, lastBusy: ctx.currentTime };
     applyFx(rack);
     return input;
@@ -900,7 +975,8 @@
       if (now - n.lastBusy > tail) { n.feedback.disconnect(); n.asleep = true; }
     };
     synths.forEach(syn => check(syn.rack, syn.voices.size || syn.tails.size || syn.arp, syn.env.r));
-    check(drumRack, seq.playing, 2);                     // 2 s covers a long break slice ringing on
+    // a drum machine is busy while the beats play, or for a whole loop's length after (a break slice can ring on that long)
+    drums.forEach(dm => check(dm.rack, seq.playing, dm.brk.buf ? dm.brk.buf.duration : 2));
   }, 500);
 
   // ---------- synths ----------
@@ -944,15 +1020,28 @@
   }
   const synths = SYNTH_DEFAULTS.map(makeSynth);
   let cur = synths[0];
-  const drumRack = makeRack("k", { dAmount: 0, rMix: 0, xAmount: 0 });    // drums start dry
-  const allRacks = () => [...synths.map(s => s.rack), drumRack];
+  // ---------- drum machines ----------
+  // three of them, A B C, all playing together. Each has its own kit, patterns, loaded break, effects and mixer
+  // channel. One set of Beats controls serves all three; `dcur` is the one on screen
+  const drums = ["A", "B", "C"].map((name, i) => ({
+    i, name,
+    kit: ["k909", "k808", "k909"][i],    // replaced by the saved choice once the kits are known
+    rack: makeRack("k", { dAmount: 0, rMix: 0, xAmount: 0 }),    // drums start dry
+    bus: null,                           // everything this machine plays goes through here, then its rack
+    openHat: null,                       // { choke, start } so a closed hat can cut a ringing open hat off
+    banks: null, editPat: 0, playPat: 0, // patterns: filled in with the patterns code
+    brk: { buf: null, name: "", bytes: null, bars: 1, voice: null },   // a loaded break, if the kit is Break
+  }));
+  let dcur = drums[0];
+  const allRacks = () => [...synths.map(s => s.rack), ...drums.map(d => d.rack)];
 
-  // mixer channels: one per synth, then the drums. Each has a fader after its effects rack (chan.node), so the level,
-  // mute and solo take the echoes and reverb with them. Level is a slider position, 0 to 100, with 80 as 0 dB
-  const mix = [...synths.map(syn => ({ name: "Synth " + (syn.i + 1), syn, rack: syn.rack })), { name: "Drums", rack: drumRack }]
+  // mixer channels: one per synth, then one per drum machine. Each has a fader after its effects rack (chan.node), so
+  // the level, mute and solo take the echoes and reverb with them. Level is a slider position, 0 to 100, with 80 as 0 dB
+  const mix = [...synths.map(syn => ({ name: "Synth " + (syn.i + 1), short: String(syn.i + 1), syn, rack: syn.rack })),
+               ...drums.map(dm => ({ name: "Drums " + dm.name, short: dm.name, dm, rack: dm.rack }))]
     .map(c => ({ ...c, level: 80, mute: false, solo: false, node: null }));
-  const drumChan = mix[mix.length - 1];
-  const DRUM_GAIN = 0.8;                 // drums into their rack; their level is the Drums fader now, after the effects
+  mix.forEach(c => { (c.syn || c.dm).chan = c; });
+  const DRUM_GAIN = 0.8;                 // drums into their rack; their level is their mixer fader, after the effects
   const faderGain = v => Math.pow(v / 80, 2);
   const fmtLevel = v => {
     if (!v) return "Off";
@@ -989,23 +1078,30 @@
       comp.threshold.value = -14; comp.ratio.value = 4;
       const out = ctx.createGain();
       out.connect(comp).connect(ctx.destination);
-      synths.forEach((syn, i) => {
-        syn.bus = ctx.createGain();
-        syn.bus.gain.value = 0.5;
-        syn.bus.connect(buildRack(syn.rack, chanOut(mix[i], out)));
+      synths.forEach(syn => {
+        buildRack(syn.rack, chanOut(syn.chan, out));
+        newBus(syn);
       });
-      drumBus = ctx.createGain();
-      drumBus.gain.value = DRUM_GAIN;
-      drumBus.connect(buildRack(drumRack, chanOut(drumChan, out)));
+      drums.forEach(dm => {
+        buildRack(dm.rack, chanOut(dm.chan, out));
+        newBus(dm);
+      });
       noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
       const nd = noiseBuf.getChannelData(0);
       for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
     }
     if (ctx.state === "suspended") ctx.resume();
   }
+  // a synth's or drum machine's bus: everything it plays goes in here, then into its rack. Stop swaps in a fresh one,
+  // so whatever was still sounding through the old one is cut off at once
+  function newBus(eng) {
+    eng.bus = ctx.createGain();
+    eng.bus.gain.value = eng.chan.dm ? DRUM_GAIN : 0.5;
+    eng.bus.connect(eng.rack.n.input);
+  }
 
-  // the effect sliders drive whichever rack they're showing: the drums', or the synth on screen
-  const boundRack = p => p === "k" ? drumRack : cur.rack;
+  // the effect sliders drive whichever rack they're showing: the drum machine or the synth on screen
+  const boundRack = p => p === "k" ? dcur.rack : cur.rack;
   ["", "k"].forEach(p => {
     FX_NAMES.forEach(n => {
       const el = $(p + n);
@@ -1026,7 +1122,7 @@
   // synced delays follow the tempo
   $("tempo").addEventListener("input", () => {
     allRacks().forEach(rack => { calcFx(rack); applyFx(rack); });
-    showFx(cur.rack); showFx(drumRack);
+    showFx(cur.rack); showFx(dcur.rack);
   });
 
   // ---------- voices ----------
@@ -1570,23 +1666,23 @@
     }
     cleanup(oscs[0], g);
   }
-  let openHat = null;                                    // { choke, start } so a closed hat can cut it off
+  let hit = null;                                        // the drum machine playing this hit (see playRow)
   function closedHat(t, peak, decay, noiseAmt, hpFreq) {
-    if (openHat && openHat.start < t) openHat.choke.gain.setTargetAtTime(0, t, 0.008);
-    hat(t, peak, decay, drumBus, noiseAmt, hpFreq);
+    if (hit.openHat && hit.openHat.start < t) hit.openHat.choke.gain.setTargetAtTime(0, t, 0.008);
+    hat(t, peak, decay, hit.bus, noiseAmt, hpFreq);
   }
   function openHatHit(t, peak, decay, noiseAmt, hpFreq) {
-    const choke = ctx.createGain(); choke.connect(drumBus);
+    const choke = ctx.createGain(); choke.connect(hit.bus);
     hat(t, peak, decay, choke, noiseAmt, hpFreq);
-    openHat = { choke, start: t };
+    hit.openHat = { choke, start: t };
     setTimeout(() => choke.disconnect(), (t - ctx.currentTime + decay + 0.3) * 1000);
   }
   function tom(t, freq, decay, drop) {
-    const g = gainNode(drumBus, t, 0.8, decay);
+    const g = gainNode(hit.bus, t, 0.8, decay);
     cleanup(osc("sine", freq * drop, freq, 0.08, t, decay + 0.05, g), g);
   }
   function clap(t, bpFreq, tail) {
-    const g = gainNode(drumBus, t);
+    const g = gainNode(hit.bus, t);
     [0, 0.011, 0.022].forEach(d => {                     // a few quick bursts, then the tail
       g.gain.setValueAtTime(1.4, t + d);
       g.gain.exponentialRampToValueAtTime(0.15, t + d + 0.009);
@@ -1595,14 +1691,14 @@
     cleanup(noise(t, tail + 0.04, filterNode("bandpass", bpFreq, 1.4, g)), g);
   }
   function snare(t, tones, toneType, toneDecay, noiseHp, noisePeak, noiseDecay) {
-    const g = gainNode(drumBus, t, 0.45, toneDecay);
+    const g = gainNode(hit.bus, t, 0.45, toneDecay);
     tones.forEach(f => osc(toneType, f * 1.2, f, 0.03, t, toneDecay + 0.02, g));
-    const n = gainNode(drumBus, t, noisePeak, noiseDecay);
+    const n = gainNode(hit.bus, t, noisePeak, noiseDecay);
     cleanup(noise(t, noiseDecay + 0.03, filterNode("highpass", noiseHp, 0, n)), n);
     setTimeout(() => g.disconnect(), (t - ctx.currentTime + toneDecay + 0.3) * 1000);
   }
   function rim(t, freqs, type, decay) {
-    const g = gainNode(drumBus, t, 0.6, decay);
+    const g = gainNode(hit.bus, t, 0.6, decay);
     const f = type === "square" ? filterNode("highpass", 800, 0, g) : filterNode("bandpass", 1700, 3, g);
     freqs.forEach(fr => osc(type, fr, 0, 0, t, decay + 0.01, f));
     setTimeout(() => g.disconnect(), (t - ctx.currentTime + 0.3) * 1000);
@@ -1618,9 +1714,9 @@
   const KITS = {
     k909: { name: "909", play: {
       bd: t => {
-        const g = gainNode(drumBus, t, 1, 0.55);
+        const g = gainNode(hit.bus, t, 1, 0.55);
         cleanup(osc("sine", 190, 48, 0.09, t, 0.6, g), g);
-        const c = gainNode(drumBus, t, 0.35, 0.015);     // click at the front
+        const c = gainNode(hit.bus, t, 0.35, 0.015);     // click at the front
         cleanup(noise(t, 0.02, filterNode("highpass", 1200, 0, c)), c);
       },
       sd: t => snare(t, [185, 330], "triangle", 0.14, 1400, 0.6, 0.22),
@@ -1633,7 +1729,7 @@
     } },
     k808: { name: "808", play: {
       bd: t => {                                         // long, round boom with only a small pitch drop
-        const g = gainNode(drumBus, t, 1, 0.9);
+        const g = gainNode(hit.bus, t, 1, 0.9);
         cleanup(osc("sine", 110, 52, 0.04, t, 0.95, g), g);
       },
       sd: t => snare(t, [238, 476], "sine", 0.12, 2000, 0.45, 0.17),
@@ -1648,40 +1744,47 @@
   };
   const kitSel = $("kit");
   for (const [k, kit] of Object.entries(KITS)) kitSel.add(new Option(kit.name, k));
-  try { if (KITS[localStorage.getItem("xysynth.kit")]) kitSel.value = localStorage.getItem("xysynth.kit"); } catch {}
-  const isBreakKit = () => !!KITS[kitSel.value].isBreak;
+  // each machine's kit is saved on this device. Drums A was once the only machine, so it picks up that old setting
+  try {
+    const saved = JSON.parse(localStorage.getItem("xysynth.kits")) || [localStorage.getItem("xysynth.kit")];
+    drums.forEach((dm, i) => { if (KITS[saved[i]]) dm.kit = saved[i]; });
+  } catch {}
+  const saveKits = () => { try { localStorage.setItem("xysynth.kits", JSON.stringify(drums.map(dm => dm.kit))); } catch {} };
+  const isBreakKit = (dm = dcur) => !!KITS[dm.kit].isBreak;
 
   // ---------- break: a loaded loop of 1, 2 or 4 bars cut into slices, one per row ----------
   const SLICES = DRUM_ROWS.length;
   const BREAK_BARS = [1, 2, 4];
-  let breakBuf = null, breakName = "", breakVoice = null, breakBars = 1;
   // a fresh loop's length in bars: whichever of 1, 2 or 4 needs the least speeding up or slowing down at this tempo
   function guessBars(duration) {
     const bars = duration / (240 / tempo());
     return BREAK_BARS.reduce((best, b) => Math.abs(Math.log2(bars / b)) < Math.abs(Math.log2(bars / best)) ? b : best);
   }
-  function playSlice(i, t) {
-    if (!breakBuf) return;
-    const loop = breakBars * 240 / tempo();              // the loop's bars (four beats each) at the current tempo
-    const rate = breakBuf.duration / loop;               // speed the loop up or down to fit, which shifts its pitch too
-    const offset = i * breakBuf.duration / SLICES;
+  function playSlice(dm, i, t) {
+    const b = dm.brk;
+    if (!b.buf) return;
+    const loop = b.bars * 240 / tempo();                 // the loop's bars (four beats each) at the current tempo
+    const rate = b.buf.duration / loop;                  // speed the loop up or down to fit, which shifts its pitch too
+    const offset = i * b.buf.duration / SLICES;
     // one slice at a time, like a sampler: a new slice cuts the last one off
-    if (breakVoice && breakVoice.start < t) {
-      breakVoice.g.gain.setTargetAtTime(0, t, 0.004);
-      breakVoice.src.stop(t + 0.03);                     // and stop it, rather than playing on silently to the end of the loop
+    if (b.voice && b.voice.start < t) {
+      b.voice.g.gain.setTargetAtTime(0, t, 0.004);
+      b.voice.src.stop(t + 0.03);                        // and stop it, rather than playing on silently to the end of the loop
     }
     const src = ctx.createBufferSource();
-    src.buffer = breakBuf; src.playbackRate.value = rate;
+    src.buffer = b.buf; src.playbackRate.value = rate;
     const g = ctx.createGain();
     g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1, t + 0.003);   // tiny fade in, no click
-    src.connect(g).connect(drumBus);
+    src.connect(g).connect(dm.bus);
     src.start(t, offset);                                // plays on to the end of the loop unless cut off
     cleanup(src, g);
-    breakVoice = { src, g, start: t };
+    b.voice = { src, g, start: t };
   }
-  const playRow = (r, t) => {
-    wakeRack(drumRack);
-    isBreakKit() ? playSlice(r, t) : KITS[kitSel.value].play[DRUM_ROWS[r].id](t);
+  // every drum hit goes through here: the sequencer, the grid and the row labels
+  const playRow = (dm, r, t) => {
+    wakeRack(dm.rack);
+    hit = dm;
+    isBreakKit(dm) ? playSlice(dm, r, t) : KITS[dm.kit].play[DRUM_ROWS[r].id](t);
   };
 
   // the loaded file is kept in IndexedDB so it survives a reload
@@ -1700,31 +1803,33 @@
   }
   // decoding doesn't need the live audio context, so a saved break can load before the first tap
   const decode = bytes => new OfflineAudioContext(2, 1, 44100).decodeAudioData(bytes.slice(0));
-  // bars: the saved length after a reload; a new file gets a guess
-  async function useBreak(bytes, name, bars) {
-    breakBuf = await decode(bytes);
-    breakName = name;
-    breakBars = BREAK_BARS.includes(bars) ? bars : guessBars(breakBuf.duration);
-    updateBreakUI();
+  // each machine's break is stored under its own key; Drums A keeps the key from when it was the only machine
+  const breakKey = dm => dm.i ? "break." + dm.name : "break";
+  // bars: the saved length after a reload; a new file gets a guess. The bytes are kept so a new length can be saved with them
+  async function useBreak(dm, bytes, name, bars) {
+    const buf = await decode(bytes);
+    Object.assign(dm.brk, { buf, bytes, name, bars: BREAK_BARS.includes(bars) ? bars : guessBars(buf.duration) });
+    if (dm === dcur) updateBreakUI();
   }
-  let breakBytes = null;                                 // kept so a new length can be saved with the file
-  const saveBreak = () => breakStore("readwrite", s => s.put({ bytes: breakBytes, name: breakName, bars: breakBars }, "break")).catch(() => {});
+  const saveBreak = dm => {
+    const { bytes, name, bars } = dm.brk;
+    breakStore("readwrite", s => s.put({ bytes, name, bars }, breakKey(dm))).catch(() => {});
+  };
   $("breakFile").addEventListener("change", async e => {
-    const file = e.target.files[0];
+    const file = e.target.files[0], dm = dcur;
     e.target.value = "";
     if (!file) return;
     try {
-      const bytes = await file.arrayBuffer();
-      await useBreak(bytes, file.name);
-      breakBytes = bytes;
-      saveBreak();
+      await useBreak(dm, await file.arrayBuffer(), file.name);
+      saveBreak(dm);
     } catch { alert("Sorry, that file couldn't be read as audio."); }
   });
   $("loadBreak").addEventListener("click", () => $("breakFile").click());
   $("breakBars").addEventListener("click", () => {
-    breakBars = BREAK_BARS[(BREAK_BARS.indexOf(breakBars) + 1) % BREAK_BARS.length];
+    const b = dcur.brk;
+    b.bars = BREAK_BARS[(BREAK_BARS.indexOf(b.bars) + 1) % BREAK_BARS.length];
     updateBreakUI();
-    if (breakBytes) saveBreak();
+    if (b.bytes) saveBreak(dcur);
   });
 
   // ---------- patterns ----------
@@ -1749,11 +1854,6 @@
       return pat;
     });
   }
-  // the drum kits share one set of patterns, the break has its own
-  const banks = {
-    drums: { key: "xysynth.patterns.v2", defaults: defaultDrumPatterns },   // bump the key when the presets change
-    break: { key: "xysynth.breakPatterns", defaults: defaultBreakPatterns },
-  };
   function loadBank(bank) {
     try {
       const p = JSON.parse(localStorage.getItem(bank.key));
@@ -1763,35 +1863,65 @@
     } catch {}
     return bank.defaults();
   }
-  Object.values(banks).forEach(b => { b.pats = loadBank(b); });
-  const bankName = () => isBreakKit() ? "break" : "drums";
-  let patterns = banks[bankName()].pats;
-  function savePatterns() {
-    try { localStorage.setItem(banks[bankName()].key, JSON.stringify(patterns)); } catch {}
+  // each machine has two banks: one its drum kits share, one for the break. Drums A keeps the saved patterns (and the
+  // presets) from when it was the only machine; B and C start empty, so they stay quiet until something is written.
+  // Bump a key when its presets change
+  drums.forEach(dm => {
+    const sfx = dm.i ? "." + dm.name : "";
+    const blank = () => Array.from({ length: PATTERN_COUNT }, emptyPattern);
+    dm.banks = {
+      drums: { key: "xysynth.patterns.v2" + sfx, defaults: dm.i ? blank : defaultDrumPatterns },
+      break: { key: "xysynth.breakPatterns" + sfx, defaults: dm.i ? blank : defaultBreakPatterns },
+    };
+    Object.values(dm.banks).forEach(b => { b.pats = loadBank(b); });
+  });
+  // a machine's patterns for the kit it's on. editPat is the pattern on screen; playPat the one being heard (-1 for
+  // none), which catches up at the start of each bar
+  const bankOf = dm => dm.banks[isBreakKit(dm) ? "break" : "drums"];
+  const patsOf = dm => bankOf(dm).pats;
+  function savePatterns(dm = dcur) {
+    try { localStorage.setItem(bankOf(dm).key, JSON.stringify(bankOf(dm).pats)); } catch {}
   }
-  let editPat = 0;     // the pattern on screen
-  let playPat = 0;     // the pattern being heard; catches up with editPat at the start of each bar
+  // the six engines in song and mixer order: synths 1 2 3, then drums A B C
+  const engines = [...synths, ...drums];
 
   // ---------- sequencer ----------
   // same lookahead idea as the arp: every 25 ms, schedule any steps due in the next 100 ms.
   // One clock runs the drums and every synth in Steps mode
-  const seq = { playing: false, timer: null, step: 0, count: 0, nextTime: 0, queue: [] };
+  // bar counts bars since play (or since switching to Song), songRow is the song row being played (-1 in Live)
+  const seq = { playing: false, timer: null, step: 0, count: 0, bar: 0, songRow: -1, nextTime: 0, queue: [] };
   const stepLen = () => 60 / tempo() / 4;                // one 1/16 step, in seconds
   const swingAmount = () => ($("kSwing").value / 100 - 0.5) * 2;   // 50% straight, 75% = triplet feel
 
+  // the start of each bar: in Live every engine moves on to the pattern picked on its screen, in Song to the patterns
+  // on the song's next row (off is -1). The song goes round again after its last row
+  function barStart() {
+    const rows = song.rows;
+    if (playMode === "song" && rows.length) {
+      seq.songRow = seq.bar % rows.length;
+      engines.forEach((e, k) => { e.playPat = rows[seq.songRow][k]; });
+    } else {
+      seq.songRow = -1;
+      engines.forEach(e => { e.playPat = playMode === "song" ? -1 : e.editPat; });
+    }
+    seq.bar++;
+  }
+
   function seqTick() {
     while (seq.nextTime < ctx.currentTime + 0.1) {
-      if (seq.step === 0) playPat = editPat;
+      if (seq.step === 0) barStart();
       const len = stepLen();
       const t = seq.nextTime + (seq.step % 2 ? swingAmount() * len : 0);   // swing pushes back every other 1/16
-      patterns[playPat].forEach((row, r) => { if (row[seq.step]) playRow(r, t); });
+      drums.forEach(dm => {
+        if (dm.playPat >= 0) patsOf(dm)[dm.playPat].forEach((row, r) => { if (row[seq.step]) playRow(dm, r, t); });
+      });
+      // in Live a synth's steps only play in Steps mode; in Song they play whenever the song asks
       synths.forEach(syn => {
-        if (seq.step === 0) syn.playPat = syn.editPat;
-        if (syn.mode !== "steps") return;
+        if (syn.playPat < 0 || (playMode === "live" && syn.mode !== "steps")) return;
         const pat = syn.pats[syn.playPat];
         syn.seqNotes.forEach((midi, r) => { if (pat[r][seq.step]) playTail(syn, midi, t, len * GATE, null); });
       });
-      seq.queue.push({ time: t, step: seq.step, pat: playPat, spats: synths.map(syn => syn.playPat) });
+      seq.queue.push({ time: t, step: seq.step, pats: engines.map(e => e.playPat), row: seq.songRow });
       seq.nextTime += len;
       seq.step = (seq.step + 1) % STEPS;
       seq.count++;
@@ -1812,20 +1942,19 @@
     ensureAudio();
     // if an arp is already running, start the beats on its next note so they line up
     const running = synths.find(syn => syn.arp);
-    Object.assign(seq, { playing: true, step: 0, count: 0, queue: [],
+    Object.assign(seq, { playing: true, step: 0, count: 0, bar: 0, songRow: -1, queue: [],
                          nextTime: running ? running.arp.nextTime : ctx.currentTime + 0.05 });
     seqTick();
     seq.timer = setInterval(seqTick, 25);
     playBtn.setAttribute("aria-pressed", "true");
-    playBtn.setAttribute("aria-label", "Stop beats");
+    playBtn.setAttribute("aria-label", "Stop");
   }
   function stopSeq() {
     clearInterval(seq.timer);
-    seq.playing = false; seq.queue = [];
-    playPat = editPat;
-    synths.forEach(syn => { syn.playPat = syn.editPat; });
+    Object.assign(seq, { playing: false, queue: [], bar: 0, songRow: -1 });
+    engines.forEach(e => { e.playPat = e.editPat; });
     playBtn.setAttribute("aria-pressed", "false");
-    playBtn.setAttribute("aria-label", "Play beats");
+    playBtn.setAttribute("aria-label", "Play");
   }
   // stop: the beats, and every synth's arp (held or played), as if the fingers had lifted too
   function stopArps() {
@@ -1834,10 +1963,57 @@
     updateTabs();
     shownHold = null; updateHoldBtn(0);
   }
+
+  // stop also cuts every sound still ringing. The faders dip for a moment; meanwhile each synth and drum machine gets a
+  // fresh bus, so anything still playing through the old one (notes, drum hits, break slices) goes nowhere, and each
+  // rack's echoes and reverb are emptied. Then the faders come back up
+  function silence() {
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    mix.forEach(c => { if (c.node) { holdAt(c.node.gain, now); c.node.gain.linearRampToValueAtTime(0, now + 0.02); } });
+    const oldBuses = engines.map(e => e.bus);
+    engines.forEach(newBus);
+    const halt = s => { if (s) try { s.stop(now + 0.03); } catch {} };   // free the oscillators, they're on the old buses
+    synths.forEach(syn => {
+      [...syn.voices.values(), ...syn.tails].forEach(v => { v.oscs.forEach(o => halt(o.osc)); halt(v.lfo); });
+      syn.voices.clear(); syn.tails.clear();
+    });
+    drums.forEach(dm => { halt(dm.brk.voice?.src); dm.brk.voice = null; dm.openHat = null; });
+    setTimeout(() => {
+      oldBuses.forEach(b => b.disconnect());
+      allRacks().forEach(flushRack);
+      const t = ctx.currentTime;
+      mix.forEach(c => { if (c.node) { holdAt(c.node.gain, t); c.node.gain.setTargetAtTime(chanGain(c), t, 0.01); } });
+    }, 40);
+  }
+  // a rack with nothing left in it: a new, empty delay line, and a new convolver with the same room
+  function flushRack(rack) {
+    const n = rack.n;
+    if (!n) return;
+    const delay = ctx.createDelay(MAX_DELAY);
+    delay.delayTime.value = rack.st.dTime;
+    n.delay.disconnect();
+    n.delaySend.disconnect();
+    try { n.feedback.disconnect(); } catch {}
+    n.delaySend.connect(delay);
+    delay.connect(n.tone);
+    if (!n.asleep) n.feedback.connect(delay);
+    n.delay = delay;
+    if (n.reverb) {
+      const conv = ctx.createConvolver();
+      conv.buffer = n.reverb.conv.buffer;
+      try { n.reverbIn.disconnect(n.reverb.conv); } catch {}
+      n.reverb.conv.disconnect();
+      n.reverbIn.connect(conv);
+      conv.connect(n.reverb.level);
+      n.reverb.conv = conv;
+    }
+  }
   playBtn.addEventListener("click", () => {
     if (!seq.playing) return startSeq();
     stopSeq();
     stopArps();
+    silence();
   });
 
   // ---------- step grids ----------
@@ -1891,13 +2067,14 @@
   }
 
   // ---------- beats UI ----------
+  // one grid and one set of controls serve all three drum machines; they show `dcur`
   const gridEl = $("grid");
   const cells = [];                                      // cells[row][step]
   const rowLabs = [];
   DRUM_ROWS.forEach((d, r) => {
     const lab = document.createElement("button");
     lab.className = "rowlab";
-    lab.addEventListener("click", () => { ensureAudio(); playRow(r, ctx.currentTime + 0.01); });
+    lab.addEventListener("click", () => { ensureAudio(); playRow(dcur, r, ctx.currentTime + 0.01); });
     gridEl.append(lab);
     rowLabs.push(lab);
     cells[r] = [];
@@ -1918,53 +2095,71 @@
     });
   }
 
+  const editing = () => patsOf(dcur)[dcur.editPat];      // the drum pattern on screen
   function renderCell(r, s) {
-    const on = !!patterns[editPat][r][s];
+    const on = !!editing()[r][s];
     cells[r][s].classList.toggle("on", on);
     cells[r][s].setAttribute("aria-pressed", on);
   }
   function renderGrid() {
     DRUM_ROWS.forEach((_, r) => { for (let s = 0; s < STEPS; s++) renderCell(r, s); });
+    $("pats").querySelectorAll("input")[dcur.editPat].checked = true;
   }
   paintable(gridEl, {
-    get: (r, s) => patterns[editPat][r][s],
-    set: (r, s, on) => { patterns[editPat][r][s] = on ? 1 : 0; renderCell(r, s); },
-    audition: r => playRow(r, ctx.currentTime + 0.01),
-    save: savePatterns,
+    get: (r, s) => editing()[r][s],
+    set: (r, s, on) => { editing()[r][s] = on ? 1 : 0; renderCell(r, s); },
+    audition: r => playRow(dcur, r, ctx.currentTime + 0.01),
+    save: () => savePatterns(),
   });
 
   const patLabels = patternButtons($("pats"), "pat", i => {
-    editPat = i;
-    if (!seq.playing) playPat = i;
+    dcur.editPat = i;
+    if (!seq.playing) dcur.playPat = i;
     renderGrid();
   });
   $("clearPat").addEventListener("click", () => {
-    patterns[editPat] = emptyPattern();
+    patsOf(dcur)[dcur.editPat] = emptyPattern();
     renderGrid(); savePatterns();
   });
 
   // the Load button only shows for the break kit, and stands out until a loop is loaded
   const loadBtn = $("loadBreak");
   function updateBreakUI() {
+    const b = dcur.brk;
     loadBtn.hidden = !isBreakKit();
-    loadBtn.classList.toggle("wanted", !breakBuf);
-    loadBtn.title = breakName ? "Loaded: " + breakName + ". Tap to change" : "Load a loop of 1, 2 or 4 bars";
+    loadBtn.classList.toggle("wanted", !b.buf);
+    loadBtn.title = b.name ? "Loaded: " + b.name + ". Tap to change" : "Load a loop of 1, 2 or 4 bars";
     // the loop's length shows once there's a loop
     const barsBtn = $("breakBars");
-    barsBtn.hidden = !isBreakKit() || !breakBuf;
-    barsBtn.textContent = breakBars + (breakBars > 1 ? " bars" : " bar");
+    barsBtn.hidden = !isBreakKit() || !b.buf;
+    barsBtn.textContent = b.bars + (b.bars > 1 ? " bars" : " bar");
     barsBtn.setAttribute("aria-label", `Loop length, ${barsBtn.textContent}. Tap to change`);
     barsBtn.title = "How many bars the loop is. Tap to change";
   }
   kitSel.addEventListener("change", () => {
-    try { localStorage.setItem("xysynth.kit", kitSel.value); } catch {}
-    patterns = banks[bankName()].pats;
+    dcur.kit = kitSel.value;
+    saveKits();
     renderGrid(); updateRowLabels(); updateBreakUI();
   });
-  breakStore("readonly", s => s.get("break"))
-    .then(saved => { if (saved) { breakBytes = saved.bytes; return useBreak(saved.bytes, saved.name, saved.bars); } })
-    .catch(() => {});
-  renderGrid(); updateRowLabels(); updateBreakUI();
+  drums.forEach(dm => breakStore("readonly", s => s.get(breakKey(dm)))
+    .then(saved => saved && useBreak(dm, saved.bytes, saved.name, saved.bars))
+    .catch(() => {}));
+
+  // put the drum machine on screen into every Beats control
+  function bindDrumUI() {
+    kitSel.value = dcur.kit;
+    listSyncs.kit();
+    renderGrid(); updateRowLabels(); updateBreakUI();
+    loadFxUI(dcur.rack);
+    $("kLevel").value = dcur.chan.level;
+    $("kLevelOut").textContent = fmtLevel(dcur.chan.level);
+    $("dmName").textContent = dcur.name;
+    document.querySelector(`input[name="machine"][value="${dcur.i}"]`).checked = true;
+  }
+  document.querySelectorAll('input[name="machine"]').forEach(r => r.addEventListener("change", () => {
+    dcur = drums[+r.value];
+    bindDrumUI();
+  }));
 
   // ---------- synth steps ----------
   // each synth has 8 patterns of [row][step], rows counted up the scale from the grid's lowest note, so a pattern
@@ -2074,11 +2269,12 @@
     else while (seq.queue.length && seq.queue[0].time <= ctx.currentTime) seqNow = seq.queue.shift();
     const steps = cur.mode === "steps";
     moveHead(heads.drums, cells, seqNow ? seqNow.step : -1);
-    markPat(heads.drums, patLabels, seqNow ? seqNow.pat : -1);
+    markPat(heads.drums, patLabels, seqNow ? seqNow.pats[engines.indexOf(dcur)] : -1);
     moveHead(heads.synth, sCells, seqNow && steps ? seqNow.step : -1);
-    markPat(heads.synth, sPatLabels, seqNow && steps ? seqNow.spats[cur.i] : -1);
+    markPat(heads.synth, sPatLabels, seqNow && steps ? seqNow.pats[cur.i] : -1);
+    markSongRow(seqNow ? seqNow.row : -1);
   }
-  (function seqUILoop() { updateSeqUI(); requestAnimationFrame(seqUILoop); })();
+  requestAnimationFrame(function seqUILoop() { updateSeqUI(); requestAnimationFrame(seqUILoop); });   // from the first frame, once everything exists
 
   // ---------- sound panel: envelope and filter ----------
   // the time sliders run 0 to 100 and map exponentially, so short times get most of the travel
@@ -2178,15 +2374,153 @@
     shownHold = null; updateHoldBtn(0);
   }
 
+  // the screen: a synth, the beats, or the song. Fingers on the pad belong to the synth that was on screen, so they let go
+  let engineView = "synth";                              // the last synth or beats screen, for going back from the song
+  function setView(v) {
+    dropPointers();
+    closeMenu(); closePicker();
+    document.body.dataset.view = v;
+    if (v !== "song") engineView = v;
+    // the tabs show which synth or the beats is on screen, and none while the song is
+    const tab = v === "song" ? null : v === "beats" ? "beats" : String(cur.i);
+    document.querySelectorAll('input[name="view"]').forEach(r => { r.checked = r.value === tab; });
+  }
   document.querySelectorAll('input[name="view"]').forEach(r => r.addEventListener("change", () => {
-    dropPointers();                                      // fingers on the pad belong to the synth that was on screen
-    if (r.value === "beats") document.body.dataset.view = "beats";
-    else {
-      document.body.dataset.view = "synth";
-      if (cur !== synths[+r.value]) { cur = synths[+r.value]; bindSynthUI(); }
-    }
-    closeMenu();
+    if (r.value !== "beats" && cur !== synths[+r.value]) { dropPointers(); cur = synths[+r.value]; bindSynthUI(); }
+    setView(r.value === "beats" ? "beats" : "synth");
   }));
+
+  // ---------- live or song ----------
+  // Live plays the patterns picked on each screen, as they're picked. Song plays the song top to bottom, a row per bar.
+  // Picking Song shows the song; the tabs still open each synth and the beats (so patterns can be changed while the
+  // song plays), and tapping Song again comes back to it. Switching while playing takes effect at the next bar, and
+  // a song starts from its first row
+  let playMode = "live";
+  document.querySelectorAll('input[name="playMode"]').forEach(r => r.addEventListener("click", () => {
+    if (r.value !== playMode) {
+      playMode = r.value;
+      seq.bar = 0;
+      document.body.dataset.play = playMode;
+    }
+    setView(playMode === "song" ? "song" : engineView);
+  }));
+
+  // ---------- song ----------
+  // a list of rows, one per bar, played top to bottom. Each row gives every engine (synths 1 2 3, drums A B C) a
+  // pattern, 0 to 7, or -1 for off. Saved on this device
+  const SONG_KEY = "xysynth.song.v1";                    // bump if the default song changes
+  function defaultSong() {
+    // drums A on their own for two bars, then synth 1's acid line comes in
+    return { rows: Array.from({ length: 8 }, (_, b) => [b < 2 ? -1 : 0, -1, -1, 0, -1, -1]) };
+  }
+  function loadSong() {
+    try {
+      const s = JSON.parse(localStorage.getItem(SONG_KEY));
+      const ok = s && Array.isArray(s.rows) && s.rows.every(row => Array.isArray(row) && row.length === engines.length &&
+        row.every(p => Number.isInteger(p) && p >= -1 && p < PATTERN_COUNT));
+      if (ok) return s;
+    } catch {}
+    return defaultSong();
+  }
+  const song = loadSong();
+  const saveSong = () => { try { localStorage.setItem(SONG_KEY, JSON.stringify(song)); } catch {} };
+
+  const songList = $("songList");
+  const slotText = p => p < 0 ? "–" : String(p + 1);
+  function showSlot(slot, b, k) {
+    const p = song.rows[b][k];
+    slot.textContent = slotText(p);
+    slot.classList.toggle("off", p < 0);
+    slot.setAttribute("aria-label", `Bar ${b + 1}, ${mix[k].name}: ${p < 0 ? "off" : "pattern " + (p + 1)}`);
+  }
+  // the column names along the top: 1 2 3 for the synths, A B C for the drums
+  $("songHead").innerHTML = `<span class="barnum">Bar</span>` +
+    mix.map((c, k) => `<span class="slot${k === synths.length ? " first" : ""}" title="${c.name}">${c.short}</span>`).join("") + "<span></span>";
+  function renderSong() {
+    songList.textContent = "";
+    song.rows.forEach((row, b) => {
+      const el = document.createElement("div");
+      el.className = "songrow";
+      el.innerHTML = `<span class="barnum">${b + 1}</span>` +
+        row.map((_, k) => `<button class="slot${k === synths.length ? " first" : ""}" data-b="${b}" data-k="${k}" aria-haspopup="dialog"></button>`).join("") +
+        `<button class="rowdel" data-b="${b}" aria-label="Remove bar ${b + 1}" title="Remove this bar">×</button>`;
+      el.querySelectorAll(".slot").forEach(s => showSlot(s, b, +s.dataset.k));
+      songList.append(el);
+    });
+    const add = document.createElement("button");
+    add.className = "btn addrow";
+    add.textContent = "+ Add a bar";
+    songList.append(add);
+    shownRow = -1;                                       // the playing row is marked again next frame
+  }
+  songList.addEventListener("click", e => {
+    const slot = e.target.closest(".slot"), del = e.target.closest(".rowdel");
+    if (slot) return openPicker(slot);
+    if (del) {
+      song.rows.splice(+del.dataset.b, 1);
+    } else if (e.target.closest(".addrow")) {
+      // a new bar starts as a copy of the last one, which is usually what comes next
+      song.rows.push(song.rows.length ? [...song.rows[song.rows.length - 1]] : engines.map(() => -1));
+    } else return;
+    saveSong(); renderSong();
+    if (!del) songList.lastChild.scrollIntoView({ block: "nearest" });
+  });
+
+  // the row being heard is lit, and kept in view while the song plays
+  let shownRow = -1;
+  function markSongRow(row) {
+    if (row === shownRow) return;
+    songList.children[shownRow]?.classList.remove("now");
+    const el = row >= 0 && row < song.rows.length ? songList.children[row] : null;
+    if (el) {
+      el.classList.add("now");
+      if (document.body.dataset.view === "song") el.scrollIntoView({ block: "nearest" });
+    }
+    shownRow = row;
+  }
+
+  // tapping a slot opens a small picker: Off or a pattern number
+  const picker = $("patPick");
+  let pickSlot = null;
+  ["Off", ...Array.from({ length: PATTERN_COUNT }, (_, i) => String(i + 1))].forEach((label, i) => {
+    const btn = document.createElement("button");
+    btn.className = "btn";
+    btn.textContent = label;
+    btn.dataset.p = i - 1;
+    btn.setAttribute("aria-label", i ? "Pattern " + label : "Off");
+    picker.append(btn);
+  });
+  function openPicker(slot) {
+    closePicker();
+    pickSlot = slot;
+    const p = song.rows[+slot.dataset.b][+slot.dataset.k];
+    picker.querySelectorAll("button").forEach(btn => btn.setAttribute("aria-pressed", +btn.dataset.p === p));
+    picker.setAttribute("aria-label", slot.getAttribute("aria-label").replace(/:.*/, ": pick a pattern"));
+    picker.hidden = false;
+    scrim.hidden = false;
+    // just under the slot, or above it if there's no room, and never off the side of the screen
+    const r = slot.getBoundingClientRect(), w = picker.offsetWidth, h = picker.offsetHeight;
+    picker.style.left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8) + "px";
+    picker.style.top = (r.bottom + 6 + h > innerHeight - 8 ? Math.max(8, r.top - 6 - h) : r.bottom + 6) + "px";
+    picker.querySelector('[aria-pressed="true"]').focus({ preventScroll: true });
+  }
+  function closePicker() {
+    if (!pickSlot) return;
+    picker.hidden = true;
+    scrim.hidden = !openMenuBtn;
+    const slot = pickSlot;
+    pickSlot = null;
+    return slot;
+  }
+  picker.addEventListener("click", e => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    const b = +pickSlot.dataset.b, k = +pickSlot.dataset.k;
+    song.rows[b][k] = +btn.dataset.p;
+    saveSong();
+    showSlot(pickSlot, b, k);
+    closePicker().focus({ preventScroll: true });
+  });
 
   // ---------- phone menus ----------
   // scale, sound and kit lists mirror their header selects, so either one can drive the change
@@ -2231,48 +2565,54 @@
     (sheet.querySelector("input:checked") || sheet.querySelector("input, a"))?.focus({ preventScroll: true });
   }
   menuBtns.forEach(btn => btn.addEventListener("click", () => openMenuBtn === btn ? closeMenu() : openMenu(btn)));
-  scrim.addEventListener("click", closeMenu);
+  scrim.addEventListener("click", () => { closeMenu(); closePicker(); });
   document.addEventListener("keydown", e => {
-    if (e.key === "Escape" && openMenuBtn) { const b = openMenuBtn; closeMenu(); b.focus(); }
+    if (e.key === "Escape" && pickSlot) closePicker().focus();
+    else if (e.key === "Escape" && openMenuBtn) { const b = openMenuBtn; closeMenu(); b.focus(); }
   });
   phoneMQ.addEventListener("change", closeMenu);
 
   // ---------- mixer ----------
-  // a channel each for the synths and the drums. Reverb, Delay and Distortion are the racks' own Amount settings,
-  // so moving one here moves the matching slider in the effects panels too. The drums' Level is the Drums panel's Level
-  const MIX_SENDS = ["rMix", "dAmount", "xAmount"];
+  // a strip each for the three synths and the three drum machines, side by side so all six fit on one screen.
+  // Reverb, Delay and Distortion are the racks' own Amount settings, so moving one here moves the matching slider in
+  // the effects panels too. A drum machine's Level is also the Level in its Drums panel
+  const MIX_SENDS = [["rMix", "Reverb", "Rev"], ["dAmount", "Delay", "Dly"], ["xAmount", "Distortion", "Dist"]];
   const mixEl = $("mixMenu");
   mix.forEach((c, i) => {
     const m = "m" + i;
     mixEl.insertAdjacentHTML("beforeend", `
-      <div class="fxgroup mixch" style="--cols: 3">
-        <div class="fxhead">
-          <h2>${c.name} <span class="sub" id="${m}name"></span></h2>
-          <div class="mixbtns">
-            <button class="btn togglebtn" id="${m}mute" aria-pressed="false" aria-label="Mute ${c.name}" title="Mute">M</button>
-            <button class="btn togglebtn" id="${m}solo" aria-pressed="false" aria-label="Solo ${c.name}" title="Solo">S</button>
-          </div>
+      <div class="strip" role="group" aria-label="${c.name}" title="${c.name}">
+        <div class="stname"><b>${c.short}</b><span class="sub" id="${m}name"></span></div>
+        <div class="mixbtns">
+          <button class="btn togglebtn" id="${m}mute" aria-pressed="false" aria-label="Mute ${c.name}" title="Mute">M</button>
+          <button class="btn togglebtn" id="${m}solo" aria-pressed="false" aria-label="Solo ${c.name}" title="Solo">S</button>
         </div>
-        ${sliderHTML(m + "level", "Level", 0, 100)}
-        ${sliderHTML(m + "rMix", "Reverb", 0, 100)}
-        ${sliderHTML(m + "dAmount", "Delay", 0, 100)}
-        ${sliderHTML(m + "xAmount", "Distortion", 0, 100)}
+        ${MIX_SENDS.map(([n, long, short]) => `
+        <div class="msend">
+          <label for="${m}${n}" title="${long}"><span class="long">${long}</span><span class="short">${short}</span></label>
+          <output id="${m}${n}Out"></output>
+          <input type="range" id="${m}${n}" min="0" max="100" aria-label="${c.name} ${long.toLowerCase()}">
+        </div>`).join("")}
+        <div class="fader">
+          <input type="range" class="vfader" id="${m}level" min="0" max="100" aria-label="${c.name} level">
+          <output id="${m}levelOut"></output>
+        </div>
       </div>`);
   });
   function setLevel(c, v) {
     const m = "m" + mix.indexOf(c);
     c.level = v;
     $(m + "level").value = v; $(m + "levelOut").textContent = fmtLevel(v);
-    if (c === drumChan) { $("kLevel").value = v; $("kLevelOut").textContent = fmtLevel(v); }
+    if (c === dcur.chan) { $("kLevel").value = v; $("kLevelOut").textContent = fmtLevel(v); }
     applyMix();
   }
   // put every channel's settings on the mixer (when it opens)
   function showMix() {
     mix.forEach((c, i) => {
       const m = "m" + i;
-      $(m + "name").textContent = c.syn ? PRESETS[c.syn.preset].name : KITS[kitSel.value].name;
+      $(m + "name").textContent = c.syn ? PRESETS[c.syn.preset].name : KITS[c.dm.kit].name;
       $(m + "level").value = c.level; $(m + "levelOut").textContent = fmtLevel(c.level);
-      MIX_SENDS.forEach(n => { $(m + n).value = c.rack.values[n]; $(m + n + "Out").textContent = c.rack.out[n]; });
+      MIX_SENDS.forEach(([n]) => { $(m + n).value = c.rack.values[n]; $(m + n + "Out").textContent = c.rack.out[n]; });
       $(m + "mute").setAttribute("aria-pressed", c.mute);
       $(m + "solo").setAttribute("aria-pressed", c.solo);
     });
@@ -2280,7 +2620,7 @@
   mix.forEach((c, i) => {
     const m = "m" + i;
     $(m + "level").addEventListener("input", e => setLevel(c, +e.target.value));
-    MIX_SENDS.forEach(n => $(m + n).addEventListener("input", e => {
+    MIX_SENDS.forEach(([n]) => $(m + n).addEventListener("input", e => {
       const rack = c.rack;
       rack.values[n] = +e.target.value;
       calcFx(rack); applyFx(rack);
@@ -2308,7 +2648,7 @@
       syn.voices.clear(); syn.tails.clear();
       syn.bus = null; syn.rack.n = null;
     });
-    drumRack.n = null; drumBus = null; openHat = null; breakVoice = null;
+    drums.forEach(dm => { dm.rack.n = null; dm.bus = null; dm.openHat = null; dm.brk.voice = null; });
     mix.forEach(c => { c.node = null; });
     const old = ctx;
     ctx = null;
@@ -2343,16 +2683,16 @@
 
   // ---------- readouts ----------
   const tempoOut = () => $("tempoOut").textContent = tempo() + " BPM";
-  const levelOut = () => setLevel(drumChan, +$("kLevel").value);     // the same as the mixer's Drums fader
+  const levelOut = () => setLevel(dcur.chan, +$("kLevel").value);    // the same as that drum machine's mixer fader
   const swingOut = () => $("kSwingOut").textContent = $("kSwing").value + "%";
   [["tempo", tempoOut], ["kLevel", levelOut], ["kSwing", swingOut]].forEach(([id, fn]) => {
     $(id).addEventListener("input", fn); fn();
   });
 
   // ---------- start ----------
-  listSyncs.kit();
-  loadFxUI(drumRack);
+  bindDrumUI();
   bindSynthUI();
+  renderSong();
 })();
 </script>
 </body>
