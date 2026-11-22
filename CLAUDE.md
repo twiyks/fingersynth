@@ -26,17 +26,17 @@ voice -> master (0.5) -> out -> compressor (-14 dB, 4:1) -> destination
 drums -> drumBus (Drums level) -> out          (no delay or reverb on drums)
                  |-> delaySend -> delay <-> tone lowpass 5 kHz -> feedback (loop)
                  |                           \-> out, and -> convolver
-                 \-> convolver (reverb) -> reverbWet -> out
+                 \-> reverbIn -> convolver (reverb) -> level -> reverbWet -> out
 ```
 - Delay echoes also feed the reverb.
 - Delay "Decay" is a time in seconds (0.1 to 12, exponential slider). Feedback is derived from it with `feedbackFor(time, decay) = 10^(-3 * time / decay)`, i.e. the echoes fall by 60 dB over the decay time. Capped at 0.95.
 - An "ms / notes" switch in the Delay header (`delayUnit`, `setDelayUnit()`) lets Time and Decay be set as note values instead. In notes mode Time steps through `SYNC_TIMES` (1/16 to 1 bar, with T triplet and D dotted) and Decay through `SYNC_DECAYS` (1/2 beat to 8 bars), both stored in beats and converted to seconds from the master tempo, so moving the Tempo slider retimes the delay. Each mode remembers its own slider positions. Delay line max is `MAX_DELAY` (4 s, one bar at 60 BPM).
-- Reverb uses a generated impulse response (`makeImpulse(size)`): stereo noise with a power-curve fade, 0.3 to 6 seconds long depending on room size. It's rebuilt on a 120 ms debounce when the size slider moves.
+- Reverb uses a generated impulse response (`makeImpulse(size)`): stereo noise with a power-curve fade, 0.3 to 6 seconds long depending on room size. It's rebuilt on a 120 ms debounce when the size slider moves. `swapReverb()` makes a fresh convolver each time and crossfades from the old one over `REVERB_FADE` (0.3 s), because swapping the buffer on a live convolver cuts the tail with a click. The first impulse is built just after the first note (`setTimeout`) so it doesn't delay it.
 - Effect settings live in `fxState` (read by `readFx()`) so the sliders work before audio has started; `applyFx()` pushes them into the nodes.
 
 **Voices**
-- `startVoice(midi, cutoff, t)` builds a fresh voice: oscillators -> per-oscillator gain -> its own lowpass filter -> amp envelope -> `master`. Optional `t` schedules it on the audio clock.
-- `stopVoice(v)` releases immediately (held notes). `stopVoiceAt(v, when, onDone)` releases at a scheduled time (arp notes) and cleans up via `onended`.
+- `startVoice(midi, cutoff, t, gate)` builds a fresh voice: oscillators -> per-oscillator gain -> its own lowpass filter -> amp envelope -> `master`. Optional `t` schedules it on the audio clock. Optional `gate` (arp notes) cuts the attack short when the release would start before it finishes. Without that, the pending attack ramp overrides the release and the note rings at full volume until it's hard-stopped (a click).
+- `stopVoice(v)` releases immediately (held notes), starting from the real current level via `holdAt()` (`cancelAndHoldAtTime`, with a fallback for Firefox). `stopVoiceAt(v, when, onDone)` releases at a scheduled time (arp notes) and cleans up via `onended`. `stealVoice(v, t)` fades a voice out fast.
 - `updateVoice()` glides pitch and cutoff with `setTargetAtTime` for smooth sliding.
 
 **Pointers and modes**
@@ -50,7 +50,7 @@ drums -> drumBus (Drums level) -> out          (no delay or reverb on drums)
 - Uses a lookahead scheduler: `setInterval(arpTick, 25)` schedules any notes falling within the next 100 ms using `ctx.currentTime`, so timing stays tight even if the page stutters. Don't switch this to plain setTimeout per note.
 - Follows the master tempo. The Rate slider picks a note value from `ARP_RATES` (1/4 to 1/32, with triplets); `arpStep()` turns it into seconds.
 - If the beats are playing when the arp starts, `nextGridTime()` delays its first note to the next matching point on the drum grid so the two line up. Starting the beats while the arp runs does the reverse: the sequencer begins on the arp's next note.
-- Each step creates a new voice and releases it after `GATE` (0.7) of the step length. Active arp voices are tracked in `arpVoices`.
+- Each step creates a new voice and releases it after `GATE` (0.7) of the step length. Active arp voices are tracked in `arpVoices`. At most `MAX_ARP_VOICES` (10) ring at once; past that, the oldest (usually a quiet release tail) is stolen when the new note starts. This keeps CPU in check with long releases at fast rates.
 - Direction: up, down (sorted held notes, stepped by `arp.step`) or random (never repeats the previous note when there's a choice).
 - `arp.queue` records scheduled note times so `draw()` can show which note is actually audible right now.
 
@@ -66,7 +66,7 @@ drums -> drumBus (Drums level) -> out          (no delay or reverb on drums)
 **Drums and kits**
 - A Kit menu replaces Sound in beats view (`.kitctl`; `.soundctl` is hidden and `.scalectl` goes invisible but keeps its space). The choice is remembered in localStorage (`xysynth.kit`).
 - `DRUM_ROWS` is the fixed set of eight rows (bd sd cp rs lt ht ch oh). `KITS` maps each kit to a `play` function per row id: `k909` and `k808` are synthesised from shared helpers (`snare`, `clap`, `rim`, `tom`, `hat`, `closedHat`, `openHatHit`) with different settings. The 808 has a longer round kick, sine snare tones and noise-free hats. A closed hat chokes a ringing open hat via its own `choke` gain.
-- `brk` (Break) is special: the user loads an audio file (`#loadBreak` opens the hidden `#breakFile` input), assumed to be a one-bar loop. It's cut into 8 equal slices, one per row. `playSlice()` speeds the loop up or down so one bar fits the current tempo (this also shifts pitch, like a classic sampler), starts at the slice's offset and plays on until the next slice cuts it off (one slice at a time).
+- `brk` (Break) is special: the user loads an audio file (`#loadBreak` opens the hidden `#breakFile` input), assumed to be a one-bar loop. It's cut into 8 equal slices, one per row. `playSlice()` speeds the loop up or down so one bar fits the current tempo (this also shifts pitch, like a classic sampler), starts at the slice's offset and plays on until the next slice cuts it off (one slice at a time). The cut-off slice is faded and stopped, not left playing silently.
 - The loaded file's bytes are kept in IndexedDB (`breakStore()`, db `xysynth`, store `files`, key `break`) and decoded with an `OfflineAudioContext`, so it's ready before the first tap after a reload.
 - `playRow(r, t)` is the single entry point for the sequencer, grid audition and row labels.
 - Helpers `gainNode`, `filterNode`, `osc`, `noise` build each hit; `cleanup()` disconnects the output node when a source ends. `noiseBuf` is 2 s of white noise made once in `ensureAudio()`.

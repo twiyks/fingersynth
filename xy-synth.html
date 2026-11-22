@@ -398,7 +398,7 @@
     <span>Filter <strong id="cutOut">–</strong></span>
   </footer>
 </main>
-<div class="version">v2.2</div>
+<div class="version">v2.3</div>
 
 <script>
 (() => {
@@ -527,11 +527,40 @@
     const n = Math.floor(rate * len);
     const buf = ctx.createBuffer(2, n, rate);
     const curve = 2 + (1 - size) * 3;
-    for (let ch = 0; ch < 2; ch++) {
-      const d = buf.getChannelData(ch);
-      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, curve);
+    const L = buf.getChannelData(0), R = buf.getChannelData(1);
+    for (let i = 0; i < n; i++) {                       // one fade value shared by both channels: half the work
+      const env = Math.pow(1 - i / n, curve);
+      L[i] = (Math.random() * 2 - 1) * env;
+      R[i] = (Math.random() * 2 - 1) * env;
     }
     return buf;
+  }
+
+  // freeze a value where it is right now, so a new fade starts from the real current level instead of jumping
+  function holdAt(param, t) {
+    if (param.cancelAndHoldAtTime) param.cancelAndHoldAtTime(t);
+    else { param.cancelScheduledValues(t); param.setValueAtTime(param.value, t); }   // Firefox
+  }
+
+  // a new room size gets a new convolver that fades in while the old one fades out,
+  // so the reverb tail doesn't cut off with a click
+  const REVERB_FADE = 0.3;
+  function swapReverb() {
+    const conv = ctx.createConvolver();
+    conv.buffer = makeImpulse(fxState.rSize);
+    const level = ctx.createGain();
+    const now = ctx.currentTime;
+    level.gain.setValueAtTime(0, now);
+    level.gain.linearRampToValueAtTime(1, now + REVERB_FADE);
+    fx.reverbIn.connect(conv);
+    conv.connect(level).connect(fx.reverbWet);
+    const old = fx.reverb;
+    if (old) {
+      holdAt(old.level.gain, now);
+      old.level.gain.linearRampToValueAtTime(0, now + REVERB_FADE);
+      setTimeout(() => { fx.reverbIn.disconnect(old.conv); old.level.disconnect(); }, (REVERB_FADE + 0.1) * 1000);
+    }
+    fx.reverb = { conv, level };
   }
 
   function applyFx(rebuildReverb) {
@@ -541,7 +570,7 @@
     fx.delay.delayTime.setTargetAtTime(fxState.dTime, now, 0.05);
     fx.feedback.gain.setTargetAtTime(feedbackFor(fxState.dTime, fxState.dDecay), now, 0.05);
     fx.reverbWet.gain.setTargetAtTime(fxState.rMix * 1.4, now, 0.03);
-    if (rebuildReverb) fx.convolver.buffer = makeImpulse(fxState.rSize);
+    if (rebuildReverb) swapReverb();
   }
 
   function ensureAudio() {
@@ -566,15 +595,16 @@
       delay.connect(tone).connect(feedback).connect(delay);
       tone.connect(out);
 
-      // reverb, fed by the dry signal and the echoes
-      const convolver = ctx.createConvolver();
+      // reverb, fed by the dry signal and the echoes. The convolver itself is made by swapReverb()
+      const reverbIn = ctx.createGain();
       const reverbWet = ctx.createGain();
-      master.connect(convolver);
-      tone.connect(convolver);
-      convolver.connect(reverbWet).connect(out);
+      master.connect(reverbIn);
+      tone.connect(reverbIn);
+      reverbWet.connect(out);
 
-      fx = { delaySend, delay, feedback, convolver, reverbWet };
-      applyFx(true);
+      fx = { delaySend, delay, feedback, reverbIn, reverbWet, reverb: null };
+      applyFx(false);
+      setTimeout(() => applyFx(true), 0);     // build the reverb just after the first note, so it doesn't hold that note up
 
       // drums skip the delay and reverb and go straight to the output
       drumBus = ctx.createGain();
@@ -598,7 +628,9 @@
     sizeTimer = setTimeout(() => applyFx(true), 120);
   });
 
-  function startVoice(midi, cutoff, t) {
+  // gate (arp notes): seconds until the release starts. If that comes before the attack has finished, the
+  // fade-in stops partway there. Otherwise the pending fade-in wins over the release and the note rings on at full volume
+  function startVoice(midi, cutoff, t, gate) {
     const p = PRESETS[presetSel.value];
     const now = t ?? ctx.currentTime;
     const filter = ctx.createBiquadFilter();
@@ -607,7 +639,8 @@
     filter.frequency.setValueAtTime(cutoff, now);
     const amp = ctx.createGain();
     amp.gain.setValueAtTime(0, now);
-    amp.gain.linearRampToValueAtTime(1, now + p.atk);
+    if (gate != null && gate < p.atk) amp.gain.linearRampToValueAtTime(gate / p.atk, now + gate);
+    else amp.gain.linearRampToValueAtTime(1, now + p.atk);
     filter.connect(amp).connect(master);
 
     let lfo = null, lfoGain = null;
@@ -635,8 +668,7 @@
   function stopVoice(v) {
     if (!v) return;
     const now = ctx.currentTime;
-    v.amp.gain.cancelScheduledValues(now);
-    v.amp.gain.setValueAtTime(v.amp.gain.value, now);
+    holdAt(v.amp.gain, now);
     v.amp.gain.linearRampToValueAtTime(0, now + v.rel);
     const end = now + v.rel + 0.05;
     v.oscs.forEach(o => o.osc.stop(end));
@@ -648,9 +680,17 @@
   function stopVoiceAt(v, when, onDone) {
     v.amp.gain.setTargetAtTime(0, when, Math.max(v.rel / 4, 0.01));
     const end = when + v.rel * 1.5 + 0.05;
+    v.end = end;
     v.oscs.forEach(o => o.osc.stop(end));
     if (v.lfo) v.lfo.stop(end);
     v.oscs[0].osc.onended = () => { v.amp.disconnect(); onDone && onDone(); };
+  }
+
+  // cut a voice short with a quick fade at time t (used when too many arp notes are still ringing)
+  function stealVoice(v, t) {
+    v.amp.gain.setTargetAtTime(0, t, 0.015);
+    const end = Math.min(v.end, t + 0.1);
+    [...v.oscs.map(o => o.osc), v.lfo].forEach(s => { if (s) try { s.stop(end); } catch {} });
   }
 
   function updateVoice(midi, cutoff) {
@@ -669,6 +709,7 @@
   const arpStep = () => 60 / tempo() * arpBeats();         // one arp note, in seconds
   const arpDir = () => document.querySelector('input[name="aDir"]:checked').value;
   const GATE = 0.7;
+  const MAX_ARP_VOICES = 10;             // more than this still ringing and the oldest release tail is faded out
   const FILTER_GLIDE = 0.08;             // seconds; filter changes settle over about three times this, so moves sweep instead of snap
 
   function heldNotes() {
@@ -698,10 +739,16 @@
       const midi = nextArpNote();
       if (midi == null) break;
       const t = arp.nextTime;
-      const v = startVoice(midi, cutoffOfNote(midi), t);    // each note is as bright as the finger holding it
+      const gate = step * GATE;
+      if (arpVoices.size >= MAX_ARP_VOICES) {               // a Set keeps its order, so the first one is the oldest
+        const oldest = arpVoices.values().next().value;
+        arpVoices.delete(oldest);
+        stealVoice(oldest, t);
+      }
+      const v = startVoice(midi, cutoffOfNote(midi), t, gate);   // each note is as bright as the finger holding it
       v.midi = midi; v.start = t;
       arpVoices.add(v);
-      stopVoiceAt(v, t + step * GATE, () => arpVoices.delete(v));
+      stopVoiceAt(v, t + gate, () => arpVoices.delete(v));
       arp.queue.push({ time: t, midi });
       arp.nextTime += step;
     }
@@ -1085,7 +1132,10 @@
     const rate = breakBuf.duration / bar;                // speed the loop up or down to fit, which shifts its pitch too
     const offset = i * breakBuf.duration / SLICES;
     // one slice at a time, like a sampler: a new slice cuts the last one off
-    if (breakVoice && breakVoice.start < t) breakVoice.g.gain.setTargetAtTime(0, t, 0.004);
+    if (breakVoice && breakVoice.start < t) {
+      breakVoice.g.gain.setTargetAtTime(0, t, 0.004);
+      breakVoice.src.stop(t + 0.03);                     // and stop it, rather than playing on silently to the end of the loop
+    }
     const src = ctx.createBufferSource();
     src.buffer = breakBuf; src.playbackRate.value = rate;
     const g = ctx.createGain();
@@ -1093,7 +1143,7 @@
     src.connect(g).connect(drumBus);
     src.start(t, offset);                                // plays on to the end of the loop unless cut off
     cleanup(src, g);
-    breakVoice = { g, start: t };
+    breakVoice = { src, g, start: t };
   }
   const playRow = (r, t) => isBreakKit() ? playSlice(r, t) : KITS[kitSel.value].play[DRUM_ROWS[r].id](t);
 
