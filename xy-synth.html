@@ -190,7 +190,7 @@
   .sheet.listsheet, .sheet.popsheet { display: none; }
   .menubtns { display: flex; gap: 3px; order: 1; }
   .menubtns > .iconbtn { display: none; }
-  .menubtns > .helpbtn { display: grid; }
+  .menubtns > .helpbtn, .menubtns > .setbtn { display: grid; }
   /* an open menu: an overlay dropped just below the buttons, with a scrim behind */
   .sheet.open {
     display: grid; gap: 8px; align-content: start;
@@ -355,6 +355,9 @@
       <button class="btn iconbtn beatsonly" data-menu="kitMenu" aria-label="Kit" title="Kit" aria-haspopup="dialog" aria-expanded="false" aria-controls="kitMenu">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><ellipse cx="12" cy="10" rx="8" ry="3"/><path d="M4 10v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/><path d="M8 2.5l3 6M17 3l-4 5.5"/></svg>
       </button>
+      <button class="btn iconbtn setbtn" data-menu="settingsMenu" aria-label="Settings" title="Settings" aria-haspopup="dialog" aria-expanded="false" aria-controls="settingsMenu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M19 7h1M4 17h3M13 17h7"/><circle cx="16" cy="7" r="2.6"/><circle cx="10" cy="17" r="2.6"/></svg>
+      </button>
       <button class="btn iconbtn helpbtn" data-menu="helpMenu" aria-label="Help" title="Help" aria-haspopup="dialog" aria-expanded="false" aria-controls="helpMenu">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.2a2.8 2.8 0 1 1 3.9 2.6c-.8.4-1.2 1-1.2 1.8v.6"/><circle cx="12" cy="17.2" r="1.2" fill="currentColor" stroke="none"/></svg>
       </button>
@@ -450,7 +453,19 @@
   <div class="sheet listsheet" id="kitMenu" role="dialog" aria-label="Kit">
     <div class="fxgroup" style="--cols: 1"><h2>Kit</h2><div class="list" role="radiogroup" aria-label="Kit" data-for="kit"></div></div>
   </div>
-  <!-- Help opens as a menu on every screen size -->
+  <!-- Settings and Help open as menus on every screen size -->
+  <div class="sheet popsheet" id="settingsMenu" role="dialog" aria-label="Settings">
+    <div class="fxgroup helpgroup" style="--cols: 1">
+      <h2>Settings</h2>
+      <div class="slider">
+        <div class="top"><label for="latency">Latency</label><output id="latencyOut"></output></div>
+        <input type="range" id="latency" min="0" max="6" value="0">
+      </div>
+      <p>If the sound crackles, turn this up. It gives your device more time to prepare the sound, so it keeps up, but the sound lags your fingers a little more.</p>
+      <p id="latencyNow"></p>
+    </div>
+  </div>
+  <!-- Help -->
   <div class="sheet popsheet" id="helpMenu" role="dialog" aria-label="Help">
     <div class="fxgroup helpgroup" style="--cols: 1">
       <div class="helphead">
@@ -477,10 +492,13 @@
         <p>The grid tab is the drum machine. Tap steps to add hits, pick a kit, and switch between 8 patterns. The Break kit cuts a loop you load into 8 slices.</p>
         <h3>Sound and effects</h3>
         <p>The <strong>Sound</strong> menu has the envelope, filter and distortion. <strong>Effects</strong> has delay and reverb. Tempo sets the speed of everything.</p>
+        <h3>Crackles?</h3>
+        <p>Turn up <strong>Latency</strong> in Settings, the sliders button. The sound lags your fingers a little more but has more time to keep up.</p>
       </div>
       <div class="helppane historypane">
         <!-- newest first; the first entry's number is shown next to the title -->
         <ul class="history" id="history">
+          <li><span class="ver">v2.9</span>Fewer crackles: effects rest when a synth goes quiet, and the pad only redraws when something changes. A new Settings menu with Latency.</li>
           <li><span class="ver">v2.8</span>Help has tabs for how to use and version history, shows the version number, and opens on bigger screens too.</li>
           <li><span class="ver">v2.7</span>Arp, Hold and the arpeggio settings sit together. Hold is always there.</li>
           <li><span class="ver">v2.6</span>Three synths, each with its own settings. Steps mode. Arp off plays chords. Filter and distortion in the Sound menu. Two rows of buttons on phones. Hold follows your newest notes.</li>
@@ -798,7 +816,7 @@
     tone.connect(reverbIn);
 
     rack.n = { input, distDry, drive, distTone, distWet, distOn: false, delaySend, delay, feedback, reverbIn, out,
-               reverb: null, reverbStale: true, fresh: true };
+               reverb: null, reverbStale: true, fresh: true, asleep: false, lastBusy: ctx.currentTime };
     applyFx(rack);
     return input;
   }
@@ -830,6 +848,31 @@
     if (n.reverbStale && st.rMix > 0) { n.reverbStale = false; setTimeout(() => swapReverb(rack), 0); }
     n.fresh = false;
   }
+
+  // ---------- resting racks ----------
+  // a delay's echoes go round its loop forever in amounts too tiny to hear but never quite zero, which would keep the
+  // delay, and the reverb it feeds, working even in silence. Once a rack has been quiet for longer than its longest
+  // tail (note release, then echoes, then reverb), its echo loop is opened so the browser can let the delay and reverb
+  // rest. The next sound closes the loop again
+  function wakeRack(rack) {
+    const n = rack.n;
+    if (!n) return;
+    n.lastBusy = ctx.currentTime;
+    if (n.asleep) { n.feedback.connect(n.delay); n.asleep = false; }
+  }
+  setInterval(() => {
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const check = (rack, busy, release) => {
+      const n = rack.n;
+      if (!n || n.asleep) return;
+      if (busy) { n.lastBusy = now; return; }
+      const tail = release + rack.st.dDecay + 0.3 + rack.st.rSize * 5.7 + 1;    // plus a second to spare
+      if (now - n.lastBusy > tail) { n.feedback.disconnect(); n.asleep = true; }
+    };
+    synths.forEach(syn => check(syn.rack, syn.voices.size || syn.tails.size || syn.arp, syn.env.r));
+    check(drumRack, seq.playing, 2);                     // 2 s covers a long break slice ringing on
+  }, 500);
 
   // ---------- synths ----------
   // three synths, each with its own sound, scale, envelope, filter, effects, arp settings and mode (pad or steps).
@@ -875,9 +918,15 @@
   const drumRack = makeRack("k", { dAmount: 0, rMix: 0, xAmount: 0 });    // drums start dry
   const allRacks = () => [...synths.map(s => s.rack), drumRack];
 
+  // latency: how much sound the browser prepares ahead. Lowest feels most immediate; more gives a busy phone room
+  // to keep up, so fewer crackles, at the cost of the sound trailing your fingers a little. Saved on this device
+  const LATENCIES = [["Lowest", "interactive"], ["20 ms", 0.02], ["40 ms", 0.04], ["60 ms", 0.06], ["80 ms", 0.08], ["120 ms", 0.12], ["200 ms", 0.2]];
+  let latencyIdx = 0;
+  try { const v = Number(localStorage.getItem("xysynth.latency")); if (LATENCIES[v]) latencyIdx = v; } catch {}
+
   function ensureAudio() {
     if (!ctx) {
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: LATENCIES[latencyIdx][1] });
       const comp = ctx.createDynamicsCompressor();
       comp.threshold.value = -14; comp.ratio.value = 4;
       const out = ctx.createGain();
@@ -949,6 +998,7 @@
       if (s < 1) amp.gain.setTargetAtTime(s, now + a, d / 3);   // a curve that's most of the way to sustain by the decay time
     }
     filter.connect(amp).connect(syn.bus);
+    wakeRack(syn.rack);
 
     let lfo = null, lfoGain = null;
     if (p.vib) {
@@ -1036,6 +1086,9 @@
   const pointers = new Map();     // pointerId -> { id, x, y, row, ly, idx, midi, gi, latched }
   let lastLy = 0.5;               // the last touched finger's height in its row, for notes that have no finger of their own
   let sounding = null;            // the arp note heard right now, for display
+  // the pad only redraws when something changed (or a finger or trail is moving); markPad() asks for a redraw
+  let padDirty = true;
+  function markPad() { padDirty = true; }
 
   function heldNotes() {
     return [...new Set([...pointers.values()].map(p => p.midi))].sort((a, b) => a - b);
@@ -1058,6 +1111,7 @@
       if (!p || !playsOwnNote(syn, p)) { stopVoice(v); syn.voices.delete(id); }
     });
     if (syn !== cur) return;
+    markPad();
     pointers.forEach((p, id) => {
       if (!playsOwnNote(syn, p) || syn.voices.has(id)) return;
       syn.voices.set(id, startVoice(syn, p.midi, p.ly));
@@ -1123,7 +1177,7 @@
     if (!syn.arp) return;
     clearInterval(syn.arp.timer);
     syn.arp = null;
-    if (syn === cur) sounding = null;
+    if (syn === cur) { sounding = null; markPad(); }
   }
 
   // a finger moved: retune the filter on just its own arp notes, including ones scheduled but not yet heard
@@ -1149,6 +1203,7 @@
     });
     syn.latch = { notes: [...info.keys()].sort((a, b) => a - b), info };
     updateTabs();
+    markPad();
   }
 
   // the Hold button: stops a held arp. The beats and the other synths carry on
@@ -1218,6 +1273,7 @@
     canvas.width = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
     g2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+    markPad();                                // resizing a canvas wipes it
   }
   new ResizeObserver(resize).observe(canvas);
 
@@ -1292,6 +1348,7 @@
 
   // the keyboard layout changed under the fingers: work out their notes again
   function remapPointers() {
+    markPad();
     pointers.forEach(mapPointer);
     cur.voices.forEach((v, id) => { const p = pointers.get(id); if (p) glideVoice(v, p.midi, cutoffFor(p.ly, cur)); });
     showReadout();
@@ -1300,24 +1357,35 @@
 
   function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
   const hueFor = (idx, n) => 260 - (idx / Math.max(n - 1, 1)) * 230;
+  // the pad's colours, read from the CSS tokens once and again when light/dark changes, not every frame
+  let colors = null;
+  const readColors = () => ({ band: css("--band"), line: css("--line"), root: css("--root"), muted: css("--muted"), ink: css("--ink"),
+                              rowBright: css("--row-bright"), rowDark: css("--row-dark"), bg: css("--bg") });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { colors = null; markPad(); });
+  document.fonts?.ready.then(markPad);              // note names were drawn in the fallback font until now
 
   function draw() {
+    requestAnimationFrame(draw);
     checkHold(performance.now());
-    const band = css("--band"), line = css("--line"), root = css("--root"), muted = css("--muted"), ink = css("--ink");
-    const rowBright = css("--row-bright"), rowDark = css("--row-dark");
-    g2d.clearRect(0, 0, W, H);
-    const notes = cur.notes;
-    const n = notes.length, cw = W / n, rh = H / ROWS;
-    const rowTop = r => (ROWS - 1 - r) * rh;       // row 0 is at the bottom
 
     // work out which arpeggio note is audible right now (and keep the other synths' queues short)
     if (ctx) synths.forEach(syn => {
       const q = syn.arp && syn.arp.queue;
       while (q && q.length && q[0].time <= ctx.currentTime) {
         const midi = q.shift().midi;
-        if (syn === cur) { sounding = midi; showReadout(); }
+        if (syn === cur && midi !== sounding) { sounding = midi; showReadout(); markPad(); }
       }
     });
+
+    // only redraw when something has changed or is moving; otherwise the last frame stays on screen.
+    // Hidden (beats view or Steps), the canvas has no size and nothing is drawn
+    if (!W || !H || (!padDirty && !pointers.size && !trail.length)) return;
+    padDirty = false;
+    const { band, line, root, muted, ink, rowBright, rowDark, bg } = colors || (colors = readColors());
+    g2d.clearRect(0, 0, W, H);
+    const notes = cur.notes;
+    const n = notes.length, cw = W / n, rh = H / ROWS;
+    const rowTop = r => (ROWS - 1 - r) * rh;       // row 0 is at the bottom
 
     for (let r = 0; r < ROWS; r++) {
       const top = rowTop(r);
@@ -1352,7 +1420,7 @@
     });
 
     // gap between the rows
-    g2d.fillStyle = css("--bg");
+    g2d.fillStyle = bg;
     for (let r = 1; r < ROWS; r++) g2d.fillRect(0, r * rh - 2, W, 4);
 
     const fontSize = Math.max(9, Math.min(12, cw * 0.4));
@@ -1392,7 +1460,6 @@
       g2d.fillStyle = "#fff";
       g2d.beginPath(); g2d.arc(px, py, 5, 0, Math.PI * 2); g2d.fill();
     });
-    requestAnimationFrame(draw);
   }
   requestAnimationFrame(draw);
 
@@ -1548,7 +1615,10 @@
     cleanup(src, g);
     breakVoice = { src, g, start: t };
   }
-  const playRow = (r, t) => isBreakKit() ? playSlice(r, t) : KITS[kitSel.value].play[DRUM_ROWS[r].id](t);
+  const playRow = (r, t) => {
+    wakeRack(drumRack);
+    isBreakKit() ? playSlice(r, t) : KITS[kitSel.value].play[DRUM_ROWS[r].id](t);
+  };
 
   // the loaded file is kept in IndexedDB so it survives a reload
   function breakStore(mode, fn) {
@@ -2003,6 +2073,7 @@
 
   // put the synth on screen into every synth control
   function bindSynthUI() {
+    markPad();
     scaleSel.value = cur.scale;
     presetSel.value = cur.preset;
     listSyncs.scale(); listSyncs.preset();
@@ -2075,8 +2146,46 @@
   });
   phoneMQ.addEventListener("change", closeMenu);
 
+  // ---------- settings: latency ----------
+  // the browser only takes a latency when the sound engine starts, so a new setting restarts it: everything is rebuilt,
+  // held arps and the beats carry on, and fingers already down are let go
+  function restartAudio() {
+    if (!ctx) return;                                    // not started yet: the setting is used when it does
+    const wasPlaying = seq.playing;
+    if (wasPlaying) stopSeq();
+    pointers.clear();
+    synths.forEach(syn => {
+      stopArp(syn);
+      syn.voices.clear(); syn.tails.clear();
+      syn.bus = null; syn.rack.n = null;
+    });
+    drumRack.n = null; drumBus = null; openHat = null; breakVoice = null;
+    const old = ctx;
+    ctx = null;
+    old.close();
+    ensureAudio();
+    synths.forEach(refresh);                             // held arps start again
+    if (wasPlaying) startSeq();
+  }
+  function showLatency() {
+    $("latencyOut").textContent = LATENCIES[latencyIdx][0];
+    // what the browser actually gave: its own processing plus the time to reach the speaker
+    $("latencyNow").textContent = ctx
+      ? `Right now the sound takes about ${Math.round(((ctx.baseLatency || 0) + (ctx.outputLatency || 0)) * 1000)} ms to reach you. Bluetooth headphones add more on top.`
+      : "Play a note to see how long the sound takes to reach you.";
+  }
+  $("latency").value = latencyIdx;
+  $("latency").addEventListener("input", () => { latencyIdx = +$("latency").value; showLatency(); });
+  $("latency").addEventListener("change", () => {      // restart once the slider is let go, not while it's moving
+    try { localStorage.setItem("xysynth.latency", latencyIdx); } catch {}
+    restartAudio();
+    setTimeout(showLatency, 500);                      // the browser reports its latency once it's running
+  });
+  document.querySelector(".setbtn").addEventListener("click", showLatency);
+  showLatency();
+
   // Help: the version next to the title comes from the newest entry in the history, and two tabs swap the panes
-  const helpGroup = document.querySelector(".helpgroup");
+  const helpGroup = $("helpMenu").querySelector(".helpgroup");
   $("verOut").textContent = document.querySelector("#history .ver").textContent;
   document.querySelectorAll('input[name="helpTab"]').forEach(r =>
     r.addEventListener("change", () => { helpGroup.dataset.tab = r.value; }));
