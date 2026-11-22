@@ -6,7 +6,7 @@ A browser instrument with three synths and a drum machine. Each synth is played 
 
 - Everything lives in one self-contained HTML file (currently `xy-synth.html`; rename to `index.html` for GitHub Pages). CSS and JS are inline.
 - Keep it as a single file with no dependencies unless I ask otherwise. The only external resource is the Barlow Semi Condensed font from Google Fonts, with a system font fallback.
-- A small version label (`<div class="version">`) sits bottom right so I can tell when a push has reached my phone. Bump it (v1.1, v1.2...) with every commit that changes the page.
+- The version number shows in Help, next to the title, so I can tell when a push has reached my phone. With every commit that changes the page, add a new entry at the top of the Version history list (`#history` in the Help menu): the next number (v2.8, v2.9...) and one short, plain line about what changed. The title's number is read from that top entry, so that's the only place to update.
 - To test, just open the file in a browser. Audio only starts after a user gesture (first pointerdown calls `ensureAudio()`), which browsers require.
 - GitHub Pages deploys from `main` only. Feature work goes on a branch and gets merged to `main` to test on the phone.
 - The arpeggiator, chords and arp hold need multitouch, so test them on a phone or tablet. A mouse only gives one pointer.
@@ -85,11 +85,12 @@ input -> distDry ---------------------------------> mix -> out
 - The bar is built from two `.barrow` groups. On bigger screens they're `display: contents`, so everything runs along one line. On phones they're two fixed rows (tabs, play, the arp group; then Pad / Steps and the menu buttons), with Tempo on a third. In phone landscape the two rows share one line. Leave room in the rows for more buttons.
 
 **Phone layout and menus**
-- On phones (`max-width: 520px`, or landscape with `max-height: 540px`; same query as `phoneMQ`) the header is hidden and the pad fills the screen. Menu buttons (`.menubtns`, each with `data-menu` naming its sheet): Scale, Sound, Effects (synth view), Drum effects, Kit (beats view), and Help. The Arpeggio settings button lives in the arp group instead.
+- On phones (`max-width: 520px`, or landscape with `max-height: 540px`; same query as `phoneMQ`) the header is hidden and the pad fills the screen. Menu buttons (`.menubtns`, each with `data-menu` naming its sheet): Scale, Sound, Effects (synth view), Drum effects, Kit (beats view), and Help. Closed sheets are hidden (`.sheet:not(.open)`). The Arpeggio settings button lives in the arp group instead.
 - Each menu is a `.sheet` overlay (`openMenu()` / `closeMenu()`, one open at a time, `.scrim` behind it, Escape or tapping outside closes). The Sound, Effects, Arpeggio and Drum effects sheets wrap panels that, on bigger screens, sit in a `.fx` grid (`display: contents` on the sheet). The `.fx` grids place panels with named `grid-template-areas` (synth: env, filt, dist, delay, rev, arp; drums: drums, delay, rev, dist); on phones `.fxgroup` resets to `grid-area: auto`.
 - The Sound sheet holds the sound list (`.phoneonly`, hidden on bigger screens where the header dropdown does the job), Envelope, Filter and Distortion.
 - Scale, Sound and Kit lists are radio lists built from the header selects and kept in step with them (`listSyncs`); picking one sets the select and fires its `change` event. Scale and Kit sheets are `.listsheet` (phones only).
-- Help sheet links to the XY Synth page on my portfolio site.
+- Help (`.popsheet`) opens as a menu on every screen size: on bigger screens the menu buttons hide apart from Help (`.helpbtn`), which sits at the end of the bar. It has the title and version (`#verOut`), a Website button top right linking to the XY Synth page on my portfolio site, and two tabs (`helpTab` radios set `.helpgroup[data-tab]`): How to use, and Version history. Keep How to use up to date when features change.
+- Open menus share one overlay style (`.sheet.open`) on every screen size, with the `.scrim` behind.
 
 **Drums and kits**
 - A Kit menu replaces Sound in beats view (`.kitctl`; `.soundctl` is hidden and `.scalectl` goes invisible but keeps its space). The choice is remembered in localStorage (`xysynth.kit`).

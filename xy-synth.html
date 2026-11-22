@@ -184,9 +184,26 @@
   @media (max-width: 1000px) {
     .fx.drumfx { grid-template-columns: 1fr 1fr; grid-template-areas: "drums drums" "delay delay" "rev dist"; }
   }
-  /* on bigger screens the menu wrappers vanish and their panels sit in the .fx grid as before */
+  /* on bigger screens the menu wrappers vanish and their panels sit in the .fx grid as before.
+     Only Help opens as a menu there, so the menu buttons hide apart from Help, which sits at the end of the bar */
   .sheet { display: contents; }
-  .sheet.listsheet, .menubtns, .scrim { display: none; }
+  .sheet.listsheet, .sheet.popsheet { display: none; }
+  .menubtns { display: flex; gap: 3px; order: 1; }
+  .menubtns > .iconbtn { display: none; }
+  .menubtns > .helpbtn { display: grid; }
+  /* an open menu: an overlay dropped just below the buttons, with a scrim behind */
+  .sheet.open {
+    display: grid; gap: 8px; align-content: start;
+    position: fixed; z-index: 20; top: var(--sheet-top, 60px);
+    right: calc(16px + env(safe-area-inset-right, 0px));
+    width: min(440px, calc(100% - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+    max-height: calc(100% - var(--sheet-top, 60px) - 12px - env(safe-area-inset-bottom, 0px));
+    overflow-y: auto; overscroll-behavior: contain;
+    background: var(--bg); border: 1.5px solid var(--line); border-radius: 18px; padding: 8px;
+    box-shadow: 0 12px 32px rgb(0 0 0 / 0.25);
+  }
+  .scrim { position: fixed; inset: 0; z-index: 19; background: rgb(0 0 0 / 0.2); }
+  .scrim[hidden] { display: none; }
   .fxgroup {
     background: var(--field); border-radius: 14px; padding: 10px 14px 12px;
     display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 6px 16px; align-content: start;
@@ -214,10 +231,6 @@
     line-height: 1.4; height: 1.4em; flex: none;
   }
   footer strong { color: var(--ink); font-weight: 600; }
-  .version {
-    position: fixed; right: 18px; bottom: calc(env(safe-area-inset-bottom, 0px) + 2px);
-    font-size: 0.68rem; line-height: 1; color: var(--muted); pointer-events: none;
-  }
   footer { display: none; } /* readouts hidden for now; delete this line to bring them back */
   /* phones, either way up: the pad fills the screen and every setting lives in a menu.
      The top bar is two fixed rows of buttons, then tempo */
@@ -226,34 +239,32 @@
     .bar { flex-direction: column; align-items: stretch; padding: 10px 8px 8px; gap: 8px; }
     .barrow { display: flex; align-items: center; gap: 6px; }
     .seg.icons span { padding: 5px 8px; }
-    .menubtns { display: flex; gap: 3px; margin-left: auto; }
-    .menubtns .iconbtn { padding: 5px 6px; }
+    .menubtns { margin-left: auto; }
+    .menubtns > .iconbtn { display: grid; padding: 5px 6px; }
     .arpgrp .iconbtn { display: grid; }
     main { padding: 0 8px 12px; }
-    .version { right: 10px; }
 
     .fx { display: contents; }
-    .sheet, .sheet.listsheet { display: none; }
-    .sheet.open {
-      display: grid; gap: 8px; align-content: start;
-      position: fixed; z-index: 20; top: var(--sheet-top, 60px);
-      right: calc(8px + env(safe-area-inset-right, 0px));
-      width: min(440px, calc(100% - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
-      max-height: calc(100% - var(--sheet-top, 60px) - 12px - env(safe-area-inset-bottom, 0px));
-      overflow-y: auto; overscroll-behavior: contain;
-      background: var(--bg); border: 1.5px solid var(--line); border-radius: 18px; padding: 8px;
-      box-shadow: 0 12px 32px rgb(0 0 0 / 0.25);
-    }
+    .sheet:not(.open) { display: none; }               /* every panel lives in a menu */
+    .sheet.open { right: calc(8px + env(safe-area-inset-right, 0px)); }
     .sheet .fxgroup { grid-template-columns: 1fr; }   /* full-width sliders are easier to hit */
     .sheet .fxgroup.envgroup { grid-template-columns: 1fr 1fr; }
     .fxgroup { grid-area: auto; }                      /* the named areas are for bigger screens only */
     .phoneonly { display: grid; }
-    .scrim { display: block; position: fixed; inset: 0; z-index: 19; background: rgb(0 0 0 / 0.2); }
-    .scrim[hidden] { display: none; }
   }
+  /* Help: title and version, a website button top right, then tabs for how to use and version history */
+  .helphead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .helphead h2 .sub { display: inline; margin-left: 6px; }
+  .sitebtn { display: inline-flex; align-items: center; gap: 5px; text-decoration: none; white-space: nowrap; }
+  .sitebtn svg { display: block; width: 13px; height: 13px; }
+  .helpgroup:not([data-tab="history"]) .historypane, .helpgroup[data-tab="history"] .usepane { display: none; }
+  .helppane { display: grid; gap: 8px; }
   .helpgroup p { margin: 0; font-size: 0.9rem; line-height: 1.4; color: var(--muted); }
-  .helpgroup a { color: var(--hit); font-weight: 600; padding: 4px 0; }
-  .helpgroup a:focus-visible { outline: 3px solid var(--root); outline-offset: 2px; border-radius: 4px; }
+  .helpgroup p strong { color: var(--ink); font-weight: 600; }
+  .helpgroup h3 { margin: 6px 0 0; font-size: 0.8rem; font-weight: 800; color: var(--ink); }
+  .history { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .history li { font-size: 0.9rem; line-height: 1.4; color: var(--muted); }
+  .history .ver { color: var(--ink); font-weight: 800; margin-right: 6px; }
   .iconbtn { padding: 5px 7px; display: grid; place-items: center; }
   .iconbtn svg { display: block; width: 20px; height: 20px; }
   .iconbtn[aria-expanded="true"] { background: var(--hit); border-color: var(--hit); color: var(--bg); }
@@ -344,7 +355,7 @@
       <button class="btn iconbtn beatsonly" data-menu="kitMenu" aria-label="Kit" title="Kit" aria-haspopup="dialog" aria-expanded="false" aria-controls="kitMenu">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><ellipse cx="12" cy="10" rx="8" ry="3"/><path d="M4 10v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/><path d="M8 2.5l3 6M17 3l-4 5.5"/></svg>
       </button>
-      <button class="btn iconbtn" data-menu="helpMenu" aria-label="Help" title="Help" aria-haspopup="dialog" aria-expanded="false" aria-controls="helpMenu">
+      <button class="btn iconbtn helpbtn" data-menu="helpMenu" aria-label="Help" title="Help" aria-haspopup="dialog" aria-expanded="false" aria-controls="helpMenu">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.2a2.8 2.8 0 1 1 3.9 2.6c-.8.4-1.2 1-1.2 1.8v.6"/><circle cx="12" cy="17.2" r="1.2" fill="currentColor" stroke="none"/></svg>
       </button>
     </div>
@@ -439,13 +450,57 @@
   <div class="sheet listsheet" id="kitMenu" role="dialog" aria-label="Kit">
     <div class="fxgroup" style="--cols: 1"><h2>Kit</h2><div class="list" role="radiogroup" aria-label="Kit" data-for="kit"></div></div>
   </div>
-  <div class="sheet listsheet" id="helpMenu" role="dialog" aria-label="Help">
+  <!-- Help opens as a menu on every screen size -->
+  <div class="sheet popsheet" id="helpMenu" role="dialog" aria-label="Help">
     <div class="fxgroup helpgroup" style="--cols: 1">
-      <h2>Help</h2>
-      <p>Slide left and right for pitch, up and down for the filter. With Arp on, two or more notes run the arpeggio. With it off, they play as a chord.</p>
-      <p>Keep the same notes down for a couple of seconds and the arpeggio holds, so you can let go and change the sound. Tap Hold to stop it.</p>
-      <p>Each of the three synths has its own sound, scale and effects. Switch one to Steps to write a pattern that plays along with the beats.</p>
-      <a href="https://www.davewatson.co.uk/projects/xy-synth" target="_blank" rel="noopener">More about XY Synth on my site</a>
+      <div class="helphead">
+        <h2>XY Synth <span class="sub" id="verOut"></span></h2>
+        <a class="btn sitebtn" href="https://www.davewatson.co.uk/projects/xy-synth" target="_blank" rel="noopener">Website
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>
+        </a>
+      </div>
+      <div class="seg" role="radiogroup" aria-label="Help">
+        <label><input type="radio" name="helpTab" value="use" checked><span>How to use</span></label>
+        <label><input type="radio" name="helpTab" value="history"><span>Version history</span></label>
+      </div>
+      <div class="helppane usepane">
+        <h3>The pad</h3>
+        <p>Slide left and right for pitch, up and down for the filter: brighter at the top of each keyboard, darker at the bottom.</p>
+        <h3>Arpeggio and chords</h3>
+        <p>With <strong>Arp</strong> on, two or more fingers run an arpeggio. With it off, they play a chord. The dots button next to it sets the arpeggio's speed, direction and how long to hold.</p>
+        <p>Keep the same notes down for a couple of seconds and <strong>Hold</strong> lights up: let go and the arpeggio keeps playing, so you can change the sound. Play a new chord to change it, or tap Hold to stop it.</p>
+        <h3>Three synths</h3>
+        <p>Tabs <strong>1 2 3</strong> are three synths, each with its own sound, scale and effects. Whatever one is playing carries on when you switch to another.</p>
+        <h3>Steps</h3>
+        <p>Switch a synth to <strong>Steps</strong> to write a pattern on a grid of its notes. Steps play along with the beats, so press play to hear them.</p>
+        <h3>Beats</h3>
+        <p>The grid tab is the drum machine. Tap steps to add hits, pick a kit, and switch between 8 patterns. The Break kit cuts a loop you load into 8 slices.</p>
+        <h3>Sound and effects</h3>
+        <p>The <strong>Sound</strong> menu has the envelope, filter and distortion. <strong>Effects</strong> has delay and reverb. Tempo sets the speed of everything.</p>
+      </div>
+      <div class="helppane historypane">
+        <!-- newest first; the first entry's number is shown next to the title -->
+        <ul class="history" id="history">
+          <li><span class="ver">v2.8</span>Help has tabs for how to use and version history, shows the version number, and opens on bigger screens too.</li>
+          <li><span class="ver">v2.7</span>Arp, Hold and the arpeggio settings sit together. Hold is always there.</li>
+          <li><span class="ver">v2.6</span>Three synths, each with its own settings. Steps mode. Arp off plays chords. Filter and distortion in the Sound menu. Two rows of buttons on phones. Hold follows your newest notes.</li>
+          <li><span class="ver">v2.5</span>Hold an arpeggio by keeping the same notes down.</li>
+          <li><span class="ver">v2.4</span>Envelope sliders, distortion, and effects for the drums.</li>
+          <li><span class="ver">v2.3</span>Fewer clicks and glitches: arpeggio notes release properly, fewer notes ring at once, smoother reverb changes.</li>
+          <li><span class="ver">v2.2</span>New look: muted teal colours, a new font, and shading on the pad for the filter.</li>
+          <li><span class="ver">v2.1</span>Phone layout: the pad fills the screen with three keyboards, and the settings live in menus.</li>
+          <li><span class="ver">v2.0</span>Kit menu: 909, 808, or load your own break.</li>
+          <li><span class="ver">v1.9</span>Arpeggio notes take their filter from their own finger.</li>
+          <li><span class="ver">v1.8</span>Two keyboards stacked on the pad.</li>
+          <li><span class="ver">v1.7</span>Breakbeat presets, and more room on phones.</li>
+          <li><span class="ver">v1.6</span>Wider beat steps on phones held upright.</li>
+          <li><span class="ver">v1.5</span>A layout for phones on their side.</li>
+          <li><span class="ver">v1.4</span>Beats: a 16-step drum machine with a 909-style kit.</li>
+          <li><span class="ver">v1.3</span>The arpeggio follows the tempo, and the delay can follow note values.</li>
+          <li><span class="ver">v1.2</span>Delay time and decay can sync to the arpeggio.</li>
+          <li><span class="ver">v1.1</span>The first numbered version, with delay, reverb and the arpeggio.</li>
+        </ul>
+      </div>
     </div>
   </div>
   <div class="scrim" id="scrim" hidden></div>
@@ -478,7 +533,6 @@
     <span>Filter <strong id="cutOut">–</strong></span>
   </footer>
 </main>
-<div class="version">v2.7</div>
 
 <script>
 (() => {
@@ -2020,6 +2074,12 @@
     if (e.key === "Escape" && openMenuBtn) { const b = openMenuBtn; closeMenu(); b.focus(); }
   });
   phoneMQ.addEventListener("change", closeMenu);
+
+  // Help: the version next to the title comes from the newest entry in the history, and two tabs swap the panes
+  const helpGroup = document.querySelector(".helpgroup");
+  $("verOut").textContent = document.querySelector("#history .ver").textContent;
+  document.querySelectorAll('input[name="helpTab"]').forEach(r =>
+    r.addEventListener("change", () => { helpGroup.dataset.tab = r.value; }));
 
   // ---------- readouts ----------
   const tempoOut = () => $("tempoOut").textContent = tempo() + " BPM";
