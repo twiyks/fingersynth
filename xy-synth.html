@@ -88,6 +88,14 @@
   .btn:focus-visible, .rowlab:focus-visible, .cell:focus-visible { outline: 3px solid var(--root); outline-offset: 1px; }
   .playbtn { padding: 5px 10px; display: grid; place-items: center; }
   .playbtn svg { display: block; width: 18px; height: 18px; }
+  /* arp hold: fills from the left while the notes count up, solid once held */
+  .holdbtn {
+    padding: 5px 10px; display: grid; place-items: center;
+    background: linear-gradient(to right, var(--hit) calc(var(--fill, 0) * 100%), var(--control) 0);
+  }
+  .holdbtn:disabled { cursor: default; }
+  .holdbtn svg { display: block; width: 18px; height: 18px; }
+  .holdbtn.held { background: var(--hit); border-color: var(--hit); color: var(--bg); }
   .playbtn[aria-pressed="true"] { background: var(--hit); border-color: var(--hit); color: var(--bg); }
   .playbtn[aria-pressed="true"] .ico-play, .playbtn:not([aria-pressed="true"]) .ico-stop { display: none; }
   .tempo { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--muted); }
@@ -281,6 +289,10 @@
     <svg class="ico-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>
     <svg class="ico-stop" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
   </button>
+  <!-- shows while a held set of notes counts up, and stays once the arp is held; tap to stop the arp -->
+  <button class="btn holdbtn" id="arpHold" hidden disabled aria-label="Stop the held arpeggio" title="Arpeggio held. Tap to stop">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="4.5" cy="19" r="2.5"/><circle cx="9.5" cy="14" r="2.5"/><circle cx="14.5" cy="9" r="2.5"/><circle cx="19.5" cy="4" r="2.5"/></svg>
+  </button>
   <div class="menubtns">
     <button class="btn iconbtn synthonly" data-menu="scaleMenu" aria-label="Scale" title="Scale" aria-haspopup="dialog" aria-expanded="false" aria-controls="scaleMenu">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 13v7M15 13v7"/><path d="M7.5 4h3v9h-3zM13.5 4h3v9h-3z" fill="currentColor"/></svg>
@@ -344,10 +356,14 @@
     <div class="sheet" id="fxMenu" role="dialog" aria-label="Effects"></div>
     <div class="sheet" id="arpMenu" role="dialog" aria-label="Arpeggio">
     <div class="fxgroup arpgroup" style="--cols: 1">
-      <h2>Arpeggio <span class="sub">hold two or more notes</span></h2>
+      <h2>Arpeggio <span class="sub">play two or more notes</span></h2>
       <div class="slider">
         <div class="top"><label for="aRate">Rate</label><output id="aRateOut"></output></div>
         <input type="range" id="aRate" min="0" max="5" value="3">
+      </div>
+      <div class="slider">
+        <div class="top"><label for="aHold">Hold after</label><output id="aHoldOut"></output></div>
+        <input type="range" id="aHold" min="0" max="7" value="4">
       </div>
       <div class="seg" role="radiogroup" aria-label="Direction">
         <label><input type="radio" name="aDir" value="up" checked><span>Up</span></label>
@@ -369,6 +385,7 @@
     <div class="fxgroup helpgroup" style="--cols: 1">
       <h2>Help</h2>
       <p>Slide left and right for pitch, up and down for the filter. Hold two or more notes to run the arpeggio.</p>
+      <p>Keep the same notes down for a couple of seconds and the arpeggio holds, so you can let go and change the sound. Tap the arpeggio button next to play to stop it.</p>
       <a href="https://www.davewatson.co.uk/projects/xy-synth" target="_blank" rel="noopener">More about XY Synth on my site</a>
     </div>
   </div>
@@ -402,7 +419,7 @@
     <span>Filter <strong id="cutOut">–</strong></span>
   </footer>
 </main>
-<div class="version">v2.4</div>
+<div class="version">v2.5</div>
 
 <script>
 (() => {
@@ -848,8 +865,69 @@
     return [...new Set([...pointers.values()].map(p => p.midi))].sort((a, b) => a - b);
   }
 
+  // ---------- arp hold ----------
+  // keep the same notes down for the hold time and the arp holds: it keeps playing them after you let go,
+  // until the hold button is tapped
+  const ARP_HOLDS = [[0, "Off"], [0.5, "0.5 s"], [1, "1 s"], [1.5, "1.5 s"], [2, "2 s"], [3, "3 s"], [4, "4 s"], [5, "5 s"]];
+  const holdSecs = () => ARP_HOLDS[$("aHold").value][0];
+  let latch = null;                    // { notes: sorted midis, info: Map midi -> { row, cutoff } }
+  let holdKey = "", holdSince = 0;     // the notes the fingers are holding now, and since when (ms)
+
+  // fingers drive the arp when two or more are down, unless they're only (some of) the held notes.
+  // That way lifting the fingers that made the hold, one by one, doesn't play the leftovers
+  function fingersDriveArp() {
+    if (pointers.size < 2) return false;
+    return !latch || heldNotes().some(m => !latch.info.has(m));
+  }
+  const arpNotes = () => fingersDriveArp() ? heldNotes() : latch ? latch.notes : [];
+
+  function setLatch() {
+    const info = new Map();
+    pointers.forEach(p => {
+      p.latched = true;                // a finger that made the hold won't start a lead note if it's the last one down
+      if (!info.has(p.midi)) info.set(p.midi, { row: p.row, cutoff: p.cutoff });
+    });
+    latch = { notes: [...info.keys()].sort((a, b) => a - b), info };
+  }
+
+  // the hold button: stops a held arp. The beats carry on
+  function releaseHold() {
+    if (!latch) return;
+    latch = null;
+    holdSince = performance.now();     // fingers still down have to count up again before they hold
+    if (pointers.size < 2) stopArp();
+    if (!pointers.size) sounding = null;
+    updateHoldBtn(0);
+  }
+
+  // every frame: count up while a new set of notes is held, and hold it when the time is up
+  function checkHold(now) {
+    const key = pointers.size >= 2 ? heldNotes().join(",") : "";
+    if (key !== holdKey) { holdKey = key; holdSince = now; }
+    let progress = 0;
+    if (key && holdSecs() > 0 && fingersDriveArp()) {
+      progress = Math.min(1, (now - holdSince) / 1000 / holdSecs());
+      if (progress >= 1) setLatch();
+    }
+    updateHoldBtn(progress);
+  }
+
+  // hidden, then filling up while you hold (after a short moment, so quick chords don't flash it), then solid when held
+  const holdBtn = $("arpHold");
+  let shownHold = "";
+  function updateHoldBtn(progress) {
+    const state = latch ? "held" : progress > 0.2 ? "count:" + progress.toFixed(2) : "";
+    if (state === shownHold) return;
+    shownHold = state;
+    holdBtn.hidden = !state;
+    holdBtn.disabled = !latch;
+    holdBtn.classList.toggle("held", !!latch);
+    holdBtn.style.setProperty("--fill", latch ? 1 : progress);
+  }
+  holdBtn.addEventListener("click", releaseHold);
+
   function nextArpNote() {
-    const list = heldNotes();
+    const list = arpNotes();
     if (!list.length) return null;
     const dir = arpDir();
     let midi;
@@ -900,9 +978,11 @@
     arp = null;
   }
 
-  // the filter setting of the finger holding this note (if two fingers share it, the first one found)
+  // the filter setting of the finger holding this note (if two fingers share it, the first one found),
+  // or of the finger that held it when the arp was held
   function cutoffOfNote(midi) {
-    for (const p of pointers.values()) if (p.midi === midi) return p.cutoff;
+    if (fingersDriveArp()) for (const p of pointers.values()) if (p.midi === midi) return p.cutoff;
+    if (latch && latch.info.has(midi)) return latch.info.get(midi).cutoff;
     return cutoff;
   }
 
@@ -964,22 +1044,27 @@
     cutOut.textContent = cutoff >= 1000 ? (cutoff / 1000).toFixed(1) + " kHz" : Math.round(cutoff) + " Hz";
   }
 
-  // one finger plays a held note, two or more run the arpeggiator
+  // one finger plays a held note, two or more run the arpeggiator. A held arp keeps running with no fingers down,
+  // and one new finger plays a note over the top of it
+  const leadFinger = () => {
+    const only = pointers.size === 1 ? pointers.values().next().value : null;
+    return only && !only.latched ? only : null;
+  };
   function refreshMode(prevCount) {
     const n = pointers.size;
     if (n === prevCount) return;
-    if (n === 0) {
-      stopArp(); stopVoice(voice); voice = null; sounding = null;
-    } else if (n === 1) {
-      stopArp();
-      const only = [...pointers.values()][0];
-      cutoff = only.cutoff;                   // back to one finger: the held note follows that finger
-      if (!voice) voice = startVoice(only.midi, cutoff);
-      else updateVoice(only.midi, cutoff);
-      sounding = only.midi;
-    } else if (prevCount < 2) {
+    const wantArp = n >= 2 || !!latch;
+    if (wantArp && !arp) startArp();
+    if (!wantArp && arp) stopArp();
+    const lead = leadFinger();
+    if (lead) {
+      cutoff = lead.cutoff;                   // back to one finger: the held note follows that finger
+      if (!voice) voice = startVoice(lead.midi, cutoff);
+      else updateVoice(lead.midi, cutoff);
+      sounding = lead.midi;
+    } else {
       stopVoice(voice); voice = null;
-      startArp();
+      if (!wantArp) sounding = null;
     }
   }
 
@@ -1003,8 +1088,12 @@
     Object.assign(p, readPos(e));
     mapPointer(p);
     cutoff = p.cutoff;
-    if (pointers.size === 1) { updateVoice(p.midi, cutoff); sounding = p.midi; }
-    else setArpCutoffFor(p);
+    if (p === leadFinger()) { updateVoice(p.midi, cutoff); sounding = p.midi; }
+    else {
+      // fingers resting on held notes still set their brightness
+      if (latch && latch.info.has(p.midi) && !fingersDriveArp()) latch.info.get(p.midi).cutoff = p.cutoff;
+      setArpCutoffFor(p);
+    }
     showReadout();
   });
 
@@ -1021,10 +1110,8 @@
   // the keyboard layout changed under the fingers: work out their notes again
   function remapPointers() {
     pointers.forEach(mapPointer);
-    if (pointers.size === 1) {
-      const only = [...pointers.values()][0];
-      updateVoice(only.midi, cutoff); sounding = only.midi;
-    }
+    const lead = leadFinger();
+    if (lead) { updateVoice(lead.midi, cutoff); sounding = lead.midi; }
     showReadout();
   }
   scaleSel.addEventListener("change", () => { buildNotes(); remapPointers(); });
@@ -1041,6 +1128,7 @@
   const hueFor = (idx, n) => 260 - (idx / Math.max(n - 1, 1)) * 230;
 
   function draw() {
+    checkHold(performance.now());
     const band = css("--band"), line = css("--line"), root = css("--root"), muted = css("--muted"), ink = css("--ink");
     const rowBright = css("--row-bright"), rowDark = css("--row-dark");
     g2d.clearRect(0, 0, W, H);
@@ -1072,11 +1160,17 @@
       g2d.fillRect(0, top, W, rh);
     }
 
-    // held columns, with the sounding one brighter
-    const held = new Map();                          // "row:idx" -> pointer
+    // held columns, with the sounding one brighter. A held arp's notes stay lit after the fingers lift
+    const lead = leadFinger();                       // a single finger always sounds, even over a held arp
+    const held = new Map();                          // "row:idx" -> pointer, or { row, idx, midi, gi } for a held note
     pointers.forEach(p => held.set(p.row + ":" + p.idx, p));
+    if (latch && !fingersDriveArp()) latch.notes.forEach(midi => {
+      const { row } = latch.info.get(midi);
+      const idx = row < ROWS ? notes.indexOf(midi - row * SPAN) : -1;   // gone if the scale or rows have changed
+      if (idx >= 0 && !held.has(row + ":" + idx)) held.set(row + ":" + idx, { row, idx, midi, gi: row * n + idx });
+    });
     held.forEach(p => {
-      const on = p.midi === sounding;
+      const on = p === lead || p.midi === sounding;
       g2d.fillStyle = `hsla(${hueFor(p.gi, n * ROWS)}, 80%, 60%, ${on ? 0.32 : 0.12})`;
       g2d.fillRect(p.idx * cw, rowTop(p.row), cw, rh);
     });
@@ -1111,7 +1205,7 @@
     pointers.forEach(p => {
       const px = p.x * W, py = p.y * H;
       const hue = hueFor(p.gi, n * ROWS);
-      const on = p.midi === sounding;
+      const on = p === lead || p.midi === sounding;
       const radius = (30 + (1 - p.ly) * 50) * (on ? 1 : 0.65);
       const grad = g2d.createRadialGradient(px, py, 0, px, py, radius);
       grad.addColorStop(0, `hsla(${hue}, 95%, 70%, ${on ? 0.95 : 0.6})`);
@@ -1587,12 +1681,13 @@
   // ---------- readouts ----------
   const tempoOut = () => $("tempoOut").textContent = tempo() + " BPM";
   const rateOut = () => $("aRateOut").textContent = ARP_RATES[$("aRate").value][1];
+  const holdOut = () => $("aHoldOut").textContent = ARP_HOLDS[$("aHold").value][1];
   const levelOut = () => {
     $("kLevelOut").textContent = $("kLevel").value + "%";
     if (drumBus) drumBus.gain.setTargetAtTime($("kLevel").value / 100, ctx.currentTime, 0.03);
   };
   const swingOut = () => $("kSwingOut").textContent = $("kSwing").value + "%";
-  [["tempo", tempoOut], ["aRate", rateOut], ["kLevel", levelOut], ["kSwing", swingOut]].forEach(([id, fn]) => {
+  [["tempo", tempoOut], ["aRate", rateOut], ["aHold", holdOut],["kLevel", levelOut], ["kSwing", swingOut]].forEach(([id, fn]) => {
     $(id).addEventListener("input", fn); fn();
   });
 })();

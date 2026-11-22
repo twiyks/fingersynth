@@ -49,7 +49,7 @@ input -> distDry ---------------------------------> mix -> out
 
 **Pointers and modes**
 - `pointers` is a Map of pointerId to `{x, y, row, ly, idx, midi, gi}`. x and y are normalised 0 to 1 over the whole pad; `mapPointer()` works out `row` (0 = bottom), `ly` (height within that row, 0 to 1), the column `idx`, and `gi` (column counted across all rows, used for colour).
-- `refreshMode(prevCount)` handles transitions: 0 fingers stops everything, 1 finger plays a single legato `voice`, 2+ stops that voice and starts the arp. Going from 2 back to 1 returns to the held note.
+- `refreshMode(prevCount)` handles transitions: the arp runs with 2+ fingers or while it's held (`latch`); one finger (`leadFinger()`) plays a single legato `voice`, over the top of a held arp if there is one. Going from 2 back to 1 returns to the held note, except for a finger that helped make the hold (`p.latched`), so lifting a held chord doesn't play stray notes.
 - Each finger has its own filter setting (`p.cutoff`, from its height within its row). The held note follows the single finger; global `cutoff` tracks the last touched finger for that and the readout.
 - In arp mode each note takes its brightness from the finger holding it (`cutoffOfNote()`), and moving a finger only retunes that finger's arp voices, including ones scheduled but not yet heard (`setArpCutoffFor()`). Arp voices carry `midi` and `start` for this.
 - Filter moves glide with `FILTER_GLIDE` (0.08 s time constant, settling in about a quarter of a second) so changes sweep rather than snap.
@@ -61,9 +61,11 @@ input -> distDry ---------------------------------> mix -> out
 - Each step creates a new voice and releases it after `GATE` (0.7) of the step length. Active arp voices are tracked in `arpVoices`. At most `MAX_ARP_VOICES` (10) ring at once; past that, the oldest (usually a quiet release tail) is stolen when the new note starts. This keeps CPU in check with long releases at fast rates.
 - Direction: up, down (sorted held notes, stepped by `arp.step`) or random (never repeats the previous note when there's a choice).
 - `arp.queue` records scheduled note times so `draw()` can show which note is actually audible right now.
+- Arp hold: `checkHold()` runs every frame (from `draw()`). When the same set of notes (`heldNotes()`, so filter moves don't count) has been down for the Hold after time (`ARP_HOLDS`, Off to 5 s, default 2 s), `setLatch()` stores it in `latch` (`notes`, plus each note's `row` and `cutoff` in `info`), and the arp keeps playing it with no fingers down. `arpNotes()` is what the arp plays: the fingers when `fingersDriveArp()` (2+ down, and not just some of the held notes), otherwise the held set. A new set of 2+ fingers takes over while down, and becomes the new hold if kept for the hold time. Fingers resting on held notes still set those notes' brightness. Held notes stay lit on the pad.
+- The hold button (`#arpHold`, next to play) shows while a new set counts up (after 20% of the time, filling via `--fill`), and stays solid once held. Tapping it (`releaseHold()`) stops the arp but not the beats. It's visible in both views.
 
 **Top bar and views**
-- Under the header: a Synth / Beats icon switch (sets `body[data-view]`, CSS hides the other view), play/stop for the beats, and the master Tempo slider (60 to 200 BPM, `tempo()`). Beats keep playing while you're on the synth view.
+- Under the header: a Synth / Beats icon switch (sets `body[data-view]`, CSS hides the other view), play/stop for the beats, the arp hold button when there's something to show, and the master Tempo slider (60 to 200 BPM, `tempo()`). Beats keep playing while you're on the synth view.
 
 **Phone layout and menus**
 - On phones (`max-width: 520px`, or landscape with `max-height: 540px`; same query as `phoneMQ`) the header is hidden and the pad fills the screen. The top row holds the view switch, play, and icon buttons (`.menubtns`, each with `data-menu` naming its sheet): Scale, Sound, Effects, Arpeggio (synth view, `.synthonly`), Drum effects, Kit (beats view, `.beatsonly`), and Help. Tempo sits on its own full-width row below.
