@@ -508,7 +508,7 @@
         <h3>Steps</h3>
         <p>Switch a synth to <strong>Steps</strong> to write a pattern on a grid of its notes. Steps play along with the beats, so press play to hear them.</p>
         <h3>Beats</h3>
-        <p>The grid tab is the drum machine. Tap steps to add hits, pick a kit, and switch between 8 patterns. The Break kit cuts a loop you load into 8 slices.</p>
+        <p>The grid tab is the drum machine. Tap steps to add hits, pick a kit, and switch between 8 patterns. The Break kit cuts a loop you load into 8 slices. It guesses whether the loop is 1, 2 or 4 bars long and fits it to the tempo; if it sounds too fast or slow, tap the bars button next to Load.</p>
         <h3>Sound and effects</h3>
         <p>The <strong>Sound</strong> menu has the envelope, filter and distortion. <strong>Effects</strong> has delay and reverb. Tempo sets the speed of everything.</p>
         <h3>Mixer</h3>
@@ -520,6 +520,7 @@
       <div class="helppane historypane">
         <!-- newest first; the first entry's number is shown next to the title -->
         <ul class="history" id="history">
+          <li><span class="ver">v3.1</span>Breaks can be 1, 2 or 4 bars long, so longer loops no longer play too fast. Delays start in note values. No camera option when loading a break.</li>
           <li><span class="ver">v3.0</span>A mixer with levels, mute, solo and effect amounts. Stop also stops arpeggios. Latency goes up to 1 second. Load a break from your files.</li>
           <li><span class="ver">v2.9</span>Fewer crackles: effects rest when a synth goes quiet, and the pad only redraws when something changes. A new Settings menu with Latency.</li>
           <li><span class="ver">v2.8</span>Help has tabs for how to use and version history, shows the version number, and opens on bigger screens too.</li>
@@ -550,8 +551,10 @@
       <div class="seg pats" role="radiogroup" aria-label="Pattern" id="pats"></div>
       <button class="btn" id="clearPat">Clear</button>
       <button class="btn" id="loadBreak" aria-label="Load a break" hidden>Load</button>
-      <!-- named types rather than audio/*: with audio/* Android offers its photos and videos picker instead of the file browser -->
-      <input type="file" id="breakFile" accept=".wav,.mp3,.m4a,.aac,.ogg,.oga,.opus,.flac,.aif,.aiff,.webm,audio/wav,audio/mpeg,audio/mp4,audio/aac,audio/ogg,audio/flac,audio/aiff,audio/webm" hidden>
+      <!-- how many bars the loaded loop is: guessed on load, tap to change -->
+      <button class="btn" id="breakBars" hidden></button>
+      <!-- audio types only: Android adds a camera option for anything it reads as video (a .webm file counts as video) -->
+      <input type="file" id="breakFile" accept=".wav,.mp3,.m4a,.aac,.ogg,.oga,.opus,.flac,.aif,.aiff,audio/wav,audio/mpeg,audio/mp4,audio/aac,audio/ogg,audio/flac,audio/aiff,audio/webm" hidden>
     </div>
     <div class="grid" id="grid"></div>
     <section class="fx drumfx">
@@ -675,8 +678,8 @@
       <div class="fxhead">
         <h2>Delay</h2>
         <div class="seg small" role="radiogroup" aria-label="Delay time units">
-          <label><input type="radio" name="${p}dUnit" value="ms" checked><span>ms</span></label>
-          <label><input type="radio" name="${p}dUnit" value="notes"><span>notes</span></label>
+          <label><input type="radio" name="${p}dUnit" value="ms"><span>ms</span></label>
+          <label><input type="radio" name="${p}dUnit" value="notes" checked><span>notes</span></label>
         </div>
       </div>
       ${sliderHTML(p + "dAmount", "Amount", 0, 100)}
@@ -695,7 +698,9 @@
 
   // p is the prefix of the sliders that show this rack; its audio nodes live in rack.n once buildRack() has made them
   function makeRack(p, values) {
+    // delays start in notes, locked to the tempo; the ms positions are kept for when the switch is flipped
     const rack = { p, values: { ...RACK_DEFAULTS, ...values }, unit: "ms", saved: { ms: {}, notes: {} }, st: {}, out: {}, n: null };
+    setDelayUnit(rack, "notes");
     calcFx(rack);
     return rack;
   }
@@ -1646,13 +1651,19 @@
   try { if (KITS[localStorage.getItem("xysynth.kit")]) kitSel.value = localStorage.getItem("xysynth.kit"); } catch {}
   const isBreakKit = () => !!KITS[kitSel.value].isBreak;
 
-  // ---------- break: a loaded one-bar loop cut into slices, one per row ----------
+  // ---------- break: a loaded loop of 1, 2 or 4 bars cut into slices, one per row ----------
   const SLICES = DRUM_ROWS.length;
-  let breakBuf = null, breakName = "", breakVoice = null;
+  const BREAK_BARS = [1, 2, 4];
+  let breakBuf = null, breakName = "", breakVoice = null, breakBars = 1;
+  // a fresh loop's length in bars: whichever of 1, 2 or 4 needs the least speeding up or slowing down at this tempo
+  function guessBars(duration) {
+    const bars = duration / (240 / tempo());
+    return BREAK_BARS.reduce((best, b) => Math.abs(Math.log2(bars / b)) < Math.abs(Math.log2(bars / best)) ? b : best);
+  }
   function playSlice(i, t) {
     if (!breakBuf) return;
-    const bar = 240 / tempo();                           // one bar (four beats) at the current tempo
-    const rate = breakBuf.duration / bar;                // speed the loop up or down to fit, which shifts its pitch too
+    const loop = breakBars * 240 / tempo();              // the loop's bars (four beats each) at the current tempo
+    const rate = breakBuf.duration / loop;               // speed the loop up or down to fit, which shifts its pitch too
     const offset = i * breakBuf.duration / SLICES;
     // one slice at a time, like a sampler: a new slice cuts the last one off
     if (breakVoice && breakVoice.start < t) {
@@ -1689,11 +1700,15 @@
   }
   // decoding doesn't need the live audio context, so a saved break can load before the first tap
   const decode = bytes => new OfflineAudioContext(2, 1, 44100).decodeAudioData(bytes.slice(0));
-  async function useBreak(bytes, name) {
+  // bars: the saved length after a reload; a new file gets a guess
+  async function useBreak(bytes, name, bars) {
     breakBuf = await decode(bytes);
     breakName = name;
+    breakBars = BREAK_BARS.includes(bars) ? bars : guessBars(breakBuf.duration);
     updateBreakUI();
   }
+  let breakBytes = null;                                 // kept so a new length can be saved with the file
+  const saveBreak = () => breakStore("readwrite", s => s.put({ bytes: breakBytes, name: breakName, bars: breakBars }, "break")).catch(() => {});
   $("breakFile").addEventListener("change", async e => {
     const file = e.target.files[0];
     e.target.value = "";
@@ -1701,10 +1716,16 @@
     try {
       const bytes = await file.arrayBuffer();
       await useBreak(bytes, file.name);
-      breakStore("readwrite", s => s.put({ bytes, name: file.name }, "break")).catch(() => {});
+      breakBytes = bytes;
+      saveBreak();
     } catch { alert("Sorry, that file couldn't be read as audio."); }
   });
   $("loadBreak").addEventListener("click", () => $("breakFile").click());
+  $("breakBars").addEventListener("click", () => {
+    breakBars = BREAK_BARS[(BREAK_BARS.indexOf(breakBars) + 1) % BREAK_BARS.length];
+    updateBreakUI();
+    if (breakBytes) saveBreak();
+  });
 
   // ---------- patterns ----------
   const STEPS = 16, PATTERN_COUNT = 8;
@@ -1927,7 +1948,13 @@
   function updateBreakUI() {
     loadBtn.hidden = !isBreakKit();
     loadBtn.classList.toggle("wanted", !breakBuf);
-    loadBtn.title = breakName ? "Loaded: " + breakName + ". Tap to change" : "Load a one-bar loop";
+    loadBtn.title = breakName ? "Loaded: " + breakName + ". Tap to change" : "Load a loop of 1, 2 or 4 bars";
+    // the loop's length shows once there's a loop
+    const barsBtn = $("breakBars");
+    barsBtn.hidden = !isBreakKit() || !breakBuf;
+    barsBtn.textContent = breakBars + (breakBars > 1 ? " bars" : " bar");
+    barsBtn.setAttribute("aria-label", `Loop length, ${barsBtn.textContent}. Tap to change`);
+    barsBtn.title = "How many bars the loop is. Tap to change";
   }
   kitSel.addEventListener("change", () => {
     try { localStorage.setItem("xysynth.kit", kitSel.value); } catch {}
@@ -1935,7 +1962,7 @@
     renderGrid(); updateRowLabels(); updateBreakUI();
   });
   breakStore("readonly", s => s.get("break"))
-    .then(saved => saved && useBreak(saved.bytes, saved.name))
+    .then(saved => { if (saved) { breakBytes = saved.bytes; return useBreak(saved.bytes, saved.name, saved.bars); } })
     .catch(() => {});
   renderGrid(); updateRowLabels(); updateBreakUI();
 
