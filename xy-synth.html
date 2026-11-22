@@ -185,12 +185,12 @@
     .fx.drumfx { grid-template-columns: 1fr 1fr; grid-template-areas: "drums drums" "delay delay" "rev dist"; }
   }
   /* on bigger screens the menu wrappers vanish and their panels sit in the .fx grid as before.
-     Only Help opens as a menu there, so the menu buttons hide apart from Help, which sits at the end of the bar */
+     Only Mixer, Settings and Help open as menus there, so the other menu buttons hide and these sit at the end of the bar */
   .sheet { display: contents; }
   .sheet.listsheet, .sheet.popsheet { display: none; }
   .menubtns { display: flex; gap: 3px; order: 1; }
   .menubtns > .iconbtn { display: none; }
-  .menubtns > .helpbtn, .menubtns > .setbtn { display: grid; }
+  .menubtns > .helpbtn, .menubtns > .setbtn, .menubtns > .mixbtn { display: grid; }
   /* an open menu: an overlay dropped just below the buttons, with a scrim behind */
   .sheet.open {
     display: grid; gap: 8px; align-content: start;
@@ -204,6 +204,16 @@
   }
   .scrim { position: fixed; inset: 0; z-index: 19; background: rgb(0 0 0 / 0.2); }
   .scrim[hidden] { display: none; }
+  /* the mixer: a channel for each synth and the drums, two across on bigger screens, one on phones */
+  #mixMenu.open {
+    width: min(860px, calc(100% - 32px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .sheet .fxgroup.mixch { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .fxgroup.mixch h2 .sub { display: inline; margin-left: 6px; }
+  .mixch .fxhead + .slider { grid-column: 1 / -1; }      /* Level runs the full width, the effects sit three across */
+  .mixbtns { display: flex; gap: 4px; }
+  .mixbtns .btn { padding: 3px 0; min-width: 2.2em; }
   .fxgroup {
     background: var(--field); border-radius: 14px; padding: 10px 14px 12px;
     display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 6px 16px; align-content: start;
@@ -247,6 +257,10 @@
     .fx { display: contents; }
     .sheet:not(.open) { display: none; }               /* every panel lives in a menu */
     .sheet.open { right: calc(8px + env(safe-area-inset-right, 0px)); }
+    #mixMenu.open {
+      width: min(440px, calc(100% - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+      grid-template-columns: minmax(0, 1fr);
+    }
     .sheet .fxgroup { grid-template-columns: 1fr; }   /* full-width sliders are easier to hit */
     .sheet .fxgroup.envgroup { grid-template-columns: 1fr 1fr; }
     .fxgroup { grid-area: auto; }                      /* the named areas are for bigger screens only */
@@ -355,6 +369,9 @@
       <button class="btn iconbtn beatsonly" data-menu="kitMenu" aria-label="Kit" title="Kit" aria-haspopup="dialog" aria-expanded="false" aria-controls="kitMenu">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><ellipse cx="12" cy="10" rx="8" ry="3"/><path d="M4 10v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/><path d="M8 2.5l3 6M17 3l-4 5.5"/></svg>
       </button>
+      <button class="btn iconbtn mixbtn" data-menu="mixMenu" aria-label="Mixer" title="Mixer" aria-haspopup="dialog" aria-expanded="false" aria-controls="mixMenu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 4v16M12 4v16M18 4v16"/><rect x="3" y="12" width="6" height="3.5" rx="1" fill="currentColor" stroke="none"/><rect x="9" y="6" width="6" height="3.5" rx="1" fill="currentColor" stroke="none"/><rect x="15" y="14.5" width="6" height="3.5" rx="1" fill="currentColor" stroke="none"/></svg>
+      </button>
       <button class="btn iconbtn setbtn" data-menu="settingsMenu" aria-label="Settings" title="Settings" aria-haspopup="dialog" aria-expanded="false" aria-controls="settingsMenu">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M19 7h1M4 17h3M13 17h7"/><circle cx="16" cy="7" r="2.6"/><circle cx="10" cy="17" r="2.6"/></svg>
       </button>
@@ -453,13 +470,15 @@
   <div class="sheet listsheet" id="kitMenu" role="dialog" aria-label="Kit">
     <div class="fxgroup" style="--cols: 1"><h2>Kit</h2><div class="list" role="radiogroup" aria-label="Kit" data-for="kit"></div></div>
   </div>
-  <!-- Settings and Help open as menus on every screen size -->
+  <!-- Mixer, Settings and Help open as menus on every screen size -->
+  <!-- the mixer's channels are built by the mixer code -->
+  <div class="sheet popsheet" id="mixMenu" role="dialog" aria-label="Mixer"></div>
   <div class="sheet popsheet" id="settingsMenu" role="dialog" aria-label="Settings">
     <div class="fxgroup helpgroup" style="--cols: 1">
       <h2>Settings</h2>
       <div class="slider">
         <div class="top"><label for="latency">Latency</label><output id="latencyOut"></output></div>
-        <input type="range" id="latency" min="0" max="6" value="0">
+        <input type="range" id="latency" min="0" max="10" value="0">
       </div>
       <p>If the sound crackles, turn this up. It gives your device more time to prepare the sound, so it keeps up, but the sound lags your fingers a little more.</p>
       <p id="latencyNow"></p>
@@ -492,12 +511,16 @@
         <p>The grid tab is the drum machine. Tap steps to add hits, pick a kit, and switch between 8 patterns. The Break kit cuts a loop you load into 8 slices.</p>
         <h3>Sound and effects</h3>
         <p>The <strong>Sound</strong> menu has the envelope, filter and distortion. <strong>Effects</strong> has delay and reverb. Tempo sets the speed of everything.</p>
+        <h3>Mixer</h3>
+        <p>The faders button opens the <strong>Mixer</strong>: a level for each synth and the drums, <strong>M</strong> to mute, <strong>S</strong> to solo, and how much reverb, delay and distortion each one gets. These are the same as the Amount sliders in the effects panels.</p>
+        <p>The stop button stops the beats and any arpeggios that are playing.</p>
         <h3>Crackles?</h3>
         <p>Turn up <strong>Latency</strong> in Settings, the sliders button. The sound lags your fingers a little more but has more time to keep up.</p>
       </div>
       <div class="helppane historypane">
         <!-- newest first; the first entry's number is shown next to the title -->
         <ul class="history" id="history">
+          <li><span class="ver">v3.0</span>A mixer with levels, mute, solo and effect amounts. Stop also stops arpeggios. Latency goes up to 1 second. Load a break from your files.</li>
           <li><span class="ver">v2.9</span>Fewer crackles: effects rest when a synth goes quiet, and the pad only redraws when something changes. A new Settings menu with Latency.</li>
           <li><span class="ver">v2.8</span>Help has tabs for how to use and version history, shows the version number, and opens on bigger screens too.</li>
           <li><span class="ver">v2.7</span>Arp, Hold and the arpeggio settings sit together. Hold is always there.</li>
@@ -527,7 +550,8 @@
       <div class="seg pats" role="radiogroup" aria-label="Pattern" id="pats"></div>
       <button class="btn" id="clearPat">Clear</button>
       <button class="btn" id="loadBreak" aria-label="Load a break" hidden>Load</button>
-      <input type="file" id="breakFile" accept="audio/*" hidden>
+      <!-- named types rather than audio/*: with audio/* Android offers its photos and videos picker instead of the file browser -->
+      <input type="file" id="breakFile" accept=".wav,.mp3,.m4a,.aac,.ogg,.oga,.opus,.flac,.aif,.aiff,.webm,audio/wav,audio/mpeg,audio/mp4,audio/aac,audio/ogg,audio/flac,audio/aiff,audio/webm" hidden>
     </div>
     <div class="grid" id="grid"></div>
     <section class="fx drumfx">
@@ -918,9 +942,38 @@
   const drumRack = makeRack("k", { dAmount: 0, rMix: 0, xAmount: 0 });    // drums start dry
   const allRacks = () => [...synths.map(s => s.rack), drumRack];
 
+  // mixer channels: one per synth, then the drums. Each has a fader after its effects rack (chan.node), so the level,
+  // mute and solo take the echoes and reverb with them. Level is a slider position, 0 to 100, with 80 as 0 dB
+  const mix = [...synths.map(syn => ({ name: "Synth " + (syn.i + 1), syn, rack: syn.rack })), { name: "Drums", rack: drumRack }]
+    .map(c => ({ ...c, level: 80, mute: false, solo: false, node: null }));
+  const drumChan = mix[mix.length - 1];
+  const DRUM_GAIN = 0.8;                 // drums into their rack; their level is the Drums fader now, after the effects
+  const faderGain = v => Math.pow(v / 80, 2);
+  const fmtLevel = v => {
+    if (!v) return "Off";
+    const db = 40 * Math.log10(v / 80);
+    return (db > 0 ? "+" : "") + (Math.abs(db) < 10 ? db.toFixed(1) : Math.round(db)) + " dB";
+  };
+  // what a channel should be at: silent if muted, or if anything else is soloed and this isn't
+  function chanGain(c) {
+    const anySolo = mix.some(m => m.solo);
+    return c.mute || (anySolo && !c.solo) ? 0 : faderGain(c.level);
+  }
+  function applyMix() {
+    if (!ctx) return;
+    mix.forEach(c => { if (c.node) c.node.gain.setTargetAtTime(chanGain(c), ctx.currentTime, 0.015); });
+  }
+  function chanOut(c, out) {
+    c.node = ctx.createGain();
+    c.node.gain.value = chanGain(c);
+    c.node.connect(out);
+    return c.node;
+  }
+
   // latency: how much sound the browser prepares ahead. Lowest feels most immediate; more gives a busy phone room
   // to keep up, so fewer crackles, at the cost of the sound trailing your fingers a little. Saved on this device
-  const LATENCIES = [["Lowest", "interactive"], ["20 ms", 0.02], ["40 ms", 0.04], ["60 ms", 0.06], ["80 ms", 0.08], ["120 ms", 0.12], ["200 ms", 0.2]];
+  const LATENCIES = [["Lowest", "interactive"], ["20 ms", 0.02], ["40 ms", 0.04], ["60 ms", 0.06], ["80 ms", 0.08], ["120 ms", 0.12],
+                     ["200 ms", 0.2], ["300 ms", 0.3], ["500 ms", 0.5], ["750 ms", 0.75], ["1 s", 1]];
   let latencyIdx = 0;
   try { const v = Number(localStorage.getItem("xysynth.latency")); if (LATENCIES[v]) latencyIdx = v; } catch {}
 
@@ -931,14 +984,14 @@
       comp.threshold.value = -14; comp.ratio.value = 4;
       const out = ctx.createGain();
       out.connect(comp).connect(ctx.destination);
-      synths.forEach(syn => {
+      synths.forEach((syn, i) => {
         syn.bus = ctx.createGain();
         syn.bus.gain.value = 0.5;
-        syn.bus.connect(buildRack(syn.rack, out));
+        syn.bus.connect(buildRack(syn.rack, chanOut(mix[i], out)));
       });
       drumBus = ctx.createGain();
-      drumBus.gain.value = $("kLevel").value / 100;
-      drumBus.connect(buildRack(drumRack, out));
+      drumBus.gain.value = DRUM_GAIN;
+      drumBus.connect(buildRack(drumRack, chanOut(drumChan, out)));
       noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
       const nd = noiseBuf.getChannelData(0);
       for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
@@ -1753,7 +1806,18 @@
     playBtn.setAttribute("aria-pressed", "false");
     playBtn.setAttribute("aria-label", "Play beats");
   }
-  playBtn.addEventListener("click", () => seq.playing ? stopSeq() : startSeq());
+  // stop: the beats, and every synth's arp (held or played), as if the fingers had lifted too
+  function stopArps() {
+    pointers.clear();
+    synths.forEach(syn => { syn.latch = null; refresh(syn); });
+    updateTabs();
+    shownHold = null; updateHoldBtn(0);
+  }
+  playBtn.addEventListener("click", () => {
+    if (!seq.playing) return startSeq();
+    stopSeq();
+    stopArps();
+  });
 
   // ---------- step grids ----------
   // press a step to toggle it, then drag to paint the same state across other steps. Shared by the drum grid and the
@@ -2146,6 +2210,64 @@
   });
   phoneMQ.addEventListener("change", closeMenu);
 
+  // ---------- mixer ----------
+  // a channel each for the synths and the drums. Reverb, Delay and Distortion are the racks' own Amount settings,
+  // so moving one here moves the matching slider in the effects panels too. The drums' Level is the Drums panel's Level
+  const MIX_SENDS = ["rMix", "dAmount", "xAmount"];
+  const mixEl = $("mixMenu");
+  mix.forEach((c, i) => {
+    const m = "m" + i;
+    mixEl.insertAdjacentHTML("beforeend", `
+      <div class="fxgroup mixch" style="--cols: 3">
+        <div class="fxhead">
+          <h2>${c.name} <span class="sub" id="${m}name"></span></h2>
+          <div class="mixbtns">
+            <button class="btn togglebtn" id="${m}mute" aria-pressed="false" aria-label="Mute ${c.name}" title="Mute">M</button>
+            <button class="btn togglebtn" id="${m}solo" aria-pressed="false" aria-label="Solo ${c.name}" title="Solo">S</button>
+          </div>
+        </div>
+        ${sliderHTML(m + "level", "Level", 0, 100)}
+        ${sliderHTML(m + "rMix", "Reverb", 0, 100)}
+        ${sliderHTML(m + "dAmount", "Delay", 0, 100)}
+        ${sliderHTML(m + "xAmount", "Distortion", 0, 100)}
+      </div>`);
+  });
+  function setLevel(c, v) {
+    const m = "m" + mix.indexOf(c);
+    c.level = v;
+    $(m + "level").value = v; $(m + "levelOut").textContent = fmtLevel(v);
+    if (c === drumChan) { $("kLevel").value = v; $("kLevelOut").textContent = fmtLevel(v); }
+    applyMix();
+  }
+  // put every channel's settings on the mixer (when it opens)
+  function showMix() {
+    mix.forEach((c, i) => {
+      const m = "m" + i;
+      $(m + "name").textContent = c.syn ? PRESETS[c.syn.preset].name : KITS[kitSel.value].name;
+      $(m + "level").value = c.level; $(m + "levelOut").textContent = fmtLevel(c.level);
+      MIX_SENDS.forEach(n => { $(m + n).value = c.rack.values[n]; $(m + n + "Out").textContent = c.rack.out[n]; });
+      $(m + "mute").setAttribute("aria-pressed", c.mute);
+      $(m + "solo").setAttribute("aria-pressed", c.solo);
+    });
+  }
+  mix.forEach((c, i) => {
+    const m = "m" + i;
+    $(m + "level").addEventListener("input", e => setLevel(c, +e.target.value));
+    MIX_SENDS.forEach(n => $(m + n).addEventListener("input", e => {
+      const rack = c.rack;
+      rack.values[n] = +e.target.value;
+      calcFx(rack); applyFx(rack);
+      $(m + n + "Out").textContent = rack.out[n];
+      if (boundRack(rack.p) === rack) { $(rack.p + n).value = rack.values[n]; showFx(rack); }   // its panel is showing this rack
+    }));
+    ["mute", "solo"].forEach(k => $(m + k).addEventListener("click", e => {
+      c[k] = !c[k];
+      e.currentTarget.setAttribute("aria-pressed", c[k]);
+      applyMix();
+    }));
+  });
+  document.querySelector(".mixbtn").addEventListener("click", showMix);
+
   // ---------- settings: latency ----------
   // the browser only takes a latency when the sound engine starts, so a new setting restarts it: everything is rebuilt,
   // held arps and the beats carry on, and fingers already down are let go
@@ -2160,6 +2282,7 @@
       syn.bus = null; syn.rack.n = null;
     });
     drumRack.n = null; drumBus = null; openHat = null; breakVoice = null;
+    mix.forEach(c => { c.node = null; });
     const old = ctx;
     ctx = null;
     old.close();
@@ -2174,6 +2297,7 @@
       ? `Right now the sound takes about ${Math.round(((ctx.baseLatency || 0) + (ctx.outputLatency || 0)) * 1000)} ms to reach you. Bluetooth headphones add more on top.`
       : "Play a note to see how long the sound takes to reach you.";
   }
+  $("latency").max = LATENCIES.length - 1;
   $("latency").value = latencyIdx;
   $("latency").addEventListener("input", () => { latencyIdx = +$("latency").value; showLatency(); });
   $("latency").addEventListener("change", () => {      // restart once the slider is let go, not while it's moving
@@ -2192,10 +2316,7 @@
 
   // ---------- readouts ----------
   const tempoOut = () => $("tempoOut").textContent = tempo() + " BPM";
-  const levelOut = () => {
-    $("kLevelOut").textContent = $("kLevel").value + "%";
-    if (drumBus) drumBus.gain.setTargetAtTime($("kLevel").value / 100, ctx.currentTime, 0.03);
-  };
+  const levelOut = () => setLevel(drumChan, +$("kLevel").value);     // the same as the mixer's Drums fader
   const swingOut = () => $("kSwingOut").textContent = $("kSwing").value + "%";
   [["tempo", tempoOut], ["kLevel", levelOut], ["kSwing", swingOut]].forEach(([id, fn]) => {
     $(id).addEventListener("input", fn); fn();
