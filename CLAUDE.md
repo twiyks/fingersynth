@@ -17,25 +17,33 @@ All JS sits inside one IIFE. Main pieces, top to bottom:
 
 **Data**
 - `SCALES`: name plus semitone steps from the root. The pad has `ROWS` stacked keyboards, each two octaves (`SPAN = 24`) from C2 (`LOW = 36`): 2 rows (to C6) on big screens, 3 rows (to C8) on phones. `ROWS` follows the `phoneMQ` media query and live pointers are remapped (`remapPointers()`) when it changes. `buildNotes()` fills `notes` with the bottom row's MIDI numbers in the current scale; each note is one column, and a higher row adds `row * SPAN`.
-- `PRESETS`: each sound is a list of oscillators (`type`, `oct` offset, `det` detune in cents, `g` gain) plus filter `q`, attack `atk`, release `rel` and vibrato depth `vib` in cents. To add a sound, add an entry here; the dropdown builds itself.
+- `PRESETS`: each sound is a list of oscillators (`type`, `oct` offset, `det` detune in cents, `g` gain) plus filter `q`, a starting envelope (`atk`, `dec`, `rel` in seconds, `sus` 0 to 1) and vibrato depth `vib` in cents. To add a sound, add an entry here; the dropdown builds itself.
+- Envelope: `env` `{a, d, s, r}` is what new voices use. Picking a sound runs `loadEnv()`, which copies that preset's envelope into `env` and the Envelope sliders; moving a slider changes `env` from there. Time sliders run 0 to 100 and map exponentially over `ENV_TIMES`. Changes apply to the next note, not ones already sounding.
 - Filter cutoff maps exponentially from `CUT_MIN` (60 Hz) at the bottom of a row to `CUT_MAX` (14 kHz) at the top of that row via `cutoffFor(ly)`, so each row has its own full filter sweep.
 
 **Audio graph** (built once in `ensureAudio()`)
 ```
-voice -> master (0.5) -> out -> compressor (-14 dB, 4:1) -> destination
-drums -> drumBus (Drums level) -> out          (no delay or reverb on drums)
-                 |-> delaySend -> delay <-> tone lowpass 5 kHz -> feedback (loop)
-                 |                           \-> out, and -> convolver
-                 \-> reverbIn -> convolver (reverb) -> level -> reverbWet -> out
+voices -> master (0.5)         -> synth rack -> out -> compressor (-14 dB, 4:1) -> destination
+drums  -> drumBus (Drums level) -> drum rack  -> out
+
+each rack (buildRack):
+input -> distDry ---------------------------------> mix -> out
+      \-> drive -> shaper -> distTone -> distWet -/   |-> delaySend -> delay <-> tone lowpass 5 kHz -> feedback (loop)
+                                                       |                           \-> out, and -> reverbIn
+                                                       \-> reverbIn (Amount) -> convolver -> level -> out
 ```
+- The synth and the drums each have their own effects rack: distortion, delay and reverb, with the same controls. `makeRack(prefix, sheetId, amounts)` builds a rack's panels from `rackHTML()` into its sheet and returns `{p, el, unit, saved, st, n}`. The synth's ids have no prefix (`dAmount`, `xTone`...), the drum rack's start with `k` (`kdAmount`, radio name `kdUnit`). `readFx(rack)` reads sliders into `rack.st`, and `applyFx(rack, rebuildReverb)` pushes them into `rack.n`. Every effects function takes the rack. The drum rack starts with every Amount at 0.
+- Distortion: a fixed soft-clip curve (`makeDriveCurve()`, tanh, 2x oversampled). Amount sets the `drive` gain into it (`0.25 * 60^amount`) and turns the output down to roughly match (`1 / (1 + 3 * amount)`). Tone is a lowpass after it (1 to 16 kHz). Clean and driven paths are crossfaded rather than mixed, because the oversampler delays the driven path slightly and mixing the two would comb-filter. At Amount 0 the driven path is unplugged after 150 ms, so it costs no CPU.
+- The reverb's Amount is a gain before the convolver (`reverbIn`), so at 0 the browser can let the convolver go idle. The impulse is only built while Amount is above 0 (`reverbStale`), always just after the current event, so it never holds up a note.
+- The first `applyFx()` on a fresh rack jumps straight to its settings (`n.fresh`) rather than gliding, so nothing swells in.
 - Delay echoes also feed the reverb.
 - Delay "Decay" is a time in seconds (0.1 to 12, exponential slider). Feedback is derived from it with `feedbackFor(time, decay) = 10^(-3 * time / decay)`, i.e. the echoes fall by 60 dB over the decay time. Capped at 0.95.
 - An "ms / notes" switch in the Delay header (`delayUnit`, `setDelayUnit()`) lets Time and Decay be set as note values instead. In notes mode Time steps through `SYNC_TIMES` (1/16 to 1 bar, with T triplet and D dotted) and Decay through `SYNC_DECAYS` (1/2 beat to 8 bars), both stored in beats and converted to seconds from the master tempo, so moving the Tempo slider retimes the delay. Each mode remembers its own slider positions. Delay line max is `MAX_DELAY` (4 s, one bar at 60 BPM).
 - Reverb uses a generated impulse response (`makeImpulse(size)`): stereo noise with a power-curve fade, 0.3 to 6 seconds long depending on room size. It's rebuilt on a 120 ms debounce when the size slider moves. `swapReverb()` makes a fresh convolver each time and crossfades from the old one over `REVERB_FADE` (0.3 s), because swapping the buffer on a live convolver cuts the tail with a click. The first impulse is built just after the first note (`setTimeout`) so it doesn't delay it.
-- Effect settings live in `fxState` (read by `readFx()`) so the sliders work before audio has started; `applyFx()` pushes them into the nodes.
+- Effect settings live in each rack's `st` (read by `readFx(rack)`) so the sliders work before audio has started; `applyFx(rack)` pushes them into the nodes.
 
 **Voices**
-- `startVoice(midi, cutoff, t, gate)` builds a fresh voice: oscillators -> per-oscillator gain -> its own lowpass filter -> amp envelope -> `master`. Optional `t` schedules it on the audio clock. Optional `gate` (arp notes) cuts the attack short when the release would start before it finishes. Without that, the pending attack ramp overrides the release and the note rings at full volume until it's hard-stopped (a click).
+- `startVoice(midi, cutoff, t, gate)` builds a fresh voice: oscillators -> per-oscillator gain -> its own lowpass filter -> amp envelope -> `master`. The amp ramps to full over the attack, then curves down to sustain (`setTargetAtTime`, time constant decay / 3) and holds there until release. Optional `t` schedules it on the audio clock. Optional `gate` (arp notes) cuts the attack short when the release would start before it finishes. Without that, the pending attack ramp overrides the release and the note rings at full volume until it's hard-stopped (a click).
 - `stopVoice(v)` releases immediately (held notes), starting from the real current level via `holdAt()` (`cancelAndHoldAtTime`, with a fallback for Firefox). `stopVoiceAt(v, when, onDone)` releases at a scheduled time (arp notes) and cleans up via `onended`. `stealVoice(v, t)` fades a voice out fast.
 - `updateVoice()` glides pitch and cutoff with `setTargetAtTime` for smooth sliding.
 
@@ -58,9 +66,10 @@ drums -> drumBus (Drums level) -> out          (no delay or reverb on drums)
 - Under the header: a Synth / Beats icon switch (sets `body[data-view]`, CSS hides the other view), play/stop for the beats, and the master Tempo slider (60 to 200 BPM, `tempo()`). Beats keep playing while you're on the synth view.
 
 **Phone layout and menus**
-- On phones (`max-width: 520px`, or landscape with `max-height: 540px`; same query as `phoneMQ`) the header is hidden and the pad fills the screen. The top row holds the view switch, play, and icon buttons (`.menubtns`, each with `data-menu` naming its sheet): Scale, Sound, Delay and reverb, Arpeggio (synth view, `.synthonly`), Kit (beats view, `.beatsonly`), and Help. Tempo sits on its own full-width row below.
-- Each menu is a `.sheet` overlay (`openMenu()` / `closeMenu()`, one open at a time, `.scrim` behind it, Escape or tapping outside closes). The Delay/Reverb and Arpeggio sheets wrap the existing fx panels; on bigger screens they're `display: contents` so the panels sit in the `.fx` grid as before.
-- Scale, Sound and Kit sheets (`.listsheet`, phones only) are radio lists built from the header selects and kept in step with them; picking one sets the select and fires its `change` event.
+- On phones (`max-width: 520px`, or landscape with `max-height: 540px`; same query as `phoneMQ`) the header is hidden and the pad fills the screen. The top row holds the view switch, play, and icon buttons (`.menubtns`, each with `data-menu` naming its sheet): Scale, Sound, Effects, Arpeggio (synth view, `.synthonly`), Drum effects, Kit (beats view, `.beatsonly`), and Help. Tempo sits on its own full-width row below.
+- Each menu is a `.sheet` overlay (`openMenu()` / `closeMenu()`, one open at a time, `.scrim` behind it, Escape or tapping outside closes). The Sound, Effects, Arpeggio and Drum effects sheets wrap panels that, on bigger screens, sit in a `.fx` grid (`display: contents` on the sheet). The `.fx` grids place panels with named `grid-template-areas` (env, arp, delay, rev, dist, drums); on phones `.fxgroup` resets to `grid-area: auto`.
+- The Sound sheet holds the sound list (`.phoneonly`, hidden on bigger screens where the header dropdown does the job) and the Envelope panel.
+- Scale, Sound and Kit lists are radio lists built from the header selects and kept in step with them; picking one sets the select and fires its `change` event. Scale and Kit sheets are `.listsheet` (phones only).
 - Help sheet links to the XY Synth page on my portfolio site.
 
 **Drums and kits**
@@ -100,7 +109,7 @@ drums -> drumBus (Drums level) -> out          (no delay or reverb on drums)
 - Root key picker, and octave range control
 - More arp directions (up-down), gate length and octave spread
 - Save and recall settings (patterns already save)
-- Per-step accent, pattern copy, drum sends to delay and reverb
+- Per-step accent, pattern copy
 
 ## Working with me
 

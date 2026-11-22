@@ -133,9 +133,14 @@
     transition: opacity .4s ease;
   }
   .hint.gone { opacity: 0; }
+  /* panels under the pad (synth) and under the grid (beats), placed by name */
   .fx {
-    display: grid; grid-template-columns: 3fr 2fr 2fr; gap: 10px;
+    display: grid; gap: 10px; grid-template-columns: 3fr 2fr 2fr;
+    grid-template-areas: "env env arp" "delay rev dist";
   }
+  .fx.drumfx { grid-template-columns: 2fr 3fr 2fr 2fr; grid-template-areas: "drums delay rev dist"; }
+  .envgroup { grid-area: env; } .arpgroup { grid-area: arp; } .drumsgroup { grid-area: drums; }
+  .delaygroup { grid-area: delay; } .revgroup { grid-area: rev; } .distgroup { grid-area: dist; }
   .fxgroup h2 .sub { font-weight: 400; font-size: 0.78rem; color: var(--muted); margin-left: 6px; }
   .seg { display: flex; gap: 4px; background: var(--band); border-radius: 10px; padding: 3px; }
   .seg label { flex: 1; position: relative; }
@@ -150,19 +155,20 @@
   .seg.small span { font-size: 0.75rem; padding: 2px 9px; }
   .fxhead { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   @media (max-width: 1000px) {
-    .fx { grid-template-columns: 1fr 1fr; }
-    .fx .delaygroup { grid-column: 1 / -1; }
+    .fx { grid-template-columns: 1fr 1fr; grid-template-areas: "env arp" "delay delay" "rev dist"; }
+    .fx.drumfx { grid-template-columns: 1fr 1fr; grid-template-areas: "drums drums" "delay delay" "rev dist"; }
   }
   /* on bigger screens the menu wrappers vanish and their panels sit in the .fx grid as before */
   .sheet { display: contents; }
   .sheet.listsheet, .menubtns, .scrim { display: none; }
   .fxgroup {
     background: var(--field); border-radius: 14px; padding: 10px 14px 12px;
-    display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 6px 16px;
+    display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 6px 16px; align-content: start;
   }
   .fxgroup h2 {
     grid-column: 1 / -1; margin: 0; font-size: 0.95rem; font-weight: 800;
   }
+  .phoneonly { display: none; }          /* the Sound list: bigger screens use the header dropdown instead */
   .slider { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .slider .top { display: flex; justify-content: space-between; gap: 6px; font-size: 0.8rem; color: var(--muted); }
   .slider output { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -173,6 +179,7 @@
     .fxgroup { padding: 8px 12px 10px; }
     .fxgroup h2 .sub { display: block; margin: 0; }
     .fx .fxgroup:not(.delaygroup) { grid-template-columns: 1fr; }
+    .fx .fxgroup.envgroup { grid-template-columns: 1fr 1fr; }
   }
   footer {
     display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--muted);
@@ -211,6 +218,9 @@
       box-shadow: 0 12px 32px rgb(0 0 0 / 0.25);
     }
     .sheet .fxgroup { grid-template-columns: 1fr; }   /* full-width sliders are easier to hit */
+    .sheet .fxgroup.envgroup { grid-template-columns: 1fr 1fr; }
+    .fxgroup { grid-area: auto; }                      /* the named areas are for bigger screens only */
+    .phoneonly { display: grid; }
     .scrim { display: block; position: fixed; inset: 0; z-index: 19; background: rgb(0 0 0 / 0.2); }
     .scrim[hidden] { display: none; }
   }
@@ -278,7 +288,10 @@
     <button class="btn iconbtn synthonly" data-menu="soundMenu" aria-label="Sound" title="Sound" aria-haspopup="dialog" aria-expanded="false" aria-controls="soundMenu">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3" fill="currentColor"/><circle cx="17" cy="16" r="3" fill="currentColor"/></svg>
     </button>
-    <button class="btn iconbtn synthonly" data-menu="fxMenu" aria-label="Delay and reverb" title="Delay and reverb" aria-haspopup="dialog" aria-expanded="false" aria-controls="fxMenu">
+    <button class="btn iconbtn synthonly" data-menu="fxMenu" aria-label="Effects" title="Effects" aria-haspopup="dialog" aria-expanded="false" aria-controls="fxMenu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="12" r="3" fill="currentColor" stroke="none"/><path d="M12 7a7 7 0 0 1 0 10" opacity=".8"/><path d="M16 4a11 11 0 0 1 0 16" opacity=".5"/></svg>
+    </button>
+    <button class="btn iconbtn beatsonly" data-menu="drumFxMenu" aria-label="Drum effects" title="Drum effects" aria-haspopup="dialog" aria-expanded="false" aria-controls="drumFxMenu">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="12" r="3" fill="currentColor" stroke="none"/><path d="M12 7a7 7 0 0 1 0 10" opacity=".8"/><path d="M16 4a11 11 0 0 1 0 16" opacity=".5"/></svg>
     </button>
     <button class="btn iconbtn synthonly" data-menu="arpMenu" aria-label="Arpeggio" title="Arpeggio" aria-haspopup="dialog" aria-expanded="false" aria-controls="arpMenu">
@@ -305,40 +318,30 @@
   </div>
   <section class="fx">
     <!-- on phones each .sheet is an overlay menu; on bigger screens the wrappers vanish (display: contents) -->
-    <div class="sheet" id="fxMenu" role="dialog" aria-label="Delay and reverb">
-    <div class="fxgroup delaygroup" style="--cols: 3">
-      <div class="fxhead">
-        <h2>Delay</h2>
-        <div class="seg small" role="radiogroup" aria-label="Delay time units">
-          <label><input type="radio" name="dUnit" value="ms" checked><span>ms</span></label>
-          <label><input type="radio" name="dUnit" value="notes"><span>notes</span></label>
+    <div class="sheet" id="soundMenu" role="dialog" aria-label="Sound">
+      <div class="fxgroup phoneonly" style="--cols: 1"><h2>Sound</h2><div class="list" role="radiogroup" aria-label="Sound" data-for="preset"></div></div>
+      <div class="fxgroup envgroup" style="--cols: 4">
+        <h2>Envelope</h2>
+        <div class="slider">
+          <div class="top"><label for="envA">Attack</label><output id="envAOut"></output></div>
+          <input type="range" id="envA" min="0" max="100">
+        </div>
+        <div class="slider">
+          <div class="top"><label for="envD">Decay</label><output id="envDOut"></output></div>
+          <input type="range" id="envD" min="0" max="100">
+        </div>
+        <div class="slider">
+          <div class="top"><label for="envS">Sustain</label><output id="envSOut"></output></div>
+          <input type="range" id="envS" min="0" max="100">
+        </div>
+        <div class="slider">
+          <div class="top"><label for="envR">Release</label><output id="envROut"></output></div>
+          <input type="range" id="envR" min="0" max="100">
         </div>
       </div>
-      <div class="slider">
-        <div class="top"><label for="dAmount">Amount</label><output id="dAmountOut"></output></div>
-        <input type="range" id="dAmount" min="0" max="100" value="25">
-      </div>
-      <div class="slider">
-        <div class="top"><label for="dTime">Time</label><output id="dTimeOut"></output></div>
-        <input type="range" id="dTime" min="20" max="1000" value="350">
-      </div>
-      <div class="slider">
-        <div class="top"><label for="dDecay">Decay</label><output id="dDecayOut"></output></div>
-        <input type="range" id="dDecay" min="1" max="100" value="30">
-      </div>
     </div>
-    <div class="fxgroup" style="--cols: 2">
-      <h2>Reverb</h2>
-      <div class="slider">
-        <div class="top"><label for="rSize">Room size</label><output id="rSizeOut"></output></div>
-        <input type="range" id="rSize" min="0" max="100" value="50">
-      </div>
-      <div class="slider">
-        <div class="top"><label for="rMix">Amount</label><output id="rMixOut"></output></div>
-        <input type="range" id="rMix" min="0" max="100" value="25">
-      </div>
-    </div>
-    </div>
+    <!-- distortion, delay and reverb panels are built by rackHTML(), the same for the synth and the drums -->
+    <div class="sheet" id="fxMenu" role="dialog" aria-label="Effects"></div>
     <div class="sheet" id="arpMenu" role="dialog" aria-label="Arpeggio">
     <div class="fxgroup arpgroup" style="--cols: 1">
       <h2>Arpeggio <span class="sub">hold two or more notes</span></h2>
@@ -359,9 +362,6 @@
   <div class="sheet listsheet" id="scaleMenu" role="dialog" aria-label="Scale">
     <div class="fxgroup" style="--cols: 1"><h2>Scale</h2><div class="list" role="radiogroup" aria-label="Scale" data-for="scale"></div></div>
   </div>
-  <div class="sheet listsheet" id="soundMenu" role="dialog" aria-label="Sound">
-    <div class="fxgroup" style="--cols: 1"><h2>Sound</h2><div class="list" role="radiogroup" aria-label="Sound" data-for="preset"></div></div>
-  </div>
   <div class="sheet listsheet" id="kitMenu" role="dialog" aria-label="Kit">
     <div class="fxgroup" style="--cols: 1"><h2>Kit</h2><div class="list" role="radiogroup" aria-label="Kit" data-for="kit"></div></div>
   </div>
@@ -381,24 +381,28 @@
       <input type="file" id="breakFile" accept="audio/*" hidden>
     </div>
     <div class="grid" id="grid"></div>
-    <div class="fxgroup" style="--cols: 2">
-      <h2>Drums</h2>
-      <div class="slider">
-        <div class="top"><label for="kLevel">Level</label><output id="kLevelOut"></output></div>
-        <input type="range" id="kLevel" min="0" max="100" value="80">
+    <section class="fx drumfx">
+      <div class="fxgroup drumsgroup" style="--cols: 2">
+        <h2>Drums</h2>
+        <div class="slider">
+          <div class="top"><label for="kLevel">Level</label><output id="kLevelOut"></output></div>
+          <input type="range" id="kLevel" min="0" max="100" value="80">
+        </div>
+        <div class="slider">
+          <div class="top"><label for="kSwing">Swing</label><output id="kSwingOut"></output></div>
+          <input type="range" id="kSwing" min="50" max="75" value="50">
+        </div>
       </div>
-      <div class="slider">
-        <div class="top"><label for="kSwing">Swing</label><output id="kSwingOut"></output></div>
-        <input type="range" id="kSwing" min="50" max="75" value="50">
-      </div>
-    </div>
+      <!-- filled by rackHTML(), like the synth's effects -->
+      <div class="sheet" id="drumFxMenu" role="dialog" aria-label="Drum effects"></div>
+    </section>
   </section>
   <footer>
     <span>Note <strong id="noteOut">–</strong></span>
     <span>Filter <strong id="cutOut">–</strong></span>
   </footer>
 </main>
-<div class="version">v2.3</div>
+<div class="version">v2.4</div>
 
 <script>
 (() => {
@@ -414,18 +418,19 @@
     chromatic:  { name: "Chromatic",        steps: [0,1,2,3,4,5,6,7,8,9,10,11] }
   };
 
+  // atk, dec, rel in seconds and sus 0 to 1 are each sound's starting envelope; the Envelope sliders take over from there
   const PRESETS = {
-    soft:     { name: "Soft sine", q: 0.8, atk: 0.04, rel: 0.5, vib: 6,
+    soft:     { name: "Soft sine", q: 0.8, atk: 0.04, dec: 0.3, sus: 1, rel: 0.5, vib: 6,
                 oscs: [{type:"sine", g:0.55}, {type:"triangle", oct:-1, g:0.3}] },
-    warm:     { name: "Warm saw", q: 5, atk: 0.015, rel: 0.3, vib: 0,
+    warm:     { name: "Warm saw", q: 5, atk: 0.015, dec: 0.3, sus: 1, rel: 0.3, vib: 0,
                 oscs: [{type:"sawtooth", det:-7, g:0.3}, {type:"sawtooth", det:7, g:0.3}] },
-    hollow:   { name: "Hollow square", q: 3, atk: 0.01, rel: 0.25, vib: 0,
+    hollow:   { name: "Hollow square", q: 3, atk: 0.01, dec: 0.3, sus: 1, rel: 0.25, vib: 0,
                 oscs: [{type:"square", g:0.28}, {type:"square", oct:-1, det:4, g:0.14}] },
-    supersaw: { name: "Supersaw pad", q: 1.5, atk: 0.12, rel: 0.9, vib: 0,
+    supersaw: { name: "Supersaw pad", q: 1.5, atk: 0.12, dec: 0.5, sus: 1, rel: 0.9, vib: 0,
                 oscs: [-20,-10,0,10,20].map(d => ({type:"sawtooth", det:d, g:0.13})) },
-    glass:    { name: "Glass", q: 0.7, atk: 0.005, rel: 1.4, vib: 3,
+    glass:    { name: "Glass", q: 0.7, atk: 0.005, dec: 0.8, sus: 1, rel: 1.4, vib: 3,
                 oscs: [{type:"sine", g:0.45}, {type:"sine", oct:1, det:3, g:0.18}, {type:"triangle", oct:2, g:0.07}] },
-    acid:     { name: "Acid", q: 16, atk: 0.005, rel: 0.15, vib: 0,
+    acid:     { name: "Acid", q: 16, atk: 0.005, dec: 0.2, sus: 1, rel: 0.15, vib: 0,
                 oscs: [{type:"sawtooth", g:0.45}] }
   };
 
@@ -458,14 +463,42 @@
 
   // ---------- audio ----------
   let ctx = null, master = null, voice = null;
-  let fx = null;
   let drumBus = null, noiseBuf = null;
 
-  // effect settings, readable before audio starts
   const $ = id => document.getElementById(id);
-  const fxState = {};
-
   const tempo = () => Number($("tempo").value);         // master tempo, BPM
+  const fmtTime = s => s < 1 ? Math.round(s * 1000) + " ms" : s.toFixed(1) + " s";
+
+  // ---------- envelope ----------
+  // attack, decay, sustain, release. Picking a sound loads its own envelope; the sliders change it from there.
+  // The time sliders run 0 to 100 and map exponentially, so short times get most of the travel
+  const ENV_TIMES = { envA: [0.002, 3], envD: [0.02, 4], envR: [0.02, 6] };    // [shortest, longest] in seconds
+  const env = { a: 0.01, d: 0.3, s: 1, r: 0.3 };
+  const sliderToSec = id => { const [lo, hi] = ENV_TIMES[id]; return lo * Math.pow(hi / lo, $(id).value / 100); };
+  const secToSlider = (id, sec) => { const [lo, hi] = ENV_TIMES[id]; return Math.round(100 * Math.log(sec / lo) / Math.log(hi / lo)); };
+  function showEnv() {
+    $("envAOut").textContent = fmtTime(env.a);
+    $("envDOut").textContent = fmtTime(env.d);
+    $("envSOut").textContent = Math.round(env.s * 100) + "%";
+    $("envROut").textContent = fmtTime(env.r);
+  }
+  function loadEnv() {
+    const p = PRESETS[presetSel.value];
+    Object.assign(env, { a: p.atk, d: p.dec, s: p.sus, r: p.rel });
+    $("envA").value = secToSlider("envA", env.a);
+    $("envD").value = secToSlider("envD", env.d);
+    $("envS").value = Math.round(env.s * 100);
+    $("envR").value = secToSlider("envR", env.r);
+    showEnv();
+  }
+  [["envA", "a"], ["envD", "d"], ["envR", "r"]].forEach(([id, k]) =>
+    $(id).addEventListener("input", () => { env[k] = sliderToSec(id); showEnv(); }));
+  $("envS").addEventListener("input", () => { env.s = $("envS").value / 100; showEnv(); });
+  loadEnv();
+
+  // ---------- effects ----------
+  // the synth and the drums each have their own rack: distortion, then a delay and a reverb fed from it.
+  // Both racks share this markup and code; the drum rack's ids start with "k"
 
   // delay time and decay can be set in ms, or in note values so echoes lock to the master tempo
   const SYNC_TIMES = [                                  // [beats, label]; T = triplet, D = dotted
@@ -481,42 +514,81 @@
     ms:    { dTime: [20, 1000, 350], dDecay: [1, 100, 30] },
     notes: { dTime: [0, SYNC_TIMES.length - 1, 4], dDecay: [0, SYNC_DECAYS.length - 1, 2] },
   };
-  const delaySaved = { ms: {}, notes: {} };
-  let delayUnit = "ms";
-  function setDelayUnit(unit) {
-    ["dTime", "dDecay"].forEach(id => {
-      const el = $(id);
-      delaySaved[delayUnit][id] = el.value;             // remember where this mode's slider was
-      const [min, max, def] = DELAY_RANGES[unit][id];
-      el.min = min; el.max = max;
-      el.value = delaySaved[unit][id] ?? def;
-    });
-    delayUnit = unit;
+
+  const sliderHTML = (id, label, min, max, value) =>
+    `<div class="slider"><div class="top"><label for="${id}">${label}</label><output id="${id}Out"></output></div>` +
+    `<input type="range" id="${id}" min="${min}" max="${max}" value="${value}"></div>`;
+  const rackHTML = (p, amounts) => `
+    <div class="fxgroup distgroup" style="--cols: 2">
+      <h2>Distortion</h2>
+      ${sliderHTML(p + "xAmount", "Amount", 0, 100, amounts.xAmount)}
+      ${sliderHTML(p + "xTone", "Tone", 0, 100, 70)}
+    </div>
+    <div class="fxgroup delaygroup" style="--cols: 3">
+      <div class="fxhead">
+        <h2>Delay</h2>
+        <div class="seg small" role="radiogroup" aria-label="Delay time units">
+          <label><input type="radio" name="${p}dUnit" value="ms" checked><span>ms</span></label>
+          <label><input type="radio" name="${p}dUnit" value="notes"><span>notes</span></label>
+        </div>
+      </div>
+      ${sliderHTML(p + "dAmount", "Amount", 0, 100, amounts.dAmount)}
+      ${sliderHTML(p + "dTime", "Time", ...DELAY_RANGES.ms.dTime)}
+      ${sliderHTML(p + "dDecay", "Decay", ...DELAY_RANGES.ms.dDecay)}
+    </div>
+    <div class="fxgroup revgroup" style="--cols: 2">
+      <h2>Reverb</h2>
+      ${sliderHTML(p + "rSize", "Room size", 0, 100, 50)}
+      ${sliderHTML(p + "rMix", "Amount", 0, 100, amounts.rMix)}
+    </div>`;
+
+  // a rack's settings live in rack.st (read from its sliders by readFx), so the sliders work before audio has
+  // started; its audio nodes live in rack.n once buildRack() has made them
+  function makeRack(p, sheetId, amounts) {
+    $(sheetId).innerHTML = rackHTML(p, amounts);
+    const rack = { p, el: name => $(p + name), unit: "ms", saved: { ms: {}, notes: {} }, st: {}, n: null };
+    readFx(rack);
+    return rack;
   }
 
-  function readFx() {
-    fxState.dAmount = $("dAmount").value / 100;
-    if (delayUnit === "notes") {
-      const beat = 60 / tempo();                        // one beat, in seconds
-      const [timeBeats, timeLabel] = SYNC_TIMES[$("dTime").value];
-      const [decayBeats, decayLabel] = SYNC_DECAYS[$("dDecay").value];
-      fxState.dTime = Math.min(MAX_DELAY, beat * timeBeats);
-      fxState.dDecay = beat * decayBeats;
-      $("dTimeOut").textContent = timeLabel;
-      $("dDecayOut").textContent = decayLabel;
-    } else {
-      fxState.dTime = $("dTime").value / 1000;                                 // seconds
-      fxState.dDecay = 0.1 * Math.pow(120, ($("dDecay").value - 1) / 99);      // 0.1 to 12 s
-      $("dTimeOut").textContent = $("dTime").value + " ms";
-      $("dDecayOut").textContent = fxState.dDecay < 1 ? Math.round(fxState.dDecay * 1000) + " ms" : fxState.dDecay.toFixed(1) + " s";
-    }
-    fxState.rSize = $("rSize").value / 100;
-    fxState.rMix = $("rMix").value / 100;
-    $("dAmountOut").textContent = $("dAmount").value + "%";
-    $("rSizeOut").textContent = $("rSize").value + "%";
-    $("rMixOut").textContent = $("rMix").value + "%";
+  function setDelayUnit(rack, unit) {
+    ["dTime", "dDecay"].forEach(id => {
+      const el = rack.el(id);
+      rack.saved[rack.unit][id] = el.value;             // remember where this mode's slider was
+      const [min, max, def] = DELAY_RANGES[unit][id];
+      el.min = min; el.max = max;
+      el.value = rack.saved[unit][id] ?? def;
+    });
+    rack.unit = unit;
   }
-  readFx();
+
+  function readFx(rack) {
+    const el = rack.el, st = rack.st;
+    st.dAmount = el("dAmount").value / 100;
+    if (rack.unit === "notes") {
+      const beat = 60 / tempo();                        // one beat, in seconds
+      const [timeBeats, timeLabel] = SYNC_TIMES[el("dTime").value];
+      const [decayBeats, decayLabel] = SYNC_DECAYS[el("dDecay").value];
+      st.dTime = Math.min(MAX_DELAY, beat * timeBeats);
+      st.dDecay = beat * decayBeats;
+      el("dTimeOut").textContent = timeLabel;
+      el("dDecayOut").textContent = decayLabel;
+    } else {
+      st.dTime = el("dTime").value / 1000;                                 // seconds
+      st.dDecay = 0.1 * Math.pow(120, (el("dDecay").value - 1) / 99);      // 0.1 to 12 s
+      el("dTimeOut").textContent = el("dTime").value + " ms";
+      el("dDecayOut").textContent = fmtTime(st.dDecay);
+    }
+    st.rSize = el("rSize").value / 100;
+    st.rMix = el("rMix").value / 100;
+    st.xAmount = el("xAmount").value / 100;
+    st.xTone = 1000 * Math.pow(16, el("xTone").value / 100);              // lowpass after the distortion, 1 to 16 kHz
+    el("dAmountOut").textContent = el("dAmount").value + "%";
+    el("rSizeOut").textContent = el("rSize").value + "%";
+    el("rMixOut").textContent = el("rMix").value + "%";
+    el("xAmountOut").textContent = el("xAmount").value + "%";
+    el("xToneOut").textContent = (st.xTone / 1000).toFixed(1) + " kHz";
+  }
 
   // decay time is how long the echoes take to fade by 60 dB
   const feedbackFor = (time, decay) => Math.min(0.95, Math.pow(10, -3 * time / decay));
@@ -536,6 +608,15 @@
     return buf;
   }
 
+  // the distortion's shape: a soft clip that rounds the peaks off smoothly. The shape never changes;
+  // Amount turns up the level going into it, so moving the slider glides instead of stepping
+  let driveCurve = null;
+  function makeDriveCurve() {
+    const n = 4096, c = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1; c[i] = Math.tanh(4 * x) / Math.tanh(4); }
+    return c;
+  }
+
   // freeze a value where it is right now, so a new fade starts from the real current level instead of jumping
   function holdAt(param, t) {
     if (param.cancelAndHoldAtTime) param.cancelAndHoldAtTime(t);
@@ -545,33 +626,96 @@
   // a new room size gets a new convolver that fades in while the old one fades out,
   // so the reverb tail doesn't cut off with a click
   const REVERB_FADE = 0.3;
-  function swapReverb() {
+  function swapReverb(rack) {
+    const n = rack.n;
     const conv = ctx.createConvolver();
-    conv.buffer = makeImpulse(fxState.rSize);
+    conv.buffer = makeImpulse(rack.st.rSize);
     const level = ctx.createGain();
     const now = ctx.currentTime;
     level.gain.setValueAtTime(0, now);
     level.gain.linearRampToValueAtTime(1, now + REVERB_FADE);
-    fx.reverbIn.connect(conv);
-    conv.connect(level).connect(fx.reverbWet);
-    const old = fx.reverb;
+    n.reverbIn.connect(conv);
+    conv.connect(level).connect(n.out);
+    const old = n.reverb;
     if (old) {
       holdAt(old.level.gain, now);
       old.level.gain.linearRampToValueAtTime(0, now + REVERB_FADE);
-      setTimeout(() => { fx.reverbIn.disconnect(old.conv); old.level.disconnect(); }, (REVERB_FADE + 0.1) * 1000);
+      setTimeout(() => { n.reverbIn.disconnect(old.conv); old.level.disconnect(); }, (REVERB_FADE + 0.1) * 1000);
     }
-    fx.reverb = { conv, level };
+    n.reverb = { conv, level };
   }
 
-  function applyFx(rebuildReverb) {
-    if (!fx) return;
-    const now = ctx.currentTime;
-    fx.delaySend.gain.setTargetAtTime(fxState.dAmount, now, 0.03);
-    fx.delay.delayTime.setTargetAtTime(fxState.dTime, now, 0.05);
-    fx.feedback.gain.setTargetAtTime(feedbackFor(fxState.dTime, fxState.dDecay), now, 0.05);
-    fx.reverbWet.gain.setTargetAtTime(fxState.rMix * 1.4, now, 0.03);
-    if (rebuildReverb) swapReverb();
+  // input -> distortion -> mix -> out, and from mix into the delay and reverb
+  function buildRack(rack, out) {
+    const input = ctx.createGain(), mix = ctx.createGain();
+
+    // distortion: a clean path and a driven path, crossfaded. Only one is heard at a time (Amount 0 is the
+    // clean path), because the driven path runs a few samples late and mixing the two would colour the sound
+    const distDry = ctx.createGain();
+    const drive = ctx.createGain();                     // how hard the shaper is pushed
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = driveCurve || (driveCurve = makeDriveCurve());
+    shaper.oversample = "2x";                           // fewer harsh aliasing tones at high drive
+    const distTone = ctx.createBiquadFilter();
+    distTone.type = "lowpass";
+    const distWet = ctx.createGain();
+    input.connect(distDry).connect(mix);
+    drive.connect(shaper).connect(distTone).connect(distWet).connect(mix);
+    mix.connect(out);
+
+    // delay with a feedback loop, darkened a little each repeat
+    const delaySend = ctx.createGain();
+    const delay = ctx.createDelay(MAX_DELAY);
+    const feedback = ctx.createGain();
+    const tone = ctx.createBiquadFilter();
+    tone.type = "lowpass"; tone.frequency.value = 5000;
+    mix.connect(delaySend).connect(delay);
+    delay.connect(tone).connect(feedback).connect(delay);
+    tone.connect(out);
+
+    // reverb, fed by the sound and the echoes. Its Amount sits before the convolver, so at 0 the browser
+    // can let the reverb go idle. The convolver itself is made by swapReverb()
+    const reverbIn = ctx.createGain();
+    mix.connect(reverbIn);
+    tone.connect(reverbIn);
+
+    rack.n = { input, distDry, drive, distTone, distWet, distOn: false, delaySend, delay, feedback, reverbIn, out,
+               reverb: null, reverbStale: true, fresh: true };
+    applyFx(rack);
+    return input;
   }
+
+  function applyFx(rack, rebuildReverb) {
+    const n = rack.n, st = rack.st;
+    if (!n) return;
+    const now = ctx.currentTime;
+    // glide to new settings; the very first time, jump straight there so nothing swells in
+    const glide = (param, v, tc) => n.fresh ? param.setValueAtTime(v, now) : param.setTargetAtTime(v, now, tc);
+    glide(n.delaySend.gain, st.dAmount, 0.03);
+    glide(n.delay.delayTime, st.dTime, 0.05);
+    glide(n.feedback.gain, feedbackFor(st.dTime, st.dDecay), 0.05);
+    glide(n.reverbIn.gain, st.rMix * 1.4, 0.03);
+
+    // distortion: above 0, more Amount pushes harder into the soft clip, and the level coming out is turned
+    // down to roughly match. At 0 the driven path is unplugged after a moment, so it costs nothing
+    const on = st.xAmount > 0;
+    if (on && !n.distOn) n.input.connect(n.drive);
+    if (!on && n.distOn) setTimeout(() => { if (!n.distOn) try { n.input.disconnect(n.drive); } catch {} }, 150);
+    n.distOn = on;
+    glide(n.drive.gain, 0.25 * Math.pow(60, st.xAmount), 0.02);
+    glide(n.distTone.frequency, st.xTone, 0.02);
+    glide(n.distDry.gain, on ? 0 : 1, 0.02);
+    glide(n.distWet.gain, on ? 1 / (1 + 3 * st.xAmount) : 0, 0.02);
+
+    // the reverb is only built while it's turned up, and just after this call, so it never holds up a note
+    if (rebuildReverb) n.reverbStale = true;
+    if (n.reverbStale && st.rMix > 0) { n.reverbStale = false; setTimeout(() => swapReverb(rack), 0); }
+    n.fresh = false;
+  }
+
+  const synthFx = makeRack("", "fxMenu", { xAmount: 0, dAmount: 25, rMix: 25 });
+  const drumFx = makeRack("k", "drumFxMenu", { xAmount: 0, dAmount: 0, rMix: 0 });     // drums start dry
+  const racks = [synthFx, drumFx];
 
   function ensureAudio() {
     if (!ctx) {
@@ -583,33 +727,12 @@
 
       master = ctx.createGain();
       master.gain.value = 0.5;
-      master.connect(out);                              // dry
+      master.connect(buildRack(synthFx, out));
 
-      // delay with a feedback loop, darkened a little each repeat
-      const delaySend = ctx.createGain();
-      const delay = ctx.createDelay(MAX_DELAY);
-      const feedback = ctx.createGain();
-      const tone = ctx.createBiquadFilter();
-      tone.type = "lowpass"; tone.frequency.value = 5000;
-      master.connect(delaySend).connect(delay);
-      delay.connect(tone).connect(feedback).connect(delay);
-      tone.connect(out);
-
-      // reverb, fed by the dry signal and the echoes. The convolver itself is made by swapReverb()
-      const reverbIn = ctx.createGain();
-      const reverbWet = ctx.createGain();
-      master.connect(reverbIn);
-      tone.connect(reverbIn);
-      reverbWet.connect(out);
-
-      fx = { delaySend, delay, feedback, reverbIn, reverbWet, reverb: null };
-      applyFx(false);
-      setTimeout(() => applyFx(true), 0);     // build the reverb just after the first note, so it doesn't hold that note up
-
-      // drums skip the delay and reverb and go straight to the output
+      // the drums have their own effects, separate from the synth's
       drumBus = ctx.createGain();
       drumBus.gain.value = $("kLevel").value / 100;
-      drumBus.connect(out);
+      drumBus.connect(buildRack(drumFx, out));
       noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
       const nd = noiseBuf.getChannelData(0);
       for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
@@ -617,21 +740,27 @@
     if (ctx.state === "suspended") ctx.resume();
   }
 
-  ["dAmount", "dTime", "dDecay", "rMix", "tempo"].forEach(id =>      // tempo: synced delay follows it
-    $(id).addEventListener("input", () => { readFx(); applyFx(false); }));
-  document.querySelectorAll('input[name="dUnit"]').forEach(r =>
-    r.addEventListener("change", () => { setDelayUnit(r.value); readFx(); applyFx(false); }));
-  let sizeTimer = null;
-  $("rSize").addEventListener("input", () => {
-    readFx();
-    clearTimeout(sizeTimer);
-    sizeTimer = setTimeout(() => applyFx(true), 120);
+  racks.forEach(rack => {
+    ["dAmount", "dTime", "dDecay", "rMix", "xAmount", "xTone"].forEach(name =>
+      rack.el(name).addEventListener("input", () => { readFx(rack); applyFx(rack); }));
+    document.querySelectorAll(`input[name="${rack.p}dUnit"]`).forEach(r =>
+      r.addEventListener("change", () => { setDelayUnit(rack, r.value); readFx(rack); applyFx(rack); }));
+    let sizeTimer = null;
+    rack.el("rSize").addEventListener("input", () => {
+      readFx(rack);
+      clearTimeout(sizeTimer);
+      sizeTimer = setTimeout(() => applyFx(rack, true), 120);
+    });
   });
+  // synced delays follow the tempo
+  $("tempo").addEventListener("input", () => racks.forEach(rack => { readFx(rack); applyFx(rack); }));
 
+  // the amp follows the envelope: up to full over the attack, then down to the sustain level over the decay.
   // gate (arp notes): seconds until the release starts. If that comes before the attack has finished, the
   // fade-in stops partway there. Otherwise the pending fade-in wins over the release and the note rings on at full volume
   function startVoice(midi, cutoff, t, gate) {
     const p = PRESETS[presetSel.value];
+    const { a, d, s, r } = env;
     const now = t ?? ctx.currentTime;
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";
@@ -639,8 +768,11 @@
     filter.frequency.setValueAtTime(cutoff, now);
     const amp = ctx.createGain();
     amp.gain.setValueAtTime(0, now);
-    if (gate != null && gate < p.atk) amp.gain.linearRampToValueAtTime(gate / p.atk, now + gate);
-    else amp.gain.linearRampToValueAtTime(1, now + p.atk);
+    if (gate != null && gate < a) amp.gain.linearRampToValueAtTime(gate / a, now + gate);
+    else {
+      amp.gain.linearRampToValueAtTime(1, now + a);
+      if (s < 1) amp.gain.setTargetAtTime(s, now + a, d / 3);   // a curve that's most of the way to sustain by the decay time
+    }
     filter.connect(amp).connect(master);
 
     let lfo = null, lfoGain = null;
@@ -661,7 +793,7 @@
       osc.start(now);
       return { osc, ratio: Math.pow(2, o.oct || 0) };
     });
-    return { oscs, filter, amp, lfo, rel: p.rel };
+    return { oscs, filter, amp, lfo, rel: r };
   }
 
   // release a voice now (held notes)
@@ -898,6 +1030,7 @@
   scaleSel.addEventListener("change", () => { buildNotes(); remapPointers(); });
   phoneMQ.addEventListener("change", () => { ROWS = phoneMQ.matches ? 3 : 2; remapPointers(); });
   presetSel.addEventListener("change", () => {
+    loadEnv();                                // each sound brings its own envelope
     if (voice && pointers.size === 1) {
       stopVoice(voice);
       voice = startVoice([...pointers.values()][0].midi, cutoff);
