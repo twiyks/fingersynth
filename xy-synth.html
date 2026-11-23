@@ -53,17 +53,6 @@
     display: flex; flex-direction: column; overflow: hidden;
     -webkit-user-select: none; user-select: none;
   }
-  header {
-    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
-    gap: 12px; padding: 14px 16px 10px;
-  }
-  header h1 {
-    margin: 0; font-size: 1.05rem; font-weight: 800; letter-spacing: -0.01em;
-    text-align: center; white-space: nowrap;
-  }
-  .ctl { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-  .ctl.right { align-items: flex-end; text-align: right; }
-  .ctl label { font-size: 0.78rem; color: var(--muted); }
   select {
     font: inherit; font-size: 0.95rem; font-weight: 600; color: var(--ink);
     background: var(--control); border: 1.5px solid var(--line); border-radius: 10px;
@@ -76,15 +65,26 @@
   select:focus-visible { outline: 3px solid var(--root); outline-offset: 2px; }
   main { flex: 1; min-height: 0; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 8px; }
 
-  /* top bar: view tabs, play, arp, hold, pad or steps, master tempo. On bigger screens the rows run together on one line */
-  .bar { display: flex; align-items: center; gap: 10px; padding: 0 16px 10px; }
-  .barrow { display: contents; }
-  .seg.icons span { padding: 5px 14px; }
-  .seg.icons svg { display: block; width: 20px; height: 20px; }
+  /* the top bar, three rows on every screen size:
+     1. Live / Song, play, tempo, then Mixer, Settings and Help
+     2. the synths (keyboard, 1 2 3) and the drum machines (drum, A B C), then Effects
+     3. on a synth: Pad / Steps, then the arp group with Scale. The drums' third row is the patterns bar in the beats view */
+  .bar { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px 10px; }
+  .barrow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  body[data-view="beats"] .row3 { display: none; }
+  .seg.icons span { padding: 5px 12px; }
   .seg.icons span.num { line-height: 20px; font-size: 0.95rem; font-weight: 800; min-width: 1.2em; }
-  /* a dot on a synth's tab while its arp is held */
+  .seg.playmodes span { padding: 6px 10px; }
+  /* a synths or drums group: its icon, then its three tabs, on one rounded band */
+  .tabgrp { display: flex; align-items: center; gap: 2px; background: var(--band); border-radius: 12px; padding: 3px; }
+  .tabgrp .seg { background: none; padding: 0; }
+  .btn.kindbtn { background: none; border-color: transparent; color: var(--muted); padding: 5px 6px; }
+  body[data-view="synth"] #synthsBtn:not([aria-expanded="true"]), body[data-view="beats"] #drumsBtn:not([aria-expanded="true"]) { color: var(--ink); }
+  .btn.fxbtn { margin-left: auto; }
+  .btn.tempobtn { font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; min-width: 3.2em; padding: 5px 8px; }
+  /* a dot on a synth's or drum machine's tab while it's playing: a held arp, or a pattern with notes in it */
   .seg.views label.busy::after {
-    content: ""; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%;
+    content: ""; position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%;
     background: var(--hit); pointer-events: none;
   }
   .btn {
@@ -105,21 +105,16 @@
   .holdbtn.off { color: var(--muted); border-color: transparent; }
   .holdbtn:disabled { cursor: default; }
   .holdbtn.held { background: var(--hit); border-color: var(--hit); color: var(--bg); }
-  .tempo { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--muted); }
-  .tempo input { margin: 0; flex: 1; min-width: 0; }
-  .tempo output { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 4.6em; text-align: right; }
+  /* the tempo pop-up: a slider with a nudge either side */
+  .tempoline { display: flex; align-items: center; gap: 8px; }
+  .tempoline input { margin: 0; flex: 1; min-width: 0; }
+  .tempoline .btn { padding: 5px 12px; font-size: 1rem; }
 
   /* the views: a synth (pad or steps) or the beats */
   .synthview, .beatsview { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
   body:not([data-view="synth"]) .synthview, body:not([data-view="beats"]) .beatsview, body:not([data-view="song"]) .songview { display: none; }
   body:not([data-view="synth"]) .synthonly, body:not([data-view="beats"]) .beatsonly, body:not([data-view="song"]) .songonly { display: none; }
-  body[data-view="song"] header .ctl { visibility: hidden; }
-
-  /* under the top bar: Live or Song, which drum machine (beats), a hint (song) */
-  .modebar { display: flex; align-items: center; gap: 10px; padding: 0 16px 10px; min-height: 32px; }
-  .modebar .seg span { padding: 3px 12px; }
-  .songhint { margin: 0; font-size: 0.8rem; color: var(--muted); min-width: 0; }
-  .modelabel { font-size: 0.8rem; color: var(--muted); margin-left: 6px; margin-right: -4px; }
+  .songhint { margin: 0; font-size: 0.8rem; color: var(--muted); min-width: 0; line-height: 32px; }
 
   /* the song: a row per bar, bar number, six pattern slots (a little gap between the synths and the drums), remove */
   .songview { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 4px; background: var(--field); border-radius: 14px; padding: 6px; }
@@ -150,15 +145,13 @@
   .patpick .btn { padding: 8px 0; font-size: 0.95rem; }
   .patpick .btn[aria-pressed="true"] { background: var(--hit); border-color: var(--hit); color: var(--bg); }
   body[data-mode="steps"] .padonly, body:not([data-mode="steps"]) .stepsonly { display: none; }
-  /* beats view swaps Sound for Kit; Scale is hidden but keeps its space so the header doesn't shift */
-  body[data-view="beats"] .soundctl, body:not([data-view="beats"]) .kitctl { display: none; }
-  body[data-view="beats"] .scalectl { visibility: hidden; }
   .btn[hidden] { display: none; }
   .btn.wanted { background: var(--hit); border-color: var(--hit); color: var(--bg); }
 
   /* step grids: the drums, and a synth in Steps mode */
   .beatsbar { display: flex; gap: 8px; align-items: center; }
   .seg.pats { flex: 1; }
+  .kitbtn { min-width: 3.4em; }
   .seg.pats span { padding: 4px 0; }
   .seg.pats label.playing span { box-shadow: inset 0 -3px 0 var(--hit); }
   .seg.pats input:checked + span { box-shadow: 0 0 0 1.5px var(--line); }
@@ -220,13 +213,12 @@
   @media (max-width: 1000px) {
     .fx.drumfx { grid-template-columns: 1fr 1fr; grid-template-areas: "drums drums" "delay delay" "rev dist"; }
   }
-  /* on bigger screens the menu wrappers vanish and their panels sit in the .fx grid as before.
-     Only Mixer, Settings and Help open as menus there, so the other menu buttons hide and these sit at the end of the bar */
+  /* on bigger screens the effects, synth and arpeggio menus vanish and their panels sit in the .fx grid as before, so
+     those buttons hide. The lists (scale, sound, kit) and the pop-ups (tempo, mixer, settings, help) open as menus there too */
   .sheet { display: contents; }
   .sheet.listsheet, .sheet.popsheet { display: none; }
-  .menubtns { display: flex; gap: 3px; order: 1; }
-  .menubtns > .iconbtn { display: none; }
-  .menubtns > .helpbtn, .menubtns > .setbtn, .menubtns > .mixbtn { display: grid; }
+  .menubtns { display: flex; gap: 3px; margin-left: auto; }
+  .btn.fxbtn, .arpgrp .iconbtn { display: none; }
   /* an open menu: an overlay dropped just below the buttons, with a scrim behind */
   .sheet.open {
     display: grid; gap: 8px; align-content: start;
@@ -238,6 +230,8 @@
     background: var(--bg); border: 1.5px solid var(--line); border-radius: 18px; padding: 8px;
     box-shadow: 0 12px 32px rgb(0 0 0 / 0.25);
   }
+  /* the tempo pop-up drops under its button instead of at the right */
+  .sheet.open.anchored { right: auto; left: var(--sheet-left, 8px); width: min(320px, calc(100% - 16px)); }
   .scrim { position: fixed; inset: 0; z-index: 19; background: rgb(0 0 0 / 0.2); }
   .scrim[hidden] { display: none; }
   /* the mixer: six strips side by side, each with mute and solo, three effect amounts and a level fader that takes
@@ -268,7 +262,7 @@
   .fxgroup h2 {
     grid-column: 1 / -1; margin: 0; font-size: 0.95rem; font-weight: 800;
   }
-  .phoneonly { display: none; }          /* the Sound list: bigger screens use the header dropdown instead */
+  .phoneonly { display: none; }          /* the sound list in the synth menu: bigger screens have their own list menu */
   .slider { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .slider .top { display: flex; justify-content: space-between; gap: 6px; font-size: 0.8rem; color: var(--muted); }
   .slider output { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -289,16 +283,13 @@
   }
   footer strong { color: var(--ink); font-weight: 600; }
   footer { display: none; } /* readouts hidden for now; delete this line to bring them back */
-  /* phones, either way up: the pad fills the screen and every setting lives in a menu.
-     The top bar is two fixed rows of buttons, then tempo */
+  /* phones, either way up: the pad fills the screen and every setting lives in a menu */
   @media (max-width: 520px), (orientation: landscape) and (max-height: 540px) {
-    header { display: none; }
-    .bar { flex-direction: column; align-items: stretch; padding: 10px 8px 8px; gap: 8px; }
-    .barrow { display: flex; align-items: center; gap: 6px; }
+    .bar { padding: 10px 8px 8px; }
+    .barrow { gap: 6px; }
     .seg.icons span { padding: 5px 8px; }
-    .menubtns { margin-left: auto; }
-    .menubtns > .iconbtn { display: grid; padding: 5px 6px; }
-    .arpgrp .iconbtn { display: grid; }
+    .menubtns > .iconbtn { padding: 5px 6px; }
+    .btn.fxbtn, .arpgrp .iconbtn { display: grid; }
     main { padding: 0 8px 12px; }
 
     .fx { display: contents; }
@@ -309,7 +300,6 @@
     .msend { font-size: 0.68rem; }
     .msend .long { display: none; }
     .msend .short { display: inline; }
-    .modebar { padding: 0 8px 8px; }
     .sheet .fxgroup { grid-template-columns: 1fr; }   /* full-width sliders are easier to hit */
     .sheet .fxgroup.envgroup { grid-template-columns: 1fr 1fr; }
     .fxgroup { grid-area: auto; }                      /* the named areas are for bigger screens only */
@@ -340,12 +330,12 @@
   }
   .list input:checked + span { background: var(--control); color: var(--ink); box-shadow: 0 0 0 1.5px var(--hit); }
   .list input:focus-visible + span { outline: 3px solid var(--root); outline-offset: 1px; }
-  /* phone on its side: the two button rows share one line, and the beats view puts patterns and Kit
+  /* phone on its side: the first two button rows share one line, and the beats view puts patterns and Kit
      in a column right of the grid */
   @media (orientation: landscape) and (max-height: 540px) {
-    .bar { flex-direction: row; flex-wrap: wrap; align-items: center; }
-    .barrow + .barrow { flex: 1; }
-    .tempo { flex: 1 0 100%; }
+    .bar { flex-direction: row; flex-wrap: wrap; align-items: center; column-gap: 16px; }
+    .row2 { flex: 1 1 auto; }
+    .row3 { flex: 1 0 100%; }
     .beatsview { display: grid; grid-template-columns: minmax(0, 1fr) 210px; grid-template-rows: auto 1fr; gap: 8px 10px; }
     .beatsview .grid { grid-row: 1 / -1; padding: 6px; }
     .beatsview .beatsbar { flex-wrap: wrap; align-items: stretch; }
@@ -358,66 +348,25 @@
 </style>
 </head>
 <body data-view="synth" data-mode="pad" data-play="live">
-<header>
-  <div class="ctl scalectl">
-    <label for="scale">Scale</label>
-    <select id="scale"></select>
-  </div>
-  <h1>XY Synth</h1>
-  <div class="ctl right soundctl">
-    <label for="preset">Sound</label>
-    <select id="preset"></select>
-  </div>
-  <div class="ctl right kitctl">
-    <label for="kit">Kit</label>
-    <select id="kit"></select>
-  </div>
-</header>
+<!-- the selects behind the scale, sound and kit lists: the lists drive them, the code reads them -->
+<div hidden>
+  <select id="scale" aria-label="Scale"></select>
+  <select id="preset" aria-label="Sound"></select>
+  <select id="kit" aria-label="Kit"></select>
+</div>
 <nav class="bar">
-  <div class="barrow">
-    <div class="seg icons views" role="radiogroup" aria-label="View">
-      <label title="Synth 1" id="tab0"><input type="radio" name="view" value="0" aria-label="Synth 1" checked><span class="num">1</span></label>
-      <label title="Synth 2" id="tab1"><input type="radio" name="view" value="1" aria-label="Synth 2"><span class="num">2</span></label>
-      <label title="Synth 3" id="tab2"><input type="radio" name="view" value="2" aria-label="Synth 3"><span class="num">3</span></label>
-      <label title="Beats"><input type="radio" name="view" value="beats" aria-label="Beats"><span>
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>
-      </span></label>
+  <div class="barrow row1">
+    <div class="seg playmodes" role="radiogroup" aria-label="Play mode">
+      <label title="Play the patterns picked on each screen"><input type="radio" name="playMode" value="live" checked><span>Live</span></label>
+      <label title="Play the song, and show it"><input type="radio" name="playMode" value="song"><span>Song</span></label>
     </div>
     <button class="btn playbtn" id="play" aria-pressed="false" aria-label="Play">
       <svg class="ico-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>
       <svg class="ico-stop" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
     </button>
-    <!-- everything for the arpeggio in one group: on/off, hold, and (on phones) its settings menu -->
-    <div class="arpgrp padonly" role="group" aria-label="Arpeggio">
-      <button class="btn togglebtn synthonly" id="arpOn" aria-pressed="true" title="Arpeggio on or off. Off, fingers play chords">Arp</button>
-      <!-- dimmed until there's something to hold, fills while a held set of notes counts up, solid once held; tap to stop -->
-      <button class="btn holdbtn off" id="arpHold" disabled aria-label="Stop the held arpeggio">Hold</button>
-      <button class="btn iconbtn synthonly" data-menu="arpMenu" aria-label="Arpeggio settings" title="Arpeggio settings" aria-haspopup="dialog" aria-expanded="false" aria-controls="arpMenu">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="4.5" cy="19" r="2.5"/><circle cx="9.5" cy="14" r="2.5"/><circle cx="14.5" cy="9" r="2.5"/><circle cx="19.5" cy="4" r="2.5"/></svg>
-      </button>
-    </div>
-  </div>
-  <div class="barrow">
-    <div class="seg small modes synthonly" role="radiogroup" aria-label="Play with">
-      <label><input type="radio" name="mode" value="pad" checked><span>Pad</span></label>
-      <label><input type="radio" name="mode" value="steps"><span>Steps</span></label>
-    </div>
+    <!-- the tempo as a number; tap for a slider -->
+    <button class="btn tempobtn" id="tempoBtn" data-menu="tempoMenu" title="Tempo. Tap to change" aria-haspopup="dialog" aria-expanded="false" aria-controls="tempoMenu"><span id="tempoOut">120</span></button>
     <div class="menubtns">
-      <button class="btn iconbtn synthonly" data-menu="scaleMenu" aria-label="Scale" title="Scale" aria-haspopup="dialog" aria-expanded="false" aria-controls="scaleMenu">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 13v7M15 13v7"/><path d="M7.5 4h3v9h-3zM13.5 4h3v9h-3z" fill="currentColor"/></svg>
-      </button>
-      <button class="btn iconbtn synthonly" data-menu="soundMenu" aria-label="Sound" title="Sound" aria-haspopup="dialog" aria-expanded="false" aria-controls="soundMenu">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3" fill="currentColor"/><circle cx="17" cy="16" r="3" fill="currentColor"/></svg>
-      </button>
-      <button class="btn iconbtn synthonly" data-menu="fxMenu" aria-label="Effects" title="Effects" aria-haspopup="dialog" aria-expanded="false" aria-controls="fxMenu">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="12" r="3" fill="currentColor" stroke="none"/><path d="M12 7a7 7 0 0 1 0 10" opacity=".8"/><path d="M16 4a11 11 0 0 1 0 16" opacity=".5"/></svg>
-      </button>
-      <button class="btn iconbtn beatsonly" data-menu="drumFxMenu" aria-label="Drum effects" title="Drum effects" aria-haspopup="dialog" aria-expanded="false" aria-controls="drumFxMenu">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="12" r="3" fill="currentColor" stroke="none"/><path d="M12 7a7 7 0 0 1 0 10" opacity=".8"/><path d="M16 4a11 11 0 0 1 0 16" opacity=".5"/></svg>
-      </button>
-      <button class="btn iconbtn beatsonly" data-menu="kitMenu" aria-label="Kit" title="Kit" aria-haspopup="dialog" aria-expanded="false" aria-controls="kitMenu">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><ellipse cx="12" cy="10" rx="8" ry="3"/><path d="M4 10v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/><path d="M8 2.5l3 6M17 3l-4 5.5"/></svg>
-      </button>
       <button class="btn iconbtn mixbtn" data-menu="mixMenu" aria-label="Mixer" title="Mixer" aria-haspopup="dialog" aria-expanded="false" aria-controls="mixMenu">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 4v16M12 4v16M18 4v16"/><rect x="3" y="12" width="6" height="3.5" rx="1" fill="currentColor" stroke="none"/><rect x="9" y="6" width="6" height="3.5" rx="1" fill="currentColor" stroke="none"/><rect x="15" y="14.5" width="6" height="3.5" rx="1" fill="currentColor" stroke="none"/></svg>
       </button>
@@ -429,26 +378,55 @@
       </button>
     </div>
   </div>
-  <div class="tempo">
-    <label for="tempo">Tempo</label>
-    <input type="range" id="tempo" min="60" max="200" value="120">
-    <output id="tempoOut"></output>
+  <!-- every synth and drum machine tab is one radio group (name="view"), split into two bands, each led by its icon.
+       Tapping the icon goes to that kind of screen; on it already, it opens the synth's sound or the drums' kit -->
+  <div class="barrow row2">
+    <div class="tabgrp" role="group" aria-label="Synths">
+      <button class="btn iconbtn kindbtn" id="synthsBtn" aria-label="Synths" title="Synths. On a synth, tap for its sound" aria-haspopup="dialog" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 13v7M15 13v7"/><path d="M7.5 4h3v9h-3zM13.5 4h3v9h-3z" fill="currentColor"/></svg>
+      </button>
+      <div class="seg icons views" role="radiogroup" aria-label="Synth">
+        <label title="Synth 1" id="tab0"><input type="radio" name="view" value="0" aria-label="Synth 1" checked><span class="num">1</span></label>
+        <label title="Synth 2" id="tab1"><input type="radio" name="view" value="1" aria-label="Synth 2"><span class="num">2</span></label>
+        <label title="Synth 3" id="tab2"><input type="radio" name="view" value="2" aria-label="Synth 3"><span class="num">3</span></label>
+      </div>
+    </div>
+    <div class="tabgrp" role="group" aria-label="Drums">
+      <button class="btn iconbtn kindbtn" id="drumsBtn" aria-label="Drums" title="Drums. On the drums, tap for the kit" aria-haspopup="dialog" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><ellipse cx="12" cy="10" rx="8" ry="3"/><path d="M4 10v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/><path d="M8 2.5l3 6M17 3l-4 5.5"/></svg>
+      </button>
+      <div class="seg icons views" role="radiogroup" aria-label="Drum machine">
+        <label title="Drums A" id="tabd0"><input type="radio" name="view" value="d0" aria-label="Drums A"><span class="num">A</span></label>
+        <label title="Drums B" id="tabd1"><input type="radio" name="view" value="d1" aria-label="Drums B"><span class="num">B</span></label>
+        <label title="Drums C" id="tabd2"><input type="radio" name="view" value="d2" aria-label="Drums C"><span class="num">C</span></label>
+      </div>
+    </div>
+    <button class="btn iconbtn fxbtn synthonly" data-menu="fxMenu" aria-label="Effects" title="Effects" aria-haspopup="dialog" aria-expanded="false" aria-controls="fxMenu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="12" r="3" fill="currentColor" stroke="none"/><path d="M12 7a7 7 0 0 1 0 10" opacity=".8"/><path d="M16 4a11 11 0 0 1 0 16" opacity=".5"/></svg>
+    </button>
+    <button class="btn iconbtn fxbtn beatsonly" data-menu="drumFxMenu" aria-label="Drum effects" title="Drum effects" aria-haspopup="dialog" aria-expanded="false" aria-controls="drumFxMenu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="12" r="3" fill="currentColor" stroke="none"/><path d="M12 7a7 7 0 0 1 0 10" opacity=".8"/><path d="M16 4a11 11 0 0 1 0 16" opacity=".5"/></svg>
+    </button>
+  </div>
+  <!-- a synth's row: Pad or Steps, then the arpeggio and the scale. The drums' row is the patterns bar in the beats view -->
+  <div class="barrow row3">
+    <div class="seg modes synthonly" role="radiogroup" aria-label="Play with">
+      <label><input type="radio" name="mode" value="pad" checked><span>Pad</span></label>
+      <label><input type="radio" name="mode" value="steps"><span>Steps</span></label>
+    </div>
+    <!-- the arpeggio (Pad only): on/off, hold, and on phones its settings menu; then the scale -->
+    <div class="arpgrp synthonly" role="group" aria-label="Arpeggio and scale">
+      <button class="btn togglebtn padonly" id="arpOn" aria-pressed="true" title="Arpeggio on or off. Off, fingers play chords">Arp</button>
+      <!-- dimmed until there's something to hold, fills while a held set of notes counts up, solid once held; tap to stop -->
+      <button class="btn holdbtn off padonly" id="arpHold" disabled aria-label="Stop the held arpeggio">Hold</button>
+      <button class="btn iconbtn padonly" data-menu="arpMenu" aria-label="Arpeggio settings" title="Arpeggio settings" aria-haspopup="dialog" aria-expanded="false" aria-controls="arpMenu">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="4.5" cy="19" r="2.5"/><circle cx="9.5" cy="14" r="2.5"/><circle cx="14.5" cy="9" r="2.5"/><circle cx="19.5" cy="4" r="2.5"/></svg>
+      </button>
+      <button class="btn" data-menu="scaleMenu" title="Scale" aria-haspopup="dialog" aria-expanded="false" aria-controls="scaleMenu">Scale</button>
+    </div>
+    <p class="songhint songonly">A row is a bar. Tap a slot to pick its pattern.</p>
   </div>
 </nav>
-<!-- under the top bar: Live or Song, and on the beats screen which drum machine is showing -->
-<div class="modebar">
-  <div class="seg small playmodes" role="radiogroup" aria-label="Play mode">
-    <label title="Play the patterns picked on each screen"><input type="radio" name="playMode" value="live" checked><span>Live</span></label>
-    <label title="Play the song, and show it"><input type="radio" name="playMode" value="song"><span>Song</span></label>
-  </div>
-  <span class="modelabel beatsonly" aria-hidden="true">Drums</span>
-  <div class="seg small machines beatsonly" role="radiogroup" aria-label="Drum machine">
-    <label><input type="radio" name="machine" value="0" aria-label="Drums A" checked><span>A</span></label>
-    <label><input type="radio" name="machine" value="1" aria-label="Drums B"><span>B</span></label>
-    <label><input type="radio" name="machine" value="2" aria-label="Drums C"><span>C</span></label>
-  </div>
-  <p class="songhint songonly">A row is a bar. Tap a slot to pick its pattern.</p>
-</div>
 <main>
   <div class="synthview">
   <div class="padwrap padonly">
@@ -470,8 +448,8 @@
   </div>
   <section class="fx">
     <!-- on phones each .sheet is an overlay menu; on bigger screens the wrappers vanish (display: contents) -->
-    <div class="sheet" id="soundMenu" role="dialog" aria-label="Sound">
-      <div class="fxgroup phoneonly" style="--cols: 1"><h2>Sound</h2><div class="list" role="radiogroup" aria-label="Sound" data-for="preset"></div></div>
+    <div class="sheet" id="soundMenu" role="dialog" aria-label="Synth">
+      <div class="fxgroup phoneonly" style="--cols: 1"><h2>Synth <span class="synName">1</span></h2><div class="list" role="radiogroup" aria-label="Sound" data-for="preset"></div></div>
       <div class="fxgroup envgroup" style="--cols: 4">
         <h2>Envelope</h2>
         <div class="slider">
@@ -526,14 +504,28 @@
     </div>
   </section>
   </div>
-  <!-- phone menus for the header dropdowns; filled from the selects so the two stay in step -->
+  <!-- list menus, on every screen size; filled from the hidden selects so the two stay in step -->
   <div class="sheet listsheet" id="scaleMenu" role="dialog" aria-label="Scale">
     <div class="fxgroup" style="--cols: 1"><h2>Scale</h2><div class="list" role="radiogroup" aria-label="Scale" data-for="scale"></div></div>
   </div>
   <div class="sheet listsheet" id="kitMenu" role="dialog" aria-label="Kit">
-    <div class="fxgroup" style="--cols: 1"><h2>Kit</h2><div class="list" role="radiogroup" aria-label="Kit" data-for="kit"></div></div>
+    <div class="fxgroup" style="--cols: 1"><h2>Kit <span class="sub">Drums <span class="dmName">A</span></span></h2><div class="list" role="radiogroup" aria-label="Kit" data-for="kit"></div></div>
   </div>
-  <!-- Mixer, Settings and Help open as menus on every screen size -->
+  <!-- bigger screens: the synth's sound list on its own (phones have it at the top of the synth menu, with the panels) -->
+  <div class="sheet listsheet" id="presetMenu" role="dialog" aria-label="Synth sound">
+    <div class="fxgroup" style="--cols: 1"><h2>Synth <span class="synName">1</span></h2><div class="list" role="radiogroup" aria-label="Sound" data-for="preset"></div></div>
+  </div>
+  <!-- Tempo, Mixer, Settings and Help open as menus on every screen size -->
+  <div class="sheet popsheet anchored" id="tempoMenu" role="dialog" aria-label="Tempo">
+    <div class="fxgroup" style="--cols: 1">
+      <h2>Tempo <span class="sub" id="tempoBpm"></span></h2>
+      <div class="tempoline">
+        <button class="btn" data-nudge="-1" aria-label="Slower">−</button>
+        <input type="range" id="tempo" min="60" max="200" value="120" aria-label="Tempo">
+        <button class="btn" data-nudge="1" aria-label="Faster">+</button>
+      </div>
+    </div>
+  </div>
   <!-- the mixer's channels are built by the mixer code -->
   <div class="sheet popsheet" id="mixMenu" role="dialog" aria-label="Mixer"></div>
   <div class="sheet popsheet" id="settingsMenu" role="dialog" aria-label="Settings">
@@ -561,25 +553,29 @@
         <label><input type="radio" name="helpTab" value="history"><span>Version history</span></label>
       </div>
       <div class="helppane usepane">
+        <h3>The buttons at the top</h3>
+        <p><strong>First row:</strong> Live or Song, play and stop, the tempo (tap the number to change it), then the mixer, settings and help.</p>
+        <p><strong>Second row:</strong> the keyboard and <strong>1 2 3</strong> are the synths; the drum and <strong>A B C</strong> are the drum machines. A dot shows which ones are playing. On a synth, tap the keyboard again to pick its sound and shape it; on the drums, tap the drum again to pick the kit. The waves button at the end opens the effects.</p>
+        <p><strong>Third row:</strong> on a synth, Pad or Steps, the arpeggio and the scale. On the drums, the patterns, Clear, and the kit.</p>
         <h3>The pad</h3>
         <p>Slide left and right for pitch, up and down for the filter: brighter at the top of each keyboard, darker at the bottom.</p>
         <h3>Arpeggio and chords</h3>
         <p>With <strong>Arp</strong> on, two or more fingers run an arpeggio. With it off, they play a chord. The dots button next to it sets the arpeggio's speed, direction and how long to hold.</p>
         <p>Keep the same notes down for a couple of seconds and <strong>Hold</strong> lights up: let go and the arpeggio keeps playing, so you can change the sound. Play a new chord to change it, or tap Hold to stop it.</p>
         <h3>Three synths</h3>
-        <p>Tabs <strong>1 2 3</strong> are three synths, each with its own sound, scale and effects. Whatever one is playing carries on when you switch to another.</p>
+        <p><strong>1 2 3</strong> are three synths, each with its own sound, scale and effects. Whatever one is playing carries on when you switch to another.</p>
         <h3>Steps</h3>
         <p>Switch a synth to <strong>Steps</strong> to write a pattern on a grid of its notes. Steps play along with the beats, so press play to hear them.</p>
-        <h3>Beats</h3>
-        <p>The grid tab has three drum machines, <strong>A B C</strong>, picked just under the top bar. They all play together, each with its own kit, patterns and effects. Tap steps to add hits, pick a kit, and switch between 8 patterns. The Break kit cuts a loop you load into 8 slices. It guesses whether the loop is 1, 2 or 4 bars long and fits it to the tempo; if it sounds too fast or slow, tap the bars button next to Load.</p>
+        <h3>Drums</h3>
+        <p><strong>A B C</strong> are three drum machines. They all play together, each with its own kit, patterns and effects. Tap steps to add hits and switch between 8 patterns. The button after Clear shows the kit: <strong>909</strong>, <strong>808</strong> or <strong>Sample</strong>; tap it to change. The Sample kit cuts a loop you load into 8 slices. It guesses whether the loop is 1, 2 or 4 bars long and fits it to the tempo; if it sounds too fast or slow, tap the bars button next to Load.</p>
         <h3>Sound and effects</h3>
-        <p>The <strong>Sound</strong> menu has the envelope, filter and distortion. <strong>Effects</strong> has delay and reverb. Tempo sets the speed of everything.</p>
+        <p>A synth's menu (tap the keyboard while on a synth) has its sound, the envelope, filter and distortion. <strong>Effects</strong> has delay and reverb. Tempo sets the speed of everything.</p>
         <h3>Mixer</h3>
         <p>The faders button opens the <strong>Mixer</strong>: a level for each synth and drum machine, <strong>M</strong> to mute, <strong>S</strong> to solo, and how much reverb, delay and distortion each one gets. These are the same as the Amount sliders in the effects panels.</p>
         <h3>Live and Song</h3>
         <p>In <strong>Live</strong>, play loops the patterns picked on each screen. In <strong>Song</strong>, it plays the song from the top, one row per bar, and goes round again at the end.</p>
         <p>Each row has a slot for synths 1 2 3 and drums A B C. Tap a slot to pick a pattern, or Off. <strong>+ Add a bar</strong> copies the last row; × removes one. In Song the synths play their Steps patterns even in Pad mode, so you can still play the pad over the top.</p>
-        <p>While the song plays, the tabs still open each synth and the drums so you can change patterns. Tap <strong>Song</strong> to get back to the song.</p>
+        <p>While the song plays, <strong>1 2 3</strong> and <strong>A B C</strong> still open each synth and drum machine so you can change patterns. Tap <strong>Song</strong> to get back to the song.</p>
         <p>Stop cuts all sound, echoes and reverb too, and stops any arpeggios.</p>
         <h3>Crackles?</h3>
         <p>Turn up <strong>Latency</strong> in Settings, the sliders button. The sound lags your fingers a little more but has more time to keep up.</p>
@@ -587,6 +583,7 @@
       <div class="helppane historypane">
         <!-- newest first; the first entry's number is shown next to the title -->
         <ul class="history" id="history">
+          <li><span class="ver">v3.3</span>Tidier buttons in three rows. Tempo is a number you tap to change. Synths and drum machines sit side by side, with a dot on whichever are playing. The Break kit is now called Sample.</li>
           <li><span class="ver">v3.2</span>Song mode: chain patterns into a song, a bar per row. Three drum machines that play together. The mixer fits all six on one screen. Stop cuts all sound.</li>
           <li><span class="ver">v3.1</span>Breaks can be 1, 2 or 4 bars long, so longer loops no longer play too fast. Delays start in note values. No camera option when loading a break.</li>
           <li><span class="ver">v3.0</span>A mixer with levels, mute, solo and effect amounts. Stop also stops arpeggios. Latency goes up to 1 second. Load a break from your files.</li>
@@ -625,7 +622,9 @@
     <div class="beatsbar">
       <div class="seg pats" role="radiogroup" aria-label="Pattern" id="pats"></div>
       <button class="btn" id="clearPat">Clear</button>
-      <button class="btn" id="loadBreak" aria-label="Load a break" hidden>Load</button>
+      <!-- which kit this drum machine is on (909, 808 or Sample); tap to change -->
+      <button class="btn kitbtn" id="kitBtn" data-menu="kitMenu" aria-haspopup="dialog" aria-expanded="false" aria-controls="kitMenu"></button>
+      <button class="btn" id="loadBreak" aria-label="Load a sample" hidden>Load</button>
       <!-- how many bars the loaded loop is: guessed on load, tap to change -->
       <button class="btn" id="breakBars" hidden></button>
       <!-- audio types only: Android adds a camera option for anything it reads as video (a .webm file counts as video) -->
@@ -634,7 +633,7 @@
     <div class="grid" id="grid"></div>
     <section class="fx drumfx">
       <div class="fxgroup drumsgroup" style="--cols: 2">
-        <h2>Drums <span id="dmName">A</span></h2>
+        <h2>Drums <span class="dmName">A</span></h2>
         <div class="slider">
           <div class="top"><label for="kLevel">Level</label><output id="kLevelOut"></output></div>
           <input type="range" id="kLevel" min="0" max="100" value="80">
@@ -1404,9 +1403,22 @@
   }
   holdBtn.addEventListener("click", () => releaseHold(cur));
 
-  // a dot on each synth's tab while its arp is held
+  // a dot on each synth's and drum machine's tab while it's playing: a held arp, or the pattern being heard (if it has
+  // any notes in it). Runs every frame from updateSeqUI, and only touches the tabs when something changes
+  const hasNotes = pat => pat.some(row => row.some(Boolean));
+  let shownDots = "";
   function updateTabs() {
-    synths.forEach(syn => $("tab" + syn.i).classList.toggle("busy", !!syn.latch));
+    const on = engines.map((e, k) => {
+      if (e.latch) return true;
+      const p = seqNow ? seqNow.pats[k] : -1;
+      if (p < 0) return false;
+      if (e.chan.dm) return hasNotes(patsOf(e)[p]);
+      return (playMode === "song" || e.mode === "steps") && hasNotes(e.pats[p]);
+    });
+    const key = on.join();
+    if (key === shownDots) return;
+    shownDots = key;
+    engines.forEach((e, k) => $(e.chan.dm ? "tabd" + e.i : "tab" + e.i).classList.toggle("busy", on[k]));
   }
 
   // ---------- pad ----------
@@ -1740,7 +1752,7 @@
       ch: t => closedHat(t, 0.28, 0.045, 0, 8000),
       oh: t => openHatHit(t, 0.22, 0.45, 0, 8000),
     } },
-    brk: { name: "Break", isBreak: true },
+    brk: { name: "Sample", isBreak: true },
   };
   const kitSel = $("kit");
   for (const [k, kit] of Object.entries(KITS)) kitSel.add(new Option(kit.name, k));
@@ -2122,10 +2134,15 @@
     renderGrid(); savePatterns();
   });
 
-  // the Load button only shows for the break kit, and stands out until a loop is loaded
+  // the kit button shows which kit is on (909, 808 or Sample). The Load button only shows for the Sample kit, and
+  // stands out until a loop is loaded
   const loadBtn = $("loadBreak");
   function updateBreakUI() {
     const b = dcur.brk;
+    const kitBtn = $("kitBtn");
+    kitBtn.textContent = KITS[dcur.kit].name;
+    kitBtn.title = `Drums ${dcur.name} kit: ${KITS[dcur.kit].name}. Tap to change`;
+    kitBtn.setAttribute("aria-label", kitBtn.title);
     loadBtn.hidden = !isBreakKit();
     loadBtn.classList.toggle("wanted", !b.buf);
     loadBtn.title = b.name ? "Loaded: " + b.name + ". Tap to change" : "Load a loop of 1, 2 or 4 bars";
@@ -2153,13 +2170,8 @@
     loadFxUI(dcur.rack);
     $("kLevel").value = dcur.chan.level;
     $("kLevelOut").textContent = fmtLevel(dcur.chan.level);
-    $("dmName").textContent = dcur.name;
-    document.querySelector(`input[name="machine"][value="${dcur.i}"]`).checked = true;
+    document.querySelectorAll(".dmName").forEach(s => { s.textContent = dcur.name; });
   }
-  document.querySelectorAll('input[name="machine"]').forEach(r => r.addEventListener("change", () => {
-    dcur = drums[+r.value];
-    bindDrumUI();
-  }));
 
   // ---------- synth steps ----------
   // each synth has 8 patterns of [row][step], rows counted up the scale from the grid's lowest note, so a pattern
@@ -2273,6 +2285,7 @@
     moveHead(heads.synth, sCells, seqNow && steps ? seqNow.step : -1);
     markPat(heads.synth, sPatLabels, seqNow && steps ? seqNow.pats[cur.i] : -1);
     markSongRow(seqNow ? seqNow.row : -1);
+    updateTabs();
   }
   requestAnimationFrame(function seqUILoop() { updateSeqUI(); requestAnimationFrame(seqUILoop); });   // from the first frame, once everything exists
 
@@ -2372,6 +2385,7 @@
     renderSynthGrid();
     holdKey = "";
     shownHold = null; updateHoldBtn(0);
+    document.querySelectorAll(".synName").forEach(s => { s.textContent = cur.i + 1; });
   }
 
   // the screen: a synth, the beats, or the song. Fingers on the pad belong to the synth that was on screen, so they let go
@@ -2381,13 +2395,19 @@
     closeMenu(); closePicker();
     document.body.dataset.view = v;
     if (v !== "song") engineView = v;
-    // the tabs show which synth or the beats is on screen, and none while the song is
-    const tab = v === "song" ? null : v === "beats" ? "beats" : String(cur.i);
+    // the tabs show which synth or drum machine is on screen, and none while the song is
+    const tab = v === "song" ? null : v === "beats" ? "d" + dcur.i : String(cur.i);
     document.querySelectorAll('input[name="view"]').forEach(r => { r.checked = r.value === tab; });
   }
+  // the tabs: "0" to "2" are the synths, "d0" to "d2" the drum machines
   document.querySelectorAll('input[name="view"]').forEach(r => r.addEventListener("change", () => {
-    if (r.value !== "beats" && cur !== synths[+r.value]) { dropPointers(); cur = synths[+r.value]; bindSynthUI(); }
-    setView(r.value === "beats" ? "beats" : "synth");
+    if (r.value[0] === "d") {
+      dcur = drums[+r.value.slice(1)];
+      bindDrumUI();
+      return setView("beats");
+    }
+    if (cur !== synths[+r.value]) { dropPointers(); cur = synths[+r.value]; bindSynthUI(); }
+    setView("synth");
   }));
 
   // ---------- live or song ----------
@@ -2522,12 +2542,13 @@
     closePicker().focus({ preventScroll: true });
   });
 
-  // ---------- phone menus ----------
-  // scale, sound and kit lists mirror their header selects, so either one can drive the change
+  // ---------- menus ----------
+  // scale, sound and kit lists mirror their hidden selects: picking one sets the select and fires its change event.
+  // The sound has two lists (the phone synth menu, and a menu of its own on bigger screens); listSyncs keeps both in step
   const listSyncs = {};
-  document.querySelectorAll(".list[data-for]").forEach(list => {
+  document.querySelectorAll(".list[data-for]").forEach((list, n) => {
     const sel = $(list.dataset.for);
-    const name = "menu-" + sel.id;
+    const name = "menu-" + sel.id + n;
     [...sel.options].forEach(o => {
       const lab = document.createElement("label");
       lab.innerHTML = `<input type="radio" name="${name}" value="${o.value}"><span>${o.text}</span>`;
@@ -2540,7 +2561,8 @@
     });
     const sync = () => { list.querySelector(`input[value="${sel.value}"]`).checked = true; };
     sel.addEventListener("change", sync);
-    listSyncs[sel.id] = sync;
+    const before = listSyncs[sel.id];
+    listSyncs[sel.id] = before ? () => { before(); sync(); } : sync;
   });
 
   const scrim = $("scrim");
@@ -2559,6 +2581,11 @@
     // drop the menu just below the rows of buttons
     sheet.style.setProperty("--sheet-top", btn.getBoundingClientRect().bottom + 6 + "px");
     sheet.classList.add("open");
+    // the tempo pop-up lines up with its button, kept on screen
+    if (sheet.classList.contains("anchored")) {
+      const left = Math.min(btn.getBoundingClientRect().left, innerWidth - sheet.offsetWidth - 8);
+      sheet.style.setProperty("--sheet-left", Math.max(8, left) + "px");
+    }
     btn.setAttribute("aria-expanded", "true");
     scrim.hidden = false;
     openMenuBtn = btn;
@@ -2571,6 +2598,25 @@
     else if (e.key === "Escape" && openMenuBtn) { const b = openMenuBtn; closeMenu(); b.focus(); }
   });
   phoneMQ.addEventListener("change", closeMenu);
+
+  // the synths' keyboard and the drums' drum: from another screen they go to the synth or drum machine last shown.
+  // Already there, the keyboard opens the synth's sound (on phones the whole synth menu: sound list, envelope, filter,
+  // distortion; on bigger screens, where those panels are on screen, just the sound list) and the drum opens the kit list
+  [[$("synthsBtn"), "synth", () => phoneMQ.matches ? "soundMenu" : "presetMenu"],
+   [$("drumsBtn"), "beats", () => "kitMenu"]].forEach(([btn, view, menu]) => btn.addEventListener("click", () => {
+    if (openMenuBtn === btn) return closeMenu();
+    if (document.body.dataset.view !== view) return setView(view);
+    btn.dataset.menu = menu();
+    btn.setAttribute("aria-controls", btn.dataset.menu);
+    openMenu(btn);
+  }));
+
+  // tempo nudges, one BPM at a time
+  document.querySelectorAll("[data-nudge]").forEach(b => b.addEventListener("click", () => {
+    const t = $("tempo");
+    t.value = +t.value + +b.dataset.nudge;
+    t.dispatchEvent(new Event("input"));
+  }));
 
   // ---------- mixer ----------
   // a strip each for the three synths and the three drum machines, side by side so all six fit on one screen.
@@ -2682,7 +2728,11 @@
     r.addEventListener("change", () => { helpGroup.dataset.tab = r.value; }));
 
   // ---------- readouts ----------
-  const tempoOut = () => $("tempoOut").textContent = tempo() + " BPM";
+  const tempoOut = () => {
+    $("tempoOut").textContent = tempo();
+    $("tempoBpm").textContent = tempo() + " BPM";
+    $("tempoBtn").setAttribute("aria-label", `Tempo ${tempo()} BPM. Tap to change`);
+  };
   const levelOut = () => setLevel(dcur.chan, +$("kLevel").value);    // the same as that drum machine's mixer fader
   const swingOut = () => $("kSwingOut").textContent = $("kSwing").value + "%";
   [["tempo", tempoOut], ["kLevel", levelOut], ["kSwing", swingOut]].forEach(([id, fn]) => {
