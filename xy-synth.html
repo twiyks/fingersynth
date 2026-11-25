@@ -243,6 +243,12 @@
   .sheet.open.anchored { right: auto; left: var(--sheet-left, 8px); width: min(320px, calc(100% - 16px)); }
   .scrim { position: fixed; inset: 0; z-index: 19; background: rgb(0 0 0 / 0.2); }
   .scrim[hidden] { display: none; }
+  .soundask {
+    position: fixed; z-index: 30; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+    padding: 12px 20px; border-radius: 999px; font-size: 0.95rem; white-space: nowrap;
+    background: var(--hit); border-color: var(--hit); color: var(--bg); box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
+  }
+  .soundask[hidden] { display: none; }
   /* the mixer: six strips side by side, each with mute and solo, three effect amounts and a level fader that takes
      whatever height is left, so everything fits on one screen */
   #mixMenu.open {
@@ -629,6 +635,7 @@
       <div class="helppane historypane">
         <!-- newest first; the first entry's number is shown next to the title -->
         <ul class="history" id="history">
+          <li><span class="ver">v3.6</span>iPhone: if the sound hasn't started, a button asks for one tap. Synth 2 starts on Acid, synth 3 on Soft sine.</li>
           <li><span class="ver">v3.5</span>The sound or kit has its own row (tap to change), with a loaded sample's file name. Effects are knobs. Drums get a filter. Tabs and mixer flash with each note. Synth 1 starts on Glass.</li>
           <li><span class="ver">v3.4</span>Sound now works on iPhone and iPad, even with the silent switch on.</li>
           <li><span class="ver">v3.3</span>Tidier buttons in three rows. Tempo is a number you tap to change. Synths and drum machines sit side by side, with a dot on whichever are playing. The Break kit is now called Sample.</li>
@@ -659,6 +666,8 @@
     </div>
   </div>
   <div class="scrim" id="scrim" hidden></div>
+  <!-- iOS: shown when the sound still hasn't started after a finger lifts (see checkSound) -->
+  <button class="btn soundask" id="soundAsk" hidden>Tap to turn the sound on</button>
   <!-- the pattern picker for a song slot; its buttons are added by the song code -->
   <div class="patpick" id="patPick" role="dialog" aria-label="Pick a pattern" hidden></div>
   <!-- the song: a row per bar, a column per synth and drum machine. Rows are built by renderSong() -->
@@ -1107,7 +1116,7 @@
   const GATE = 0.7;                      // arp and step notes last this much of a step
   const MAX_TAILS = 12;                  // more arp or step notes than this still ringing and the oldest tail is faded out
   const FILTER_GLIDE = 0.08;             // seconds; filter changes settle over about three times this, so moves sweep instead of snap
-  const SYNTH_DEFAULTS = [{ preset: "glass", scale: "minPenta" }, { preset: "supersaw", scale: "minPenta" }, { preset: "glass", scale: "minPenta" }];
+  const SYNTH_DEFAULTS = [{ preset: "glass", scale: "minPenta" }, { preset: "acid", scale: "minPenta" }, { preset: "soft", scale: "minPenta" }];
 
   // a sound's resonance goes into the filter of the mode you're in
   function loadPreset(syn, key) {
@@ -1194,6 +1203,7 @@
   function ensureAudio() {
     if (!ctx) {
       ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: LATENCIES[latencyIdx][1] });
+      ctx.addEventListener("statechange", checkSound);
       const comp = ctx.createDynamicsCompressor();
       comp.threshold.value = -14; comp.ratio.value = 4;
       const out = ctx.createGain();
@@ -1227,6 +1237,15 @@
     blip.buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
     blip.connect(ctx.destination);
     blip.start();
+    setTimeout(checkSound, 500);
+  }
+  // and iOS only counts a plain tap: a finger that slid first (playing the pad, painting steps) doesn't count, so the
+  // sound can stay off however much is played (WebKit bug 248265). The same happens after a phone call or another app
+  // takes the sound. So if it's still off just after a finger lifts, or it stops, a button asks for one tap. Tapping it
+  // is the gesture: the document's click listener above starts the sound, and the state change hides the button
+  const soundAsk = $("soundAsk");
+  function checkSound() {
+    soundAsk.hidden = !ctx || ctx.state === "running" || ctx.state === "closed";
   }
   ["touchend", "pointerup", "click", "keydown"].forEach(t => document.addEventListener(t, unlockAudio, true));
   // coming back to the page (after switching apps or locking the phone), try to carry on where it left off
