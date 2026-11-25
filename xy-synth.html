@@ -65,13 +65,17 @@
   select:focus-visible { outline: 3px solid var(--root); outline-offset: 2px; }
   main { flex: 1; min-height: 0; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 8px; }
 
-  /* the top bar, three rows on every screen size:
+  /* the top bar, four rows on every screen size:
      1. Live / Song, play, tempo, then Mixer, Settings and Help
      2. the synths (keyboard, 1 2 3) and the drum machines (drum, A B C), then Effects
-     3. on a synth: Pad / Steps, then the arp group with Scale. The drums' third row is the patterns bar in the beats view */
+     3. the name row: the synth's sound or the drums' kit (and the Sample kit's Load and loop length)
+     4. on a synth: Pad / Steps, then the arp group with Scale. On the drums, the patterns bar in the beats view */
   .bar { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px 10px; }
   .barrow { display: flex; align-items: center; gap: 8px; min-width: 0; }
-  body[data-view="beats"] .row3 { display: none; }
+  body[data-view="beats"] .row3, body[data-view="song"] .namerow { display: none; }
+  /* the name row and row 3 stack; on a phone on its side they share a line */
+  .lowrows { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .namerow .btn { white-space: nowrap; }
   .seg.icons span { padding: 5px 12px; }
   .seg.icons span.num { line-height: 20px; font-size: 0.95rem; font-weight: 800; min-width: 1.2em; }
   .seg.playmodes span { padding: 6px 10px; }
@@ -83,10 +87,12 @@
   .btn.fxbtn { margin-left: auto; }
   .btn.tempobtn { font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; min-width: 3.2em; padding: 5px 8px; }
   /* a dot on a synth's or drum machine's tab while it's playing: a held arp, or a pattern with notes in it */
-  .seg.views label.busy::after {
-    content: ""; position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%;
-    background: var(--hit); pointer-events: none;
+  /* a tab's corner dot: there while that engine is playing, and it flashes on every note (pulseNotes) */
+  .seg.views .dot {
+    position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; padding: 0; border-radius: 50%;
+    background: var(--hit); pointer-events: none; opacity: 0;
   }
+  .seg.views label.busy .dot { opacity: 1; }
   .btn {
     font: inherit; font-size: 0.82rem; font-weight: 600; color: var(--ink);
     background: var(--control); border: 1.5px solid var(--line); border-radius: 10px;
@@ -151,7 +157,10 @@
   /* step grids: the drums, and a synth in Steps mode */
   .beatsbar { display: flex; gap: 8px; align-items: center; }
   .seg.pats { flex: 1; }
-  .kitbtn { min-width: 3.4em; }
+  /* buttons that open a list and show what's picked: a small down arrow after the name, which trims with … if short of room */
+  .pickbtn { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; white-space: nowrap; }
+  .pickbtn > span { overflow: hidden; text-overflow: ellipsis; }
+  .pickbtn::after { content: ""; flex: none; border: 4px solid transparent; border-top-color: currentColor; border-bottom: 0; margin-top: 2px; }
   .seg.pats span { padding: 4px 0; }
   .seg.pats label.playing span { box-shadow: inset 0 -3px 0 var(--hit); }
   .seg.pats input:checked + span { box-shadow: 0 0 0 1.5px var(--line); }
@@ -192,7 +201,7 @@
     display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr));
     grid-template-areas: "env env filt dist" "delay delay rev arp";
   }
-  .fx.drumfx { grid-template-columns: 2fr 3fr 2fr 2fr; grid-template-areas: "drums delay rev dist"; }
+  .fx.drumfx { grid-template-columns: 2fr 2fr 3fr 2fr 2fr; grid-template-areas: "drums filt delay rev dist"; }
   .envgroup { grid-area: env; } .filtgroup { grid-area: filt; } .arpgroup { grid-area: arp; } .drumsgroup { grid-area: drums; }
   .delaygroup { grid-area: delay; } .revgroup { grid-area: rev; } .distgroup { grid-area: dist; }
   .arpgroup .seg { grid-column: 1 / -1; }
@@ -211,7 +220,7 @@
   .seg.modes span { padding: 4px 10px; }
   .fxhead { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   @media (max-width: 1000px) {
-    .fx.drumfx { grid-template-columns: 1fr 1fr; grid-template-areas: "drums drums" "delay delay" "rev dist"; }
+    .fx.drumfx { grid-template-columns: 1fr 1fr; grid-template-areas: "drums filt" "delay delay" "rev dist"; }
   }
   /* on bigger screens the effects, synth and arpeggio menus vanish and their panels sit in the .fx grid as before, so
      those buttons hide. The lists (scale, sound, kit) and the pop-ups (tempo, mixer, settings, help) open as menus there too */
@@ -243,15 +252,16 @@
   }
   .strip { background: var(--field); border-radius: 12px; padding: 8px 6px; display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; }
   .stname { text-align: center; min-width: 0; }
-  .stname b { display: block; font-size: 1.05rem; font-weight: 800; }
+  .stname b { display: block; font-size: 1.05rem; font-weight: 800; color: var(--muted); transition: color .2s; }
+  .stname b.live { color: var(--hit); }           /* this channel is playing; each note also flashes it (pulseMix) */
   .stname .sub { display: block; font-size: 0.72rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mixbtns { display: flex; gap: 3px; }
   .mixbtns .btn { flex: 1; min-width: 0; padding: 3px 0; }
-  .msend { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 3px; font-size: 0.74rem; color: var(--muted); }
-  .msend label { overflow: hidden; white-space: nowrap; }
+  /* the strips' Reverb, Delay and Distortion are knobs too, a size smaller */
+  .msends { display: flex; flex-direction: column; gap: 6px; }
+  .msend { gap: 1px; font-size: 0.74rem; }
   .msend .short { display: none; }
-  .msend output { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
-  .msend input { grid-column: 1 / -1; margin: 2px 0 0; }
+  .msend .dial { width: 38px; height: 38px; }
   .fader { flex: 1; min-height: 60px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
   .vfader { flex: 1; min-height: 0; width: 28px; margin: 0; writing-mode: vertical-lr; direction: rtl; }
   .fader output { font-size: 0.74rem; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -264,6 +274,20 @@
   }
   .phoneonly { display: none; }          /* the sound list in the synth menu: bigger screens have their own list menu */
   .slider { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  /* knobs: label, dial, readout. The range input sits invisibly on the dial for the keyboard; dragging is on the dial */
+  .knob { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; font-size: 0.8rem; color: var(--muted); }
+  .knob label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .knob output { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .dial { position: relative; width: 46px; height: 46px; border-radius: 50%; touch-action: none; cursor: ns-resize; }
+  .dial svg { display: block; width: 100%; height: 100%; }
+  .dial circle { fill: none; stroke-width: 3.5; stroke-linecap: round; transform: rotate(135deg); transform-origin: 20px 20px; }
+  .dial .track { stroke: var(--line); stroke-dasharray: 75.4 100.6; }
+  .dial .val { stroke: var(--hit); }
+  .dial .cap { fill: var(--control); stroke: var(--line); stroke-width: 1; }
+  .dial .tick { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; transform-origin: 20px 20px; }
+  .dial.turning .cap { stroke: var(--hit); stroke-width: 1.5; }
+  .dial input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; pointer-events: none; }
+  .dial:has(input:focus-visible) { outline: 3px solid var(--root); outline-offset: 2px; }
   .slider .top { display: flex; justify-content: space-between; gap: 6px; font-size: 0.8rem; color: var(--muted); }
   .slider output { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
   input[type="range"] { width: 100%; margin: 4px 0 0; accent-color: var(--root); cursor: pointer; }
@@ -298,6 +322,7 @@
     #mixMenu.open { width: calc(100% - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)); gap: 4px; padding: 6px; }
     .strip { padding: 6px 3px; gap: 5px; }
     .msend { font-size: 0.68rem; }
+    .msend .dial { width: 34px; height: 34px; }
     .msend .long { display: none; }
     .msend .short { display: inline; }
     .sheet .fxgroup { grid-template-columns: 1fr; }   /* full-width sliders are easier to hit */
@@ -335,7 +360,8 @@
   @media (orientation: landscape) and (max-height: 540px) {
     .bar { flex-direction: row; flex-wrap: wrap; align-items: center; column-gap: 16px; }
     .row2 { flex: 1 1 auto; }
-    .row3 { flex: 1 0 100%; }
+    .lowrows { flex: 1 0 100%; flex-direction: row; align-items: center; }
+    .row3 { flex: 1 1 auto; }
     .beatsview { display: grid; grid-template-columns: minmax(0, 1fr) 210px; grid-template-rows: auto 1fr; gap: 8px 10px; }
     .beatsview .grid { grid-row: 1 / -1; padding: 6px; }
     .beatsview .beatsbar { flex-wrap: wrap; align-items: stretch; }
@@ -343,8 +369,14 @@
     .beatsview .seg.pats label { flex: 1 0 20%; }
     .beatsview .beatsbar .btn { flex: 1; }
     .beatsview .fxgroup { align-self: start; grid-template-columns: 1fr; }
+    .msends { flex-direction: row; justify-content: space-between; gap: 2px; }
+    .msend { flex: 1; font-size: 0.66rem; }
+    .msend .long { display: none; }
+    .msend .short { display: inline; }
+    .msends .msend .dial { width: 28px; height: 28px; }
   }
   @media (prefers-reduced-motion: reduce) { .hint { transition: none; } }
+  .fx .fxgroup.knobs, .sheet .fxgroup.knobs, .beatsview .fxgroup.knobs { grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 6px 8px; }
 </style>
 </head>
 <body data-view="synth" data-mode="pad" data-play="live">
@@ -409,6 +441,18 @@
     </button>
   </div>
   <!-- a synth's row: Pad or Steps, then the arpeggio and the scale. The drums' row is the patterns bar in the beats view -->
+  <!-- the sound of the synth or drum machine on screen, by name; tap for the list. On the Sample kit, its file
+       name, then Load and the loop's length -->
+  <div class="lowrows">
+  <div class="barrow namerow">
+    <button class="btn pickbtn synthonly" id="soundBtn" data-menu="presetMenu" aria-haspopup="dialog" aria-expanded="false" aria-controls="presetMenu"><span></span></button>
+    <button class="btn pickbtn beatsonly" id="kitBtn" data-menu="kitMenu" aria-haspopup="dialog" aria-expanded="false" aria-controls="kitMenu"><span></span></button>
+    <button class="btn" id="loadBreak" aria-label="Load a sample" hidden>Load</button>
+    <!-- how many bars the loaded loop is: guessed on load, tap to change -->
+    <button class="btn" id="breakBars" hidden></button>
+    <!-- audio types only: Android adds a camera option for anything it reads as video (a .webm file counts as video) -->
+    <input type="file" id="breakFile" accept=".wav,.mp3,.m4a,.aac,.ogg,.oga,.opus,.flac,.aif,.aiff,audio/wav,audio/mpeg,audio/mp4,audio/aac,audio/ogg,audio/flac,audio/aiff,audio/webm" hidden>
+  </div>
   <div class="barrow row3">
     <div class="seg modes synthonly" role="radiogroup" aria-label="Play with">
       <label><input type="radio" name="mode" value="pad" checked><span>Pad</span></label>
@@ -425,6 +469,7 @@
       <button class="btn" data-menu="scaleMenu" title="Scale" aria-haspopup="dialog" aria-expanded="false" aria-controls="scaleMenu">Scale</button>
     </div>
     <p class="songhint songonly">A row is a bar. Tap a slot to pick its pattern.</p>
+  </div>
   </div>
 </nav>
 <main>
@@ -555,8 +600,9 @@
       <div class="helppane usepane">
         <h3>The buttons at the top</h3>
         <p><strong>First row:</strong> Live or Song, play and stop, the tempo (tap the number to change it), then the mixer, settings and help.</p>
-        <p><strong>Second row:</strong> the keyboard and <strong>1 2 3</strong> are the synths; the drum and <strong>A B C</strong> are the drum machines. A dot shows which ones are playing. On a synth, tap the keyboard again to pick its sound and shape it; on the drums, tap the drum again to pick the kit. The waves button at the end opens the effects.</p>
-        <p><strong>Third row:</strong> on a synth, Pad or Steps, the arpeggio and the scale. On the drums, the patterns, Clear, and the kit.</p>
+        <p><strong>Second row:</strong> the keyboard and <strong>1 2 3</strong> are the synths; the drum and <strong>A B C</strong> are the drum machines. A dot shows which ones are playing, and flashes with each note. On a synth, tap the keyboard again to pick its sound and shape it; on the drums, tap the drum again to pick the kit. The waves button at the end opens the effects.</p>
+        <p><strong>Third row:</strong> the sound of the synth or drum machine on screen. Tap its name to change it. On the Sample kit it shows the loaded file, with Load and the loop's length next to it.</p>
+        <p><strong>Fourth row:</strong> on a synth, Pad or Steps, the arpeggio and the scale. On the drums, the patterns and Clear.</p>
         <h3>The pad</h3>
         <p>Slide left and right for pitch, up and down for the filter: brighter at the top of each keyboard, darker at the bottom.</p>
         <h3>Arpeggio and chords</h3>
@@ -567,11 +613,11 @@
         <h3>Steps</h3>
         <p>Switch a synth to <strong>Steps</strong> to write a pattern on a grid of its notes. Steps play along with the beats, so press play to hear them.</p>
         <h3>Drums</h3>
-        <p><strong>A B C</strong> are three drum machines. They all play together, each with its own kit, patterns and effects. Tap steps to add hits and switch between 8 patterns. The button after Clear shows the kit: <strong>909</strong>, <strong>808</strong> or <strong>Sample</strong>; tap it to change. The Sample kit cuts a loop you load into 8 slices. It guesses whether the loop is 1, 2 or 4 bars long and fits it to the tempo; if it sounds too fast or slow, tap the bars button next to Load.</p>
+        <p><strong>A B C</strong> are three drum machines. They all play together, each with its own kit, patterns and effects. Tap steps to add hits and switch between 8 patterns. The name under the tabs shows the kit: <strong>909</strong>, <strong>808</strong> or <strong>Sample</strong>; tap it to change. The Sample kit cuts a loop you load into 8 slices. It guesses whether the loop is 1, 2 or 4 bars long and fits it to the tempo; if it sounds too fast or slow, tap the bars button next to Load.</p>
         <h3>Sound and effects</h3>
-        <p>A synth's menu (tap the keyboard while on a synth) has its sound, the envelope, filter and distortion. <strong>Effects</strong> has delay and reverb. Tempo sets the speed of everything.</p>
+        <p>A synth's menu (tap the keyboard while on a synth) has its sound, the envelope, filter and distortion. <strong>Effects</strong> has delay and reverb. Effect settings are knobs: press one and slide up or down. On the drums, Effects has distortion, a <strong>Filter</strong> (turn Cutoff down to make them darker and duller, Resonance up for a ringing edge), delay and reverb. Tempo sets the speed of everything.</p>
         <h3>Mixer</h3>
-        <p>The faders button opens the <strong>Mixer</strong>: a level for each synth and drum machine, <strong>M</strong> to mute, <strong>S</strong> to solo, and how much reverb, delay and distortion each one gets. These are the same as the Amount sliders in the effects panels.</p>
+        <p>The faders button opens the <strong>Mixer</strong>. A channel's name lights up while it plays and flashes with each note. Each has a level, <strong>M</strong> to mute, <strong>S</strong> to solo, and how much reverb, delay and distortion each one gets. These are the same as the Amount sliders in the effects panels.</p>
         <h3>Live and Song</h3>
         <p>In <strong>Live</strong>, play loops the patterns picked on each screen. In <strong>Song</strong>, it plays the song from the top, one row per bar, and goes round again at the end.</p>
         <p>Each row has a slot for synths 1 2 3 and drums A B C. Tap a slot to pick a pattern, or Off. <strong>+ Add a bar</strong> copies the last row; × removes one. In Song the synths play their Steps patterns even in Pad mode, so you can still play the pad over the top.</p>
@@ -583,6 +629,7 @@
       <div class="helppane historypane">
         <!-- newest first; the first entry's number is shown next to the title -->
         <ul class="history" id="history">
+          <li><span class="ver">v3.5</span>The sound or kit has its own row (tap to change), with a loaded sample's file name. Effects are knobs. Drums get a filter. Tabs and mixer flash with each note. Synth 1 starts on Glass.</li>
           <li><span class="ver">v3.4</span>Sound now works on iPhone and iPad, even with the silent switch on.</li>
           <li><span class="ver">v3.3</span>Tidier buttons in three rows. Tempo is a number you tap to change. Synths and drum machines sit side by side, with a dot on whichever are playing. The Break kit is now called Sample.</li>
           <li><span class="ver">v3.2</span>Song mode: chain patterns into a song, a bar per row. Three drum machines that play together. The mixer fits all six on one screen. Stop cuts all sound.</li>
@@ -623,13 +670,6 @@
     <div class="beatsbar">
       <div class="seg pats" role="radiogroup" aria-label="Pattern" id="pats"></div>
       <button class="btn" id="clearPat">Clear</button>
-      <!-- which kit this drum machine is on (909, 808 or Sample); tap to change -->
-      <button class="btn kitbtn" id="kitBtn" data-menu="kitMenu" aria-haspopup="dialog" aria-expanded="false" aria-controls="kitMenu"></button>
-      <button class="btn" id="loadBreak" aria-label="Load a sample" hidden>Load</button>
-      <!-- how many bars the loaded loop is: guessed on load, tap to change -->
-      <button class="btn" id="breakBars" hidden></button>
-      <!-- audio types only: Android adds a camera option for anything it reads as video (a .webm file counts as video) -->
-      <input type="file" id="breakFile" accept=".wav,.mp3,.m4a,.aac,.ogg,.oga,.opus,.flac,.aif,.aiff,audio/wav,audio/mpeg,audio/mp4,audio/aac,audio/ogg,audio/flac,audio/aiff,audio/webm" hidden>
     </div>
     <div class="grid" id="grid"></div>
     <section class="fx drumfx">
@@ -737,19 +777,36 @@
     notes: { dTime: [0, SYNC_TIMES.length - 1, 4], dDecay: [0, SYNC_DECAYS.length - 1, 2] },
   };
   const FX_NAMES = ["dAmount", "dTime", "dDecay", "rSize", "rMix", "xAmount", "xTone"];
-  const RACK_DEFAULTS = { dAmount: 25, dTime: 350, dDecay: 30, rSize: 50, rMix: 25, xAmount: 0, xTone: 70 };
+  // drum racks also have a lowpass filter after the distortion (synths have their own filter on every note)
+  const FILTER_FX = ["fltCut", "fltRes"];
+  const RACK_DEFAULTS = { dAmount: 25, dTime: 350, dDecay: 30, rSize: 50, rMix: 25, xAmount: 0, xTone: 70, fltCut: 100, fltRes: 0 };
+  const FLT_LOW = 80, FLT_HIGH = 20000;                // the drum filter's Cutoff range, swept exponentially
 
+  // effect settings are knobs: press and drag up or down. The real control is a hidden range input inside, so the
+  // keyboard, screen readers and every listener work as they would with a slider. makeKnob() wires each one up
+  const dialHTML = (id, min, max, attrs = "") =>
+    `<div class="dial"><svg viewBox="0 0 40 40" aria-hidden="true"><circle class="track" cx="20" cy="20" r="16"/>` +
+    `<circle class="val" cx="20" cy="20" r="16"/><circle class="cap" cx="20" cy="20" r="11.5"/>` +
+    `<line class="tick" x1="20" y1="11.5" x2="20" y2="16"/></svg><input type="range" id="${id}" min="${min}" max="${max}"${attrs}></div>`;
+  const knobHTML = (id, label, min, max) =>
+    `<div class="knob"><label for="${id}">${label}</label>${dialHTML(id, min, max)}<output id="${id}Out"></output></div>`;
   const sliderHTML = (id, label, min, max) =>
     `<div class="slider"><div class="top"><label for="${id}">${label}</label><output id="${id}Out"></output></div>` +
     `<input type="range" id="${id}" min="${min}" max="${max}"></div>`;
   const distHTML = p => `
-    <div class="fxgroup distgroup" style="--cols: 2">
+    <div class="fxgroup distgroup knobs" style="--cols: 2">
       <h2>Distortion</h2>
-      ${sliderHTML(p + "xAmount", "Amount", 0, 100)}
-      ${sliderHTML(p + "xTone", "Tone", 0, 100)}
+      ${knobHTML(p + "xAmount", "Amount", 0, 100)}
+      ${knobHTML(p + "xTone", "Tone", 0, 100)}
+    </div>`;
+  const filterHTML = p => `
+    <div class="fxgroup filtgroup knobs" style="--cols: 2">
+      <h2>Filter</h2>
+      ${knobHTML(p + "fltCut", "Cutoff", 0, 100)}
+      ${knobHTML(p + "fltRes", "Resonance", 0, 100)}
     </div>`;
   const delayRevHTML = p => `
-    <div class="fxgroup delaygroup" style="--cols: 3">
+    <div class="fxgroup delaygroup knobs" style="--cols: 3">
       <div class="fxhead">
         <h2>Delay</h2>
         <div class="seg small" role="radiogroup" aria-label="Delay time units">
@@ -757,24 +814,71 @@
           <label><input type="radio" name="${p}dUnit" value="notes" checked><span>notes</span></label>
         </div>
       </div>
-      ${sliderHTML(p + "dAmount", "Amount", 0, 100)}
-      ${sliderHTML(p + "dTime", "Time", 20, 1000)}
-      ${sliderHTML(p + "dDecay", "Decay", 1, 100)}
+      ${knobHTML(p + "dAmount", "Amount", 0, 100)}
+      ${knobHTML(p + "dTime", "Time", 20, 1000)}
+      ${knobHTML(p + "dDecay", "Decay", 1, 100)}
     </div>
-    <div class="fxgroup revgroup" style="--cols: 2">
+    <div class="fxgroup revgroup knobs" style="--cols: 2">
       <h2>Reverb</h2>
-      ${sliderHTML(p + "rSize", "Room size", 0, 100)}
-      ${sliderHTML(p + "rMix", "Amount", 0, 100)}
+      ${knobHTML(p + "rSize", "Room size", 0, 100)}
+      ${knobHTML(p + "rMix", "Amount", 0, 100)}
     </div>`;
-  // synths: distortion sits in the Sound panel, delay and reverb in Effects. Drums: all three in Drum effects
+  // synths: distortion sits in the Sound panel, delay and reverb in Effects. Drums: those three plus a filter in Drum effects
   $("soundMenu").insertAdjacentHTML("beforeend", distHTML(""));
   $("fxMenu").innerHTML = delayRevHTML("");
-  $("drumFxMenu").innerHTML = distHTML("k") + delayRevHTML("k");
+  $("drumFxMenu").innerHTML = distHTML("k") + filterHTML("k") + delayRevHTML("k");
+
+  // a knob: a 270° arc from bottom left round to bottom right. Dragging up turns it up; a full sweep is KNOB_TRAVEL px
+  const KNOB_TRAVEL = 160, ARC = 2 * Math.PI * 16;
+  function makeKnob(dial) {
+    const input = dial.querySelector("input");
+    const val = dial.querySelector(".val"), tick = dial.querySelector(".tick");
+    const draw = () => {
+      const min = +input.min, max = +input.max;
+      const f = max > min ? (+input.value - min) / (max - min) : 0;
+      val.style.strokeDasharray = `${0.75 * ARC * f} ${ARC}`;
+      tick.style.transform = `rotate(${-135 + 270 * f}deg)`;
+    };
+    // redraw however the value changes, including from code (a new synth on screen, the mixer, the delay's units)
+    const own = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+    Object.defineProperty(input, "value", { configurable: true, get() { return own.get.call(this); },
+                                            set(v) { own.set.call(this, v); draw(); } });
+    input.addEventListener("input", draw);
+    let drag = null;
+    dial.addEventListener("pointerdown", e => {
+      e.preventDefault();
+      dial.setPointerCapture(e.pointerId);
+      input.focus({ preventScroll: true });
+      drag = { id: e.pointerId, y: e.clientY, v: +input.value };
+      dial.classList.add("turning");
+    });
+    dial.addEventListener("pointermove", e => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const min = +input.min, max = +input.max;
+      const v = Math.round(Math.min(max, Math.max(min, drag.v + (drag.y - e.clientY) / KNOB_TRAVEL * (max - min))));
+      if (v === +input.value) return;
+      input.value = v;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const end = e => {
+      if (!drag || e.pointerId !== drag.id) return;
+      drag = null;
+      dial.classList.remove("turning");
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    dial.addEventListener("pointerup", end);
+    dial.addEventListener("pointercancel", end);
+    draw();
+  }
+  document.querySelectorAll(".dial").forEach(makeKnob);
 
   // p is the prefix of the sliders that show this rack; its audio nodes live in rack.n once buildRack() has made them
+  // filter: give it the drums' lowpass filter. rack.names lists the sliders it has
+  const fxNamesFor = p => p === "k" ? [...FX_NAMES, ...FILTER_FX] : FX_NAMES;
   function makeRack(p, values) {
     // delays start in notes, locked to the tempo; the ms positions are kept for when the switch is flipped
-    const rack = { p, values: { ...RACK_DEFAULTS, ...values }, unit: "ms", saved: { ms: {}, notes: {} }, st: {}, out: {}, n: null };
+    const rack = { p, values: { ...RACK_DEFAULTS, ...values }, unit: "ms", saved: { ms: {}, notes: {} }, st: {}, out: {}, n: null,
+                   filter: p === "k", names: fxNamesFor(p) };
     setDelayUnit(rack, "notes");
     calcFx(rack);
     return rack;
@@ -815,13 +919,17 @@
     out.rMix = v.rMix + "%";
     out.xAmount = v.xAmount + "%";
     out.xTone = (st.xTone / 1000).toFixed(1) + " kHz";
+    st.fltCut = FLT_LOW * Math.pow(FLT_HIGH / FLT_LOW, v.fltCut / 100);
+    st.fltRes = v.fltRes / RES_SCALE;                                 // filter Q, 0 to 20
+    out.fltCut = fmtHz(st.fltCut);
+    out.fltRes = v.fltRes + "%";
   }
   function showFx(rack) {
-    FX_NAMES.forEach(n => { $(rack.p + n + "Out").textContent = rack.out[n]; });
+    rack.names.forEach(n => { $(rack.p + n + "Out").textContent = rack.out[n]; });
   }
   // put a rack's settings on its sliders
   function loadFxUI(rack) {
-    FX_NAMES.forEach(n => {
+    rack.names.forEach(n => {
       const el = $(rack.p + n);
       if (DELAY_RANGES[rack.unit][n]) { const [min, max] = DELAY_RANGES[rack.unit][n]; el.min = min; el.max = max; }
       el.value = rack.values[n];
@@ -901,7 +1009,15 @@
     const distWet = ctx.createGain();
     input.connect(distDry).connect(mix);
     drive.connect(shaper).connect(distTone).connect(distWet).connect(mix);
-    mix.connect(out);
+
+    // drums: a lowpass filter next, so the echoes and reverb are filtered too
+    let filter = null, post = mix;
+    if (rack.filter) {
+      filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      post = mix.connect(filter);
+    }
+    post.connect(out);
 
     // delay with a feedback loop, darkened a little each repeat
     const delaySend = ctx.createGain();
@@ -909,17 +1025,17 @@
     const feedback = ctx.createGain();
     const tone = ctx.createBiquadFilter();
     tone.type = "lowpass"; tone.frequency.value = 5000;
-    mix.connect(delaySend).connect(delay);
+    post.connect(delaySend).connect(delay);
     delay.connect(tone).connect(feedback).connect(delay);
     tone.connect(out);
 
     // reverb, fed by the sound and the echoes. Its Amount sits before the convolver, so at 0 (or with nothing
     // playing) the browser can let the reverb go idle. The convolver itself is made by swapReverb()
     const reverbIn = ctx.createGain();
-    mix.connect(reverbIn);
+    post.connect(reverbIn);
     tone.connect(reverbIn);
 
-    rack.n = { input, distDry, drive, distTone, distWet, distOn: false, delaySend, delay, feedback, tone, reverbIn, out,
+    rack.n = { input, distDry, drive, distTone, distWet, distOn: false, filter, delaySend, delay, feedback, tone, reverbIn, out,
                reverb: null, reverbStale: true, fresh: true, asleep: false, lastBusy: ctx.currentTime };
     applyFx(rack);
     return input;
@@ -946,6 +1062,10 @@
     glide(n.distTone.frequency, st.xTone, 0.02);
     glide(n.distDry.gain, on ? 0 : 1, 0.02);
     glide(n.distWet.gain, on ? 1 / (1 + 3 * st.xAmount) : 0, 0.02);
+    if (n.filter) {
+      glide(n.filter.frequency, st.fltCut, 0.02);
+      glide(n.filter.Q, st.fltRes, 0.02);
+    }
 
     // the reverb is only built while it's turned up, and just after this call, so it never holds up a note
     if (rebuildReverb) n.reverbStale = true;
@@ -987,7 +1107,7 @@
   const GATE = 0.7;                      // arp and step notes last this much of a step
   const MAX_TAILS = 12;                  // more arp or step notes than this still ringing and the oldest tail is faded out
   const FILTER_GLIDE = 0.08;             // seconds; filter changes settle over about three times this, so moves sweep instead of snap
-  const SYNTH_DEFAULTS = [{ preset: "acid", scale: "minPenta" }, { preset: "supersaw", scale: "minPenta" }, { preset: "glass", scale: "minPenta" }];
+  const SYNTH_DEFAULTS = [{ preset: "glass", scale: "minPenta" }, { preset: "supersaw", scale: "minPenta" }, { preset: "glass", scale: "minPenta" }];
 
   // a sound's resonance goes into the filter of the mode you're in
   function loadPreset(syn, key) {
@@ -1037,8 +1157,8 @@
 
   // mixer channels: one per synth, then one per drum machine. Each has a fader after its effects rack (chan.node), so
   // the level, mute and solo take the echoes and reverb with them. Level is a slider position, 0 to 100, with 80 as 0 dB
-  const mix = [...synths.map(syn => ({ name: "Synth " + (syn.i + 1), short: String(syn.i + 1), syn, rack: syn.rack })),
-               ...drums.map(dm => ({ name: "Drums " + dm.name, short: dm.name, dm, rack: dm.rack }))]
+  const mix = [...synths.map(syn => ({ name: "Synth " + (syn.i + 1), short: String(syn.i + 1), syn, rack: syn.rack, hits: [] })),
+               ...drums.map(dm => ({ name: "Drums " + dm.name, short: dm.name, dm, rack: dm.rack, hits: [] }))]
     .map(c => ({ ...c, level: 80, mute: false, solo: false, node: null }));
   mix.forEach(c => { (c.syn || c.dm).chan = c; });
   const DRUM_GAIN = 0.8;                 // drums into their rack; their level is their mixer fader, after the effects
@@ -1124,7 +1244,7 @@
   // the effect sliders drive whichever rack they're showing: the drum machine or the synth on screen
   const boundRack = p => p === "k" ? dcur.rack : cur.rack;
   ["", "k"].forEach(p => {
-    FX_NAMES.forEach(n => {
+    fxNamesFor(p).forEach(n => {
       const el = $(p + n);
       el.addEventListener("input", () => {
         const rack = boundRack(p);
@@ -1161,6 +1281,7 @@
     const p = PRESETS[syn.preset];
     const { a, d, s, r } = syn.env;
     const now = t ?? ctx.currentTime;
+    noteAt(syn.chan, now);
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";
     filter.Q.value = filtFor(ly, syn).res;
@@ -1429,8 +1550,12 @@
   // any notes in it). Runs every frame from updateSeqUI, and only touches the tabs when something changes
   const hasNotes = pat => pat.some(row => row.some(Boolean));
   let shownDots = "";
+  let busyNow = [];                                      // the same, for the mixer's names
+  const tabOf = e => $(e.chan.dm ? "tabd" + e.i : "tab" + e.i);
+  const tabDots = mix.map(c => tabOf(c.syn || c.dm).appendChild(Object.assign(document.createElement("span"),
+                                                                       { className: "dot", ariaHidden: "true" })));
   function updateTabs() {
-    const on = engines.map((e, k) => {
+    const on = busyNow = engines.map((e, k) => {
       if (e.latch) return true;
       const p = seqNow ? seqNow.pats[k] : -1;
       if (p < 0) return false;
@@ -1440,7 +1565,7 @@
     const key = on.join();
     if (key === shownDots) return;
     shownDots = key;
-    engines.forEach((e, k) => $(e.chan.dm ? "tabd" + e.i : "tab" + e.i).classList.toggle("busy", on[k]));
+    engines.forEach((e, k) => tabOf(e).classList.toggle("busy", on[k]));
   }
 
   // ---------- pad ----------
@@ -1817,6 +1942,7 @@
   // every drum hit goes through here: the sequencer, the grid and the row labels
   const playRow = (dm, r, t) => {
     wakeRack(dm.rack);
+    noteAt(dm.chan, t);
     hit = dm;
     isBreakKit(dm) ? playSlice(dm, r, t) : KITS[dm.kit].play[DRUM_ROWS[r].id](t);
   };
@@ -2156,14 +2282,15 @@
     renderGrid(); savePatterns();
   });
 
-  // the kit button shows which kit is on (909, 808 or Sample). The Load button only shows for the Sample kit, and
-  // stands out until a loop is loaded
+  // the kit button shows which kit is on (909, 808 or Sample, plus the loaded file's name without its extension).
+  // The Load button only shows for the Sample kit, and stands out until a loop is loaded
   const loadBtn = $("loadBreak");
   function updateBreakUI() {
     const b = dcur.brk;
     const kitBtn = $("kitBtn");
-    kitBtn.textContent = KITS[dcur.kit].name;
-    kitBtn.title = `Drums ${dcur.name} kit: ${KITS[dcur.kit].name}. Tap to change`;
+    const kit = KITS[dcur.kit].name + (isBreakKit() && b.name ? ": " + b.name.replace(/\.[^.]+$/, "") : "");
+    kitBtn.firstChild.textContent = kit;
+    kitBtn.title = `Drums ${dcur.name} kit: ${kit}. Tap to change`;
     kitBtn.setAttribute("aria-label", kitBtn.title);
     loadBtn.hidden = !isBreakKit();
     loadBtn.classList.toggle("wanted", !b.buf);
@@ -2308,6 +2435,7 @@
     markPat(heads.synth, sPatLabels, seqNow && steps ? seqNow.pats[cur.i] : -1);
     markSongRow(seqNow ? seqNow.row : -1);
     updateTabs();
+    pulseNotes();
   }
   requestAnimationFrame(function seqUILoop() { updateSeqUI(); requestAnimationFrame(seqUILoop); });   // from the first frame, once everything exists
 
@@ -2351,6 +2479,7 @@
   // a new sound brings its own envelope and resonance; fingers already down switch to it
   presetSel.addEventListener("change", () => {
     loadPreset(cur, presetSel.value);
+    showSoundBtn();
     loadSoundUI(cur);
     cur.voices.forEach((v, id) => {
       stopVoice(v);
@@ -2393,12 +2522,21 @@
     closeMenu();
   }));
 
+  // the sound button shows the name of the sound on screen
+  function showSoundBtn() {
+    const b = $("soundBtn"), { name } = PRESETS[cur.preset];
+    b.firstChild.textContent = name;
+    b.title = `Synth ${cur.i + 1} sound: ${name}. Tap to change`;
+    b.setAttribute("aria-label", b.title);
+  }
+
   // put the synth on screen into every synth control
   function bindSynthUI() {
     markPad();
     scaleSel.value = cur.scale;
     presetSel.value = cur.preset;
     listSyncs.scale(); listSyncs.preset();
+    showSoundBtn();
     loadSoundUI(cur);
     loadFxUI(cur.rack);
     showArpUI(cur);
@@ -2655,18 +2793,19 @@
           <button class="btn togglebtn" id="${m}mute" aria-pressed="false" aria-label="Mute ${c.name}" title="Mute">M</button>
           <button class="btn togglebtn" id="${m}solo" aria-pressed="false" aria-label="Solo ${c.name}" title="Solo">S</button>
         </div>
-        ${MIX_SENDS.map(([n, long, short]) => `
-        <div class="msend">
+        <div class="msends">${MIX_SENDS.map(([n, long, short]) => `
+        <div class="knob msend">
           <label for="${m}${n}" title="${long}"><span class="long">${long}</span><span class="short">${short}</span></label>
+          ${dialHTML(m + n, 0, 100, ` aria-label="${c.name} ${long.toLowerCase()}"`)}
           <output id="${m}${n}Out"></output>
-          <input type="range" id="${m}${n}" min="0" max="100" aria-label="${c.name} ${long.toLowerCase()}">
-        </div>`).join("")}
+        </div>`).join("")}</div>
         <div class="fader">
           <input type="range" class="vfader" id="${m}level" min="0" max="100" aria-label="${c.name} level">
           <output id="${m}levelOut"></output>
         </div>
       </div>`);
   });
+  mixEl.querySelectorAll(".dial").forEach(makeKnob);
   function setLevel(c, v) {
     const m = "m" + mix.indexOf(c);
     c.level = v;
@@ -2702,6 +2841,35 @@
     }));
   });
   document.querySelector(".mixbtn").addEventListener("click", showMix);
+
+  // which channels are playing, on every note: the tab's corner dot flashes, and with the mixer open the channel's
+  // name flashes too (and stays lit while it plays). Notes are often scheduled a little ahead (arps, steps, drums), so
+  // their times wait in c.hits until the audio clock reaches them, and each flash comes as the note is heard
+  const mixNames = [...mixEl.querySelectorAll(".stname b")];
+  function noteAt(c, t) {
+    if (c.hits.length < 64) c.hits.push(t);
+  }
+  const FLASH = { duration: 220, easing: "ease-out" };
+  function pulseNotes() {
+    const now = ctx ? ctx.currentTime : 0;
+    const mixOpen = mixEl.classList.contains("open");
+    mix.forEach((c, i) => {
+      const e = c.syn || c.dm;
+      if (mixOpen) mixNames[i].classList.toggle("live", !!(busyNow[i] || (c.syn && (e.voices.size || e.tails.size || e.arp))));
+      if (!c.hits.some(t => t <= now)) return;
+      c.hits = c.hits.filter(t => t > now);
+      const dot = tabDots[i], flash = getComputedStyle(dot).getPropertyValue("--hit-now").trim();
+      const rest = getComputedStyle(dot).opacity;           // shown while playing, hidden otherwise
+      dot.animate(reduceMotion
+        ? [{ opacity: 1, background: flash }, { opacity: rest }]
+        : [{ opacity: 1, background: flash, transform: "scale(1.8)" }, { opacity: rest, transform: "scale(1)" }], FLASH);
+      if (!mixOpen) return;
+      const css = getComputedStyle(mixNames[i]);
+      mixNames[i].animate(reduceMotion
+        ? [{ color: flash }, { color: css.color }]
+        : [{ color: flash, transform: "scale(1.45)" }, { color: css.color, transform: "scale(1)" }], FLASH);
+    });
+  }
 
   // ---------- settings: latency ----------
   // the browser only takes a latency when the sound engine starts, so a new setting restarts it: everything is rebuilt,
