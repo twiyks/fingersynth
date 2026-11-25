@@ -583,6 +583,7 @@
       <div class="helppane historypane">
         <!-- newest first; the first entry's number is shown next to the title -->
         <ul class="history" id="history">
+          <li><span class="ver">v3.4</span>Sound now works on iPhone and iPad, even with the silent switch on.</li>
           <li><span class="ver">v3.3</span>Tidier buttons in three rows. Tempo is a number you tap to change. Synths and drum machines sit side by side, with a dot on whichever are playing. The Break kit is now called Sample.</li>
           <li><span class="ver">v3.2</span>Song mode: chain patterns into a song, a bar per row. Three drum machines that play together. The mixer fits all six on one screen. Stop cuts all sound.</li>
           <li><span class="ver">v3.1</span>Breaks can be 1, 2 or 4 bars long, so longer loops no longer play too fast. Delays start in note values. No camera option when loading a break.</li>
@@ -1089,8 +1090,29 @@
       const nd = noiseBuf.getChannelData(0);
       for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
     }
-    if (ctx.state === "suspended") ctx.resume();
+    if (ctx.state !== "running") ctx.resume().catch(() => {});   // "suspended", or "interrupted" on iOS after a call
   }
+
+  // iPhones and iPads are stricter than Android about starting sound:
+  // - a finger going down doesn't count as permission to play; only a finger lifting (or a tap or key) does. So the
+  //   sound engine is also woken on those, on any part of the page, whenever it isn't running yet
+  // - older iOS needs a sound actually started inside that gesture, so a tiny silent one is played
+  // - iOS treats web sound like a ringtone by default, so the silent switch mutes it. "playback" makes it act like
+  //   a music app instead (iOS 17 and later)
+  try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch {}
+  function unlockAudio() {
+    if (ctx && ctx.state === "running") return;
+    ensureAudio();
+    const blip = ctx.createBufferSource();
+    blip.buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+    blip.connect(ctx.destination);
+    blip.start();
+  }
+  ["touchend", "pointerup", "click", "keydown"].forEach(t => document.addEventListener(t, unlockAudio, true));
+  // coming back to the page (after switching apps or locking the phone), try to carry on where it left off
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && ctx && ctx.state !== "running") ctx.resume().catch(() => {});
+  });
   // a synth's or drum machine's bus: everything it plays goes in here, then into its rack. Stop swaps in a fresh one,
   // so whatever was still sounding through the old one is cut off at once
   function newBus(eng) {
