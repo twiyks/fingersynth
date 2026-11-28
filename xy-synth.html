@@ -63,6 +63,8 @@
     background-size: 5px 5px; background-repeat: no-repeat;
   }
   select:focus-visible { outline: 3px solid var(--root); outline-offset: 2px; }
+  /* the synth's sound dropdown: full width, and 16px text so iOS doesn't zoom in when it opens */
+  .soundsel { width: 100%; font-size: 1rem; padding: 9px 30px 9px 12px; }
   main { flex: 1; min-height: 0; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 8px; }
 
   /* the top bar, three rows on every screen size:
@@ -357,7 +359,8 @@
     .barrow { gap: 6px; }
     .seg.icons span { padding: 5px 8px; }
     .menubtns > .iconbtn { padding: 5px 6px; }
-    .btn.fxbtn, .arpgrp .iconbtn { display: grid; }
+    /* :not(.scalebtn) matches the rule that hides it on bigger screens, or that one wins and the arp button never shows */
+    .btn.fxbtn, .arpgrp .iconbtn:not(.scalebtn) { display: grid; }
     body[data-mode="steps"] .arpgrp .padonly { display: none; }
     main { padding: 0 8px 12px; }
 
@@ -434,15 +437,24 @@
     .msend .short { display: inline; }
     .msends .msend .dial { width: 28px; height: 28px; }
   }
+  /* tablet held upright (same query as tabletMQ): the row under the pad is Filter, Distortion, Delay, Reverb (the
+     first two moved out of the sound menu by placeSoundFx), and the arpeggio settings open from their button as on phones */
+  @media (orientation: portrait) and (min-width: 521px) and (max-width: 1100px) {
+    .fx { grid-template-columns: 2fr 2fr 3fr 2fr; grid-template-areas: "filt dist delay rev"; }
+    .fx .filtgroup { grid-area: filt; } .fx .distgroup { grid-area: dist; }
+    .fx .fxgroup h2 .sub { display: block; margin: 0; }
+    #arpMenu:not(.open) { display: none; }
+    .arpgrp .iconbtn:not(.scalebtn) { display: grid; }
+    body[data-mode="steps"] .arpgrp .padonly { display: none; }
+  }
   @media (prefers-reduced-motion: reduce) { .hint { transition: none; } }
   .fx .fxgroup.knobs, .sheet .fxgroup.knobs, .beatsview .fxgroup.knobs { grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 6px 8px; }
 </style>
 </head>
 <body data-view="synth" data-mode="pad" data-play="live">
-<!-- the selects behind the scale, sound and kit lists: the lists drive them, the code reads them -->
+<!-- the selects behind the scale and kit lists: the lists drive them, the code reads them. The sound is a dropdown in its menu -->
 <div hidden>
   <select id="scale" aria-label="Scale"></select>
-  <select id="preset" aria-label="Sound"></select>
   <select id="kit" aria-label="Kit"></select>
 </div>
 <nav class="bar">
@@ -602,7 +614,8 @@
   </div>
   <!-- the synth's sound: the list, the envelope, then the filter and distortion side by side (added by the script) -->
   <div class="sheet listsheet soundsheet" id="presetMenu" role="dialog" aria-label="Synth sound">
-    <div class="fxgroup" style="--cols: 1"><h2>Synth <span class="synName">1</span></h2><div class="list" role="radiogroup" aria-label="Sound" data-for="preset"></div></div>
+    <!-- the sounds, grouped Bass, Lead and Pad (filled from PRESETS) -->
+    <div class="fxgroup" style="--cols: 1"><h2>Synth <span class="synName">1</span></h2><select id="preset" class="soundsel" aria-label="Sound"></select></div>
     <div class="fxgroup envgroup" style="--cols: 2">
       <h2>Envelope</h2>
       <div class="slider">
@@ -669,7 +682,7 @@
         <p>Slide left and right for pitch, up and down for the filter: brighter at the top of each keyboard, darker at the bottom.</p>
         <h3>Arpeggio and chords</h3>
         <p>With <strong>Arp</strong> on, two or more fingers run an arpeggio. With it off, they play a chord. The dots button next to it sets the arpeggio's speed, direction and how long to hold.</p>
-        <p>Keep the same notes down for a couple of seconds and <strong>Hold</strong> lights up: let go and the arpeggio keeps playing, so you can change the sound. Play a new chord to change it, or tap Hold to stop it.</p>
+        <p>Keep the same notes down for a couple of seconds and <strong>Hold</strong> lights up: let go and the arpeggio keeps playing, so you can change the sound. Play a new chord to change it, or tap Hold to stop it. Change the scale while it's held and the notes move onto the new scale.</p>
         <h3>Three synths</h3>
         <p><strong>1 2 3</strong> are three synths, each with its own sound, scale and effects. Whatever one is playing carries on when you switch to another.</p>
         <h3>Steps</h3>
@@ -677,7 +690,7 @@
         <h3>Drums</h3>
         <p><strong>A B C</strong> are three drum machines. They all play together, each with its own kit, patterns and effects. Tap steps to add hits and switch between 32 patterns, 8 at a time: the down arrow shows 9 to 16 and so on, the up arrow goes back. An arrow is underlined when the pattern playing is that way. The name under the tabs shows the kit: <strong>909</strong>, <strong>808</strong> or <strong>Sample</strong>; tap it to change. The Sample kit cuts a loop you load into 8 slices. It guesses whether the loop is 1, 2 or 4 bars long and fits it to the tempo; if it sounds too fast or slow, tap the bars button next to Load.</p>
         <h3>Sound and effects</h3>
-        <p>Tap the sound's name to open its menu. A synth's has its sounds, the envelope, the <strong>Filter</strong> and distortion. The drums' has the kits, a Filter and distortion. Turn Cutoff down for a darker, duller sound, and Resonance up for a ringing edge. Knobs work by pressing one and sliding up or down. <strong>Effects</strong> (the waves button) has delay and reverb, for the synths and the drums. Tempo sets the speed of everything.</p>
+        <p>Tap the sound's name to open its menu. A synth's has a list of sounds (bass, lead and pad), the envelope, the <strong>Filter</strong> and distortion. On a tablet held upright, the filter and distortion sit under the pad instead, next to the delay and reverb. The drums' has the kits, a Filter and distortion. Turn Cutoff down for a darker, duller sound, and Resonance up for a ringing edge. Knobs work by pressing one and sliding up or down. <strong>Effects</strong> (the waves button) has delay and reverb, for the synths and the drums. Tempo sets the speed of everything.</p>
         <h3>Mixer</h3>
         <p>The faders button opens the <strong>Mixer</strong>. A channel's name lights up while it plays and flashes with each note. Each has a level, <strong>M</strong> to mute, <strong>S</strong> to solo, how much reverb, delay and distortion each one gets, and its filter's cutoff. These are the same knobs as in the effects and sound menus.</p>
         <h3>Live and Song</h3>
@@ -691,6 +704,7 @@
       <div class="helppane historypane">
         <!-- newest first; the first entry's number is shown next to the title -->
         <ul class="history" id="history">
+          <li><span class="ver">v4.0</span>Changing the scale moves a held arpeggio onto the new scale. More sounds, in a dropdown grouped Bass, Lead and Pad. Phones show the arpeggio settings button again. Tablets held upright get three keyboards, with Filter, Distortion, Delay and Reverb under the pad.</li>
           <li><span class="ver">v3.9</span>32 patterns for every synth and drum machine, 8 at a time with up and down arrows. Clear is a bin next to the kit, with copy and paste, and asks before anything is lost. Tap a bar number in the song to play from there.</li>
           <li><span class="ver">v3.8</span>The sound menu (tap the sound's name) holds the envelope, filter and distortion, for synths and drums. Effects is just delay and reverb. The mixer has a Cutoff knob for every channel.</li>
           <li><span class="ver">v3.7</span>Synth controls fit on fewer rows: Pad and Steps are icons next to the tabs, the arp and scale sit next to the sound. Load no longer shows on synth screens.</li>
@@ -789,26 +803,56 @@
 
   // q is the filter resonance; atk, dec, rel in seconds and sus 0 to 1 are the starting envelope.
   // Picking a sound loads these into the sound menu, and its controls take over from there
+  // grp puts each sound under Bass, Lead or Pad in the sound menu's dropdown (PRESET_GROUPS, in that order)
+  const PRESET_GROUPS = [["bass", "Bass"], ["lead", "Lead"], ["pad", "Pad"]];
   const PRESETS = {
-    soft:     { name: "Soft sine", q: 0.8, atk: 0.04, dec: 0.3, sus: 1, rel: 0.5, vib: 6,
-                oscs: [{type:"sine", g:0.55}, {type:"triangle", oct:-1, g:0.3}] },
-    warm:     { name: "Warm saw", q: 5, atk: 0.015, dec: 0.3, sus: 1, rel: 0.3, vib: 0,
-                oscs: [{type:"sawtooth", det:-7, g:0.3}, {type:"sawtooth", det:7, g:0.3}] },
-    hollow:   { name: "Hollow square", q: 3, atk: 0.01, dec: 0.3, sus: 1, rel: 0.25, vib: 0,
-                oscs: [{type:"square", g:0.28}, {type:"square", oct:-1, det:4, g:0.14}] },
-    supersaw: { name: "Supersaw pad", q: 1.5, atk: 0.12, dec: 0.5, sus: 1, rel: 0.9, vib: 0,
-                oscs: [-20,-10,0,10,20].map(d => ({type:"sawtooth", det:d, g:0.13})) },
-    glass:    { name: "Glass", q: 0.7, atk: 0.005, dec: 0.8, sus: 1, rel: 1.4, vib: 3,
+    // bass
+    acid:     { grp: "bass", name: "Acid", q: 16, atk: 0.005, dec: 0.2, sus: 1, rel: 0.15, vib: 0,
+                oscs: [{type:"sawtooth", g:0.45}] },
+    sub:      { grp: "bass", name: "Sub", q: 0.7, atk: 0.008, dec: 0.3, sus: 1, rel: 0.15, vib: 0,
+                oscs: [{type:"sine", g:0.6}, {type:"triangle", oct:1, g:0.08}] },
+    reese:    { grp: "bass", name: "Reese", q: 2, atk: 0.01, dec: 0.3, sus: 1, rel: 0.2, vib: 0,
+                oscs: [{type:"sawtooth", det:-14, g:0.24}, {type:"sawtooth", det:14, g:0.24}, {type:"sine", oct:-1, g:0.25}] },
+    pluckBass:{ grp: "bass", name: "Pluck bass", q: 7, atk: 0.003, dec: 0.25, sus: 0.15, rel: 0.12, vib: 0,
+                oscs: [{type:"sawtooth", g:0.35}, {type:"square", oct:-1, g:0.18}] },
+    fatSquare:{ grp: "bass", name: "Fat square", q: 4, atk: 0.006, dec: 0.4, sus: 0.7, rel: 0.15, vib: 0,
+                oscs: [{type:"square", det:-6, g:0.2}, {type:"square", det:6, g:0.2}, {type:"sine", oct:-1, g:0.2}] },
+    // lead
+    glass:    { grp: "lead", name: "Glass", q: 0.7, atk: 0.005, dec: 0.8, sus: 1, rel: 1.4, vib: 3,
                 oscs: [{type:"sine", g:0.45}, {type:"sine", oct:1, det:3, g:0.18}, {type:"triangle", oct:2, g:0.07}] },
-    acid:     { name: "Acid", q: 16, atk: 0.005, dec: 0.2, sus: 1, rel: 0.15, vib: 0,
-                oscs: [{type:"sawtooth", g:0.45}] }
+    warm:     { grp: "lead", name: "Warm saw", q: 5, atk: 0.015, dec: 0.3, sus: 1, rel: 0.3, vib: 0,
+                oscs: [{type:"sawtooth", det:-7, g:0.3}, {type:"sawtooth", det:7, g:0.3}] },
+    hollow:   { grp: "lead", name: "Hollow square", q: 3, atk: 0.01, dec: 0.3, sus: 1, rel: 0.25, vib: 0,
+                oscs: [{type:"square", g:0.28}, {type:"square", oct:-1, det:4, g:0.14}] },
+    bright:   { grp: "lead", name: "Bright lead", q: 4, atk: 0.01, dec: 0.3, sus: 0.85, rel: 0.25, vib: 9,
+                oscs: [{type:"sawtooth", g:0.3}, {type:"square", oct:1, det:5, g:0.12}] },
+    chip:     { grp: "lead", name: "Chip", q: 0.7, atk: 0.002, dec: 0.12, sus: 0.8, rel: 0.06, vib: 0,
+                oscs: [{type:"square", g:0.3}] },
+    flute:    { grp: "lead", name: "Flute", q: 0.7, atk: 0.07, dec: 0.3, sus: 0.9, rel: 0.25, vib: 12,
+                oscs: [{type:"sine", g:0.5}, {type:"triangle", oct:1, g:0.06}] },
+    bell:     { grp: "lead", name: "Bell", q: 0.7, atk: 0.002, dec: 1.4, sus: 0, rel: 1.2, vib: 0,
+                oscs: [{type:"sine", g:0.4}, {type:"sine", oct:2, det:8, g:0.16}, {type:"triangle", oct:3, det:-6, g:0.05}] },
+    // pad
+    soft:     { grp: "pad", name: "Soft sine", q: 0.8, atk: 0.04, dec: 0.3, sus: 1, rel: 0.5, vib: 6,
+                oscs: [{type:"sine", g:0.55}, {type:"triangle", oct:-1, g:0.3}] },
+    supersaw: { grp: "pad", name: "Supersaw", q: 1.5, atk: 0.12, dec: 0.5, sus: 1, rel: 0.9, vib: 0,
+                oscs: [-20,-10,0,10,20].map(d => ({type:"sawtooth", det:d, g:0.13})) },
+    strings:  { grp: "pad", name: "Strings", q: 1, atk: 0.35, dec: 0.6, sus: 0.9, rel: 1.2, vib: 5,
+                oscs: [{type:"sawtooth", det:-9, g:0.2}, {type:"sawtooth", det:9, g:0.2}, {type:"sawtooth", oct:1, g:0.08}] },
+    warmPad:  { grp: "pad", name: "Warm pad", q: 1, atk: 0.6, dec: 0.8, sus: 1, rel: 1.6, vib: 4,
+                oscs: [{type:"triangle", det:-6, g:0.3}, {type:"triangle", det:6, g:0.3}, {type:"sine", oct:-1, g:0.2}] },
+    darkPad:  { grp: "pad", name: "Dark pad", q: 3, atk: 0.8, dec: 1, sus: 0.9, rel: 2, vib: 0,
+                oscs: [{type:"square", det:-10, g:0.16}, {type:"square", det:10, g:0.16}, {type:"sawtooth", oct:-1, g:0.12}] }
   };
 
   const NOTE_NAMES = ["C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B"];
   const LOW = 36, SPAN = 24;             // each pad row covers two octaves from C2
-  // stacked keyboards, two octaves each from C2: two rows (to C6) on big screens, three (to C8) on phones
+  // stacked keyboards, two octaves each from C2: two rows (to C6) on big screens, three (to C8) on phones and on
+  // tablets held upright (tabletMQ, which also moves the filter and distortion under the pad, see placeSoundFx)
   const phoneMQ = matchMedia("(max-width: 520px), (orientation: landscape) and (max-height: 540px)");
-  let ROWS = phoneMQ.matches ? 3 : 2;
+  const tabletMQ = matchMedia("(orientation: portrait) and (min-width: 521px) and (max-width: 1100px)");
+  const padRows = () => phoneMQ.matches || tabletMQ.matches ? 3 : 2;
+  let ROWS = padRows();
   const CUT_MIN = 60, CUT_MAX = 14000;   // the pad's filter range at the bottom and top of a row (top follows Cutoff)
   const CUT_LOW = 100;                   // the Cutoff slider runs from here up to CUT_MAX, exponentially
   const cutFromSlider = v => CUT_LOW * Math.pow(CUT_MAX / CUT_LOW, v / 100);
@@ -825,7 +869,13 @@
   const scaleSel = $("scale");
   const presetSel = $("preset");
   for (const [k, s] of Object.entries(SCALES)) scaleSel.add(new Option(s.name, k));
-  for (const [k, p] of Object.entries(PRESETS)) presetSel.add(new Option(p.name, k));
+  // the sound dropdown, in groups
+  for (const [g, label] of PRESET_GROUPS) {
+    const og = document.createElement("optgroup");
+    og.label = label;
+    for (const [k, p] of Object.entries(PRESETS)) if (p.grp === g) og.append(new Option(p.name, k));
+    presetSel.append(og);
+  }
 
   // two octaves of a scale (and the C on top), starting from a C
   function scaleNotes(scale, from) {
@@ -911,6 +961,17 @@
   $("kitMenu").insertAdjacentHTML("beforeend", pairHTML(filterHTML("kfltCut", "kfltRes"), distHTML("k")));
   $("fxMenu").innerHTML = delayRevHTML("");
   $("drumFxMenu").innerHTML = delayRevHTML("k");
+  // on a tablet held upright the row under the pad is Filter, Distortion, Delay, Reverb (the arpeggio goes in a menu,
+  // like on phones), so the synth's filter and distortion panels move out of the sound menu into that row, and back
+  // when it turns. Moving them keeps their ids and listeners
+  const synthPair = $("presetMenu").querySelector(".fxpair");
+  const soundFx = [...synthPair.children];
+  function placeSoundFx() {
+    if (tabletMQ.matches) $("fxMenu").before(...soundFx);
+    else synthPair.append(...soundFx);
+  }
+  placeSoundFx();
+  tabletMQ.addEventListener("change", placeSoundFx);
 
   // a knob: a 270° arc from bottom left round to bottom right. Dragging up turns it up; a full sweep is KNOB_TRAVEL px
   const KNOB_TRAVEL = 160, ARC = 2 * Math.PI * 16;
@@ -1585,15 +1646,32 @@
   let holdKey = "", holdSince = 0;     // the notes the fingers are holding now, and since when (ms)
   const holdSecs = syn => ARP_HOLDS[syn.arpHold][0];
 
+  // a held note is kept as its place up the scale (idx, like a step grid row) and its keyboard row, so changing the
+  // scale moves it onto the new scale. latchNotes() works out the actual notes from those
   function setLatch(syn) {
-    const info = new Map();
+    const held = [], seen = new Set();
     pointers.forEach(p => {
       p.latched = true;
-      if (!info.has(p.midi)) info.set(p.midi, { row: p.row, ly: p.ly });
+      if (!seen.has(p.midi)) { seen.add(p.midi); held.push({ idx: p.idx, row: p.row, ly: p.ly }); }
     });
-    syn.latch = { notes: [...info.keys()].sort((a, b) => a - b), info };
+    syn.latch = { held };
+    latchNotes(syn);
     updateTabs();
     markPad();
+  }
+  // the held notes in the synth's scale. A place past the top of a smaller scale drops an octave (of that scale) until
+  // it fits; two places landing on one note play it once. Each held entry keeps its first place, so changing back
+  // to the old scale gives back the old notes
+  function latchNotes(syn) {
+    const notes = syn.notes, per = SCALES[syn.scale].steps.length, info = new Map();
+    syn.latch.held.forEach(h => {
+      let i = h.idx;
+      while (i >= notes.length) i -= per;
+      const midi = notes[i] + h.row * SPAN;
+      if (!info.has(midi)) info.set(midi, h);
+    });
+    syn.latch.notes = [...info.keys()].sort((a, b) => a - b);
+    syn.latch.info = info;
   }
 
   // the Hold button: stops a held arp. The beats and the other synths carry on
@@ -1760,7 +1838,7 @@
     cur.voices.forEach((v, id) => { const p = pointers.get(id); if (p) glideVoice(v, p.midi, cutoffFor(p.ly, cur)); });
     showReadout();
   }
-  phoneMQ.addEventListener("change", () => { ROWS = phoneMQ.matches ? 3 : 2; remapPointers(); });
+  [phoneMQ, tabletMQ].forEach(mq => mq.addEventListener("change", () => { ROWS = padRows(); remapPointers(); }));
 
   function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
   const hueFor = (idx, n) => 260 - (idx / Math.max(n - 1, 1)) * 230;
@@ -2654,6 +2732,7 @@
   scaleSel.addEventListener("change", () => {
     cur.scale = scaleSel.value;
     buildNotes(cur);
+    if (cur.latch) latchNotes(cur);                      // a held arp moves onto the new scale, like the step grid
     remapPointers();
     renderSynthGrid();
   });
@@ -2716,7 +2795,7 @@
     markPad();
     scaleSel.value = cur.scale;
     presetSel.value = cur.preset;
-    listSyncs.scale(); listSyncs.preset();
+    listSyncs.scale();
     showSoundBtn();
     loadSoundUI(cur);
     loadFxUI(cur.rack);
@@ -2912,8 +2991,8 @@
   });
 
   // ---------- menus ----------
-  // scale, sound and kit lists mirror their hidden selects: picking one sets the select and fires its change event.
-  // The sound has two lists (the phone synth menu, and a menu of its own on bigger screens); listSyncs keeps both in step
+  // the scale and kit lists mirror their hidden selects: picking one sets the select and fires its change event.
+  // listSyncs puts a select's value back into its list (the synth's sound is a plain dropdown, so it needs none)
   const listSyncs = {};
   document.querySelectorAll(".list[data-for]").forEach((list, n) => {
     const sel = $(list.dataset.for);
@@ -2935,6 +3014,7 @@
   });
 
   const scrim = $("scrim");
+  const finePointer = matchMedia("(pointer: fine)");
   const menuBtns = document.querySelectorAll("[data-menu]");
   let openMenuBtn = null;
   function closeMenu() {
@@ -2958,7 +3038,9 @@
     btn.setAttribute("aria-expanded", "true");
     scrim.hidden = false;
     openMenuBtn = btn;
-    (sheet.querySelector("input:checked") || sheet.querySelector("input, a"))?.focus({ preventScroll: true });
+    // the sound dropdown gets focus with a mouse only: on a touch screen focusing it could pop its list open
+    (sheet.querySelector("input:checked") || (finePointer.matches && sheet.querySelector("select")) ||
+      sheet.querySelector("input, a"))?.focus({ preventScroll: true });
   }
   menuBtns.forEach(btn => btn.addEventListener("click", () => openMenuBtn === btn ? closeMenu() : openMenu(btn)));
   scrim.addEventListener("click", () => { closeMenu(); closePicker(); closeConfirm(); });
@@ -2968,6 +3050,7 @@
     else if (e.key === "Escape" && openMenuBtn) { const b = openMenuBtn; closeMenu(); b.focus(); }
   });
   phoneMQ.addEventListener("change", closeMenu);
+  tabletMQ.addEventListener("change", closeMenu);
 
   // tempo nudges, one BPM at a time
   document.querySelectorAll("[data-nudge]").forEach(b => b.addEventListener("click", () => {
