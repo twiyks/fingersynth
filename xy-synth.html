@@ -207,6 +207,10 @@
   .dpad.down { background: var(--hit); border-color: var(--hit); color: var(--bg); transition: none; }
   .dpad.down b { color: var(--bg); transition: none; }
   .dpad:focus-visible { outline: 3px solid var(--root); outline-offset: 2px; }
+  /* a drum's controls: a row of knobs under its name */
+  .debtns { display: flex; gap: 6px; }
+  .deknobs { display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); gap: 6px 8px; padding: 4px 0 2px; }
+  #drumEdit.open { width: min(400px, calc(100% - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px))); }
   /* Rec: a dot before the word */
   .recbtn { display: inline-flex; align-items: center; gap: 6px; flex: none; }
   .recbtn::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
@@ -715,6 +719,19 @@
       </div>
     </div>
   </div>
+  <!-- a drum's own controls, opened by holding its pad (filled by openDrumEdit) -->
+  <div class="sheet popsheet" id="drumEdit" role="dialog" aria-labelledby="deTitle">
+    <div class="fxgroup" style="--cols: 1">
+      <div class="fxhead">
+        <h2 id="deTitle"><span id="deName"></span> <span class="sub" id="deSub"></span></h2>
+        <div class="debtns">
+          <button class="btn" id="dePlay">Play</button>
+          <button class="btn" id="deReset" title="Back to how it started">Reset</button>
+        </div>
+      </div>
+      <div class="deknobs" id="deKnobs"></div>
+    </div>
+  </div>
   <!-- the mixer's channels are built by the mixer code -->
   <div class="sheet popsheet" id="mixMenu" role="dialog" aria-label="Mixer"></div>
   <div class="sheet popsheet" id="settingsMenu" role="dialog" aria-label="Settings">
@@ -758,7 +775,7 @@
         <p>Press an empty spot to add a note, and drag right to make it longer. Drag the end of a note to stretch or shorten it, drag the rest of it to move it, and tap it to take it out. New notes are as long as the last one you drew.</p>
         <p>Scroll the notes on the left to move up and down the keyboard. Press one to hear it; it plays for as long as you hold it. The roll covers four octaves; − and + move the whole pattern down or up an octave.</p>
         <h3>Drums</h3>
-        <p><strong>A B C</strong> are three drum machines. They all play together, each with its own kit, patterns and effects. In <strong>Pads</strong>, tap the pads to play the drums live, with as many fingers as you like. Tap <strong>Rec</strong> to record: the beats start if they're stopped, the pattern plays, and every pad you hit is added to it on the nearest step. Tap Rec again, or stop, to finish. In <strong>Steps</strong>, tap steps to add hits and switch between 32 patterns, 8 at a time: the down arrow shows 9 to 16 and so on, the up arrow goes back. An arrow is underlined when the pattern playing is that way. The name under the tabs shows the kit: <strong>909</strong>, <strong>808</strong> or <strong>Sample</strong>; tap it to change. The Sample kit cuts a loop you load into 8 slices. It guesses whether the loop is 1, 2 or 4 bars long and fits it to the tempo; if it sounds too fast or slow, tap the bars button next to Load.</p>
+        <p><strong>A B C</strong> are three drum machines. They all play together, each with its own kit, patterns and effects. In <strong>Pads</strong>, tap the pads to play the drums live, with as many fingers as you like. Press and hold a pad (or right-click it) to shape that drum with the knobs the original 909 or 808 has for it, such as Tune, Decay, Tone and Snappy; Reset puts it back. Tap <strong>Rec</strong> to record: the beats start if they're stopped, the pattern plays, and every pad you hit is added to it on the nearest step. Tap Rec again, or stop, to finish. In <strong>Steps</strong>, tap steps to add hits and switch between 32 patterns, 8 at a time: the down arrow shows 9 to 16 and so on, the up arrow goes back. An arrow is underlined when the pattern playing is that way. The name under the tabs shows the kit: <strong>909</strong>, <strong>808</strong> or <strong>Sample</strong>; tap it to change. The Sample kit cuts a loop you load into 8 slices. It guesses whether the loop is 1, 2 or 4 bars long and fits it to the tempo; if it sounds too fast or slow, tap the bars button next to Load.</p>
         <h3>Sound and effects</h3>
         <p>Tap the sound's name to open its menu. A synth's has a list of sounds (bass, lead and pad), the envelope, the <strong>Filter</strong> and distortion. On a tablet held upright, the filter and distortion sit under the pad instead, next to the delay and reverb. The drums' has the kits, a Filter and distortion. Turn Cutoff down for a darker, duller sound, and Resonance up for a ringing edge. Knobs work by pressing one and sliding up or down. <strong>Effects</strong> (the waves button) has delay and reverb, for the synths and the drums. Tempo sets the speed of everything.</p>
         <h3>Mixer</h3>
@@ -774,6 +791,7 @@
       <div class="helppane historypane">
         <!-- newest first; the first entry's number is shown next to the title -->
         <ul class="history" id="history">
+          <li><span class="ver">v4.5</span>Hold a drum pad to shape that drum with the knobs from the original 909 and 808.</li>
           <li><span class="ver">v4.4</span>Record on the drum pads: tap Rec and what you play is added to the pattern, on the beat.</li>
           <li><span class="ver">v4.3</span>Synths and drums work the same way: a synth has Pad and Piano roll (Steps is gone, its patterns open in the piano roll), a drum machine has Pads to play live and Steps.</li>
           <li><span class="ver">v4.2</span>The note names next to Steps and the piano roll play as soon as you press them, and keep playing while held. Drum names play on press too.</li>
@@ -2079,22 +2097,23 @@
     cleanup(oscs[0], g);
   }
   let hit = null;                                        // the drum machine playing this hit (see playRow)
+  let hitBus = null;                                     // where this hit's sound goes: its Level, then hit.bus
   function closedHat(t, peak, decay, noiseAmt, hpFreq) {
     if (hit.openHat && hit.openHat.start < t) hit.openHat.choke.gain.setTargetAtTime(0, t, 0.008);
-    hat(t, peak, decay, hit.bus, noiseAmt, hpFreq);
+    hat(t, peak, decay, hitBus, noiseAmt, hpFreq);
   }
   function openHatHit(t, peak, decay, noiseAmt, hpFreq) {
-    const choke = ctx.createGain(); choke.connect(hit.bus);
+    const choke = ctx.createGain(); choke.connect(hitBus);
     hat(t, peak, decay, choke, noiseAmt, hpFreq);
     hit.openHat = { choke, start: t };
     setTimeout(() => choke.disconnect(), (t - ctx.currentTime + decay + 0.3) * 1000);
   }
   function tom(t, freq, decay, drop) {
-    const g = gainNode(hit.bus, t, 0.8, decay);
+    const g = gainNode(hitBus, t, 0.8, decay);
     cleanup(osc("sine", freq * drop, freq, 0.08, t, decay + 0.05, g), g);
   }
   function clap(t, bpFreq, tail) {
-    const g = gainNode(hit.bus, t);
+    const g = gainNode(hitBus, t);
     [0, 0.011, 0.022].forEach(d => {                     // a few quick bursts, then the tail
       g.gain.setValueAtTime(1.4, t + d);
       g.gain.exponentialRampToValueAtTime(0.15, t + d + 0.009);
@@ -2103,14 +2122,16 @@
     cleanup(noise(t, tail + 0.04, filterNode("bandpass", bpFreq, 1.4, g)), g);
   }
   function snare(t, tones, toneType, toneDecay, noiseHp, noisePeak, noiseDecay) {
-    const g = gainNode(hit.bus, t, 0.45, toneDecay);
+    const g = gainNode(hitBus, t, 0.45, toneDecay);
     tones.forEach(f => osc(toneType, f * 1.2, f, 0.03, t, toneDecay + 0.02, g));
-    const n = gainNode(hit.bus, t, noisePeak, noiseDecay);
-    cleanup(noise(t, noiseDecay + 0.03, filterNode("highpass", noiseHp, 0, n)), n);
+    if (noisePeak > 0) {
+      const n = gainNode(hitBus, t, noisePeak, noiseDecay);
+      cleanup(noise(t, noiseDecay + 0.03, filterNode("highpass", noiseHp, 0, n)), n);
+    }
     setTimeout(() => g.disconnect(), (t - ctx.currentTime + toneDecay + 0.3) * 1000);
   }
   function rim(t, freqs, type, decay) {
-    const g = gainNode(hit.bus, t, 0.6, decay);
+    const g = gainNode(hitBus, t, 0.6, decay);
     const f = type === "square" ? filterNode("highpass", 800, 0, g) : filterNode("bandpass", 1700, 3, g);
     freqs.forEach(fr => osc(type, fr, 0, 0, t, decay + 0.01, f));
     setTimeout(() => g.disconnect(), (t - ctx.currentTime + 0.3) * 1000);
@@ -2123,34 +2144,54 @@
     { id: "lt", short: "LT", name: "Low tom" }, { id: "ht", short: "HT", name: "High tom" },
     { id: "ch", short: "CH", name: "Closed hat" }, { id: "oh", short: "OH", name: "Open hat" },
   ];
+  // each kit's controls per drum, as on the real machines' panels (params, in panel order). Every knob runs 0 to 100
+  // and reads 0 to 10 like theirs. 50 is the sound the kits have always had; Level's 80 is full volume, a little more
+  // is possible. play(t, p) gets the drum's settings (p.tune, p.decay...); Level is applied in playRow
+  const bend = (v, octaves) => Math.pow(2, (v - 50) / 50 * octaves);   // 50 gives 1, 0 and 100 `octaves` down and up
   const KITS = {
-    k909: { name: "909", play: {
-      bd: t => {
-        const g = gainNode(hit.bus, t, 1, 0.55);
-        cleanup(osc("sine", 190, 48, 0.09, t, 0.6, g), g);
-        const c = gainNode(hit.bus, t, 0.35, 0.015);     // click at the front
-        cleanup(noise(t, 0.02, filterNode("highpass", 1200, 0, c)), c);
+    k909: { name: "909", params: {
+      bd: ["tune", "level", "attack", "decay"], sd: ["tune", "level", "tone", "snappy"], cp: ["level"], rs: ["level"],
+      lt: ["tune", "level", "decay"], ht: ["tune", "level", "decay"], ch: ["level", "decay"], oh: ["level", "decay"],
+    }, play: {
+      bd: (t, p) => {                                    // Tune sets where the pitch sweep starts, Attack the click
+        const dec = 0.55 * bend(p.decay, 1.3), f = bend(p.tune, 0.8);
+        const g = gainNode(hitBus, t, 1, dec);
+        cleanup(osc("sine", 190 * f, 48 * Math.sqrt(f), 0.09, t, dec + 0.05, g), g);
+        if (p.attack > 0) {
+          const c = gainNode(hitBus, t, 0.35 * p.attack / 50, 0.015);    // click at the front
+          cleanup(noise(t, 0.02, filterNode("highpass", 1200, 0, c)), c);
+        }
       },
-      sd: t => snare(t, [185, 330], "triangle", 0.14, 1400, 0.6, 0.22),
+      // Tone moves the noise's filter (higher is thinner and brighter), Snappy is how much noise
+      sd: (t, p) => snare(t, [185, 330].map(f => f * bend(p.tune, 0.5)), "triangle", 0.14, 1400 * bend(p.tone, 1.3), 0.6 * p.snappy / 50, 0.22),
       cp: t => clap(t, 1100, 0.22),
       rs: t => rim(t, [480, 1650], "triangle", 0.04),
-      lt: t => tom(t, 95, 0.4, 1.6),
-      ht: t => tom(t, 150, 0.4, 1.6),
-      ch: t => closedHat(t, 0.3, 0.06, 0.5, 7000),
-      oh: t => openHatHit(t, 0.25, 0.4, 0.5, 7000),
+      lt: (t, p) => tom(t, 95 * bend(p.tune, 0.6), 0.4 * bend(p.decay, 1.2), 1.6),
+      ht: (t, p) => tom(t, 150 * bend(p.tune, 0.6), 0.4 * bend(p.decay, 1.2), 1.6),
+      ch: (t, p) => closedHat(t, 0.3, 0.06 * bend(p.decay, 1.2), 0.5, 7000),
+      oh: (t, p) => openHatHit(t, 0.25, 0.4 * bend(p.decay, 1.3), 0.5, 7000),
     } },
-    k808: { name: "808", play: {
-      bd: t => {                                         // long, round boom with only a small pitch drop
-        const g = gainNode(hit.bus, t, 1, 0.9);
-        cleanup(osc("sine", 110, 52, 0.04, t, 0.95, g), g);
+    k808: { name: "808", params: {
+      bd: ["level", "tone", "decay"], sd: ["level", "tone", "snappy"], cp: ["level"], rs: ["level"],
+      lt: ["level", "tuning"], ht: ["level", "tuning"], ch: ["level"], oh: ["level", "decay"],
+    }, play: {
+      bd: (t, p) => {                                    // long, round boom with only a small pitch drop
+        const dec = 0.9 * bend(p.decay, 1.5);
+        const g = gainNode(hitBus, t, 1, dec);
+        // Tone: below the middle the start softens, above it a click comes in
+        cleanup(osc("sine", 110 * bend(Math.min(p.tone, 50), 0.4), 52, 0.04, t, dec + 0.05, g), g);
+        if (p.tone > 50) {
+          const c = gainNode(hitBus, t, 0.3 * (p.tone - 50) / 50, 0.012);
+          cleanup(noise(t, 0.02, filterNode("lowpass", 3000, 0, c)), c);
+        }
       },
-      sd: t => snare(t, [238, 476], "sine", 0.12, 2000, 0.45, 0.17),
+      sd: (t, p) => snare(t, [238, 476], "sine", 0.12, 2000 * bend(p.tone, 1.3), 0.45 * p.snappy / 50, 0.17),
       cp: t => clap(t, 1000, 0.3),
       rs: t => rim(t, [455, 1750], "square", 0.025),
-      lt: t => tom(t, 85, 0.6, 1.25),
-      ht: t => tom(t, 130, 0.5, 1.25),
+      lt: (t, p) => tom(t, 85 * bend(p.tuning, 0.6), 0.6, 1.25),
+      ht: (t, p) => tom(t, 130 * bend(p.tuning, 0.6), 0.5, 1.25),
       ch: t => closedHat(t, 0.28, 0.045, 0, 8000),
-      oh: t => openHatHit(t, 0.22, 0.45, 0, 8000),
+      oh: (t, p) => openHatHit(t, 0.22, 0.45 * bend(p.decay, 1.3), 0, 8000),
     } },
     brk: { name: "Sample", isBreak: true },
   };
@@ -2163,6 +2204,24 @@
   } catch {}
   const saveKits = () => { try { localStorage.setItem("xysynth.kits", JSON.stringify(drums.map(dm => dm.kit))); } catch {} };
   const isBreakKit = (dm = dcur) => !!KITS[dm.kit].isBreak;
+
+  // each machine's drum settings: dm.tone[kit][drum][param], knob positions. Saved on this device
+  const TONE_KEY = "xysynth.drumTone";
+  const TONE_LABELS = { level: "Level", tune: "Tune", tuning: "Tuning", attack: "Attack", decay: "Decay", tone: "Tone", snappy: "Snappy" };
+  const toneDefault = name => name === "level" ? 80 : 50;
+  const toneKits = Object.entries(KITS).filter(([, k]) => k.params);
+  const defaultTone = () => Object.fromEntries(toneKits.map(([key, k]) => [key, Object.fromEntries(
+    Object.entries(k.params).map(([id, names]) => [id, Object.fromEntries(names.map(n => [n, toneDefault(n)]))]))]));
+  let savedTone = [];
+  try { savedTone = JSON.parse(localStorage.getItem(TONE_KEY)) || []; } catch {}
+  drums.forEach((dm, i) => {
+    dm.tone = defaultTone();
+    for (const [key, ids] of Object.entries(dm.tone)) for (const [id, vals] of Object.entries(ids)) for (const n in vals) {
+      const v = savedTone[i]?.[key]?.[id]?.[n];
+      if (typeof v === "number" && v >= 0 && v <= 100) vals[n] = v;
+    }
+  });
+  const saveTone = () => { try { localStorage.setItem(TONE_KEY, JSON.stringify(drums.map(dm => dm.tone))); } catch {} };
 
   // ---------- break: a loaded loop of 1, 2 or 4 bars cut into slices, one per row ----------
   const SLICES = DRUM_ROWS.length;
@@ -2192,12 +2251,18 @@
     cleanup(src, g);
     b.voice = { src, g, start: t };
   }
-  // every drum hit goes through here: the sequencer, the grid and the row labels
+  // every drum hit goes through here: the sequencer, the grid, the row labels and the pads. A drum kit's hit gets a
+  // gain of its own for its Level, unplugged once even the longest drum has finished
   const playRow = (dm, r, t) => {
     wakeRack(dm.rack);
     noteAt(dm.chan, t);
     hit = dm;
-    isBreakKit(dm) ? playSlice(dm, r, t) : KITS[dm.kit].play[DRUM_ROWS[r].id](t);
+    if (isBreakKit(dm)) return playSlice(dm, r, t);
+    const id = DRUM_ROWS[r].id, p = dm.tone[dm.kit][id], out = hitBus = ctx.createGain();
+    out.gain.value = faderGain(p.level);
+    out.connect(dm.bus);
+    KITS[dm.kit].play[id](t, p);
+    setTimeout(() => out.disconnect(), (t - ctx.currentTime + 4) * 1000);
   };
 
   // the loaded file is kept in IndexedDB so it survives a reload
@@ -2572,12 +2637,26 @@
     padsEl.append(b);
     return b;
   });
+  // holding a pad (HOLD_EDIT ms) opens that drum's controls; so does right-clicking it, or the keyboard's menu key
+  const HOLD_EDIT = 500;
+  let editHeld = false;                                  // a finger that opened the controls is still down
   pressPlays(padsEl, ".dpad", pad => {
     hitRow(pad);
     recordHit(dcur, +pad.dataset.r);
     pad.classList.add("down");
-    return () => pad.classList.remove("down");
+    const timer = setTimeout(() => { editHeld = true; openDrumEdit(pad, true); }, HOLD_EDIT);
+    return () => {
+      clearTimeout(timer);
+      pad.classList.remove("down");
+      if (editHeld) setTimeout(() => { editHeld = false; });   // after the click that follows, so it can't close them
+    };
   }, hitRow);
+  padsEl.addEventListener("contextmenu", e => {
+    const pad = e.target.closest(".dpad");
+    if (!pad) return;
+    e.preventDefault();
+    if (openMenuBtn !== pad) openDrumEdit(pad, !!(e.clientX || e.clientY));   // the menu key has no position
+  });
   padsEl.addEventListener("pointerdown", e => { if (e.target.closest(".dpad")) e.preventDefault(); });   // no focus ring, no text selection
   // drum kits label rows (and pads) by drum, the break by slice number
   function updateRowLabels() {
@@ -2680,6 +2759,46 @@
     dcur.rec = !dcur.rec;
     if (dcur.rec && !seq.playing) startSeq();
     showRec(); updateTabs();
+  });
+  // a drum's controls: the knobs its kit has for it (KITS[kit].params). Turning one changes the next hit; letting go
+  // plays the drum (when the beats are stopped) and saves. Not for the Sample kit, which has no controls
+  let editRow = 0;
+  const editVals = () => dcur.tone[dcur.kit][DRUM_ROWS[editRow].id];
+  function buildDrumEdit() {
+    const d = DRUM_ROWS[editRow], kit = KITS[dcur.kit], names = kit.params[d.id], vals = editVals();
+    $("deName").textContent = d.name;
+    $("deSub").textContent = `Drums ${dcur.name}, ${kit.name}`;
+    const box = $("deKnobs");
+    box.style.setProperty("--cols", Math.max(names.length, 2));
+    box.innerHTML = names.map(n => knobHTML("de_" + n, TONE_LABELS[n], 0, 100)).join("");
+    box.querySelectorAll(".dial").forEach(makeKnob);
+    names.forEach(n => {
+      const inp = $("de_" + n), out = $("de_" + n + "Out");
+      const show = () => { out.textContent = (vals[n] / 10).toFixed(1); };
+      inp.value = vals[n];
+      show();
+      inp.addEventListener("input", () => { vals[n] = +inp.value; show(); });
+      inp.addEventListener("change", () => { saveTone(); if (!seq.playing) playEdit(); });
+    });
+  }
+  const playEdit = () => { ensureAudio(); playRow(dcur, editRow, ctx.currentTime + 0.01); };
+  // byPointer: opened by a finger or mouse, so no knob gets the keyboard focus (and its ring)
+  function openDrumEdit(pad, byPointer) {
+    if (isBreakKit()) return;
+    editRow = +pad.dataset.r;
+    buildDrumEdit();
+    pad.dataset.menu = "drumEdit";                       // so openMenu and closeMenu treat the pad as its button
+    openMenu(pad);
+    $("drumEdit").style.setProperty("--sheet-top", document.querySelector(".bar").getBoundingClientRect().bottom + 6 + "px");
+    if (byPointer) document.activeElement?.blur();
+  }
+  pressPlays($("drumEdit"), "#dePlay", playEdit, playEdit);
+  $("deReset").addEventListener("click", () => {
+    const vals = editVals();
+    for (const n in vals) vals[n] = toneDefault(n);
+    saveTone();
+    buildDrumEdit();
+    playEdit();
   });
   function recordHit(dm, r) {
     if (!dm.rec || !seq.playing || !seq.log.length) return;
@@ -3346,7 +3465,7 @@
       sheet.querySelector("input, a"))?.focus({ preventScroll: true });
   }
   menuBtns.forEach(btn => btn.addEventListener("click", () => openMenuBtn === btn ? closeMenu() : openMenu(btn)));
-  scrim.addEventListener("click", () => { closeMenu(); closePicker(); closeConfirm(); });
+  scrim.addEventListener("click", () => { if (editHeld) return; closeMenu(); closePicker(); closeConfirm(); });
   document.addEventListener("keydown", e => {
     if (e.key === "Escape" && confirmDo) closeConfirm();
     else if (e.key === "Escape" && pickSlot) closePicker().focus();
