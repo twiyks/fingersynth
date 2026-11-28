@@ -114,6 +114,11 @@
   .arpgrp { display: flex; align-items: center; gap: 3px; background: var(--band); border-radius: 12px; padding: 3px; }
   .arpgrp .iconbtn { padding: 5px 6px; }
   .arpgrp .iconbtn:not(.scalebtn) { display: none; }   /* settings menu: phones only, bigger screens have the panel */
+  /* the pattern tools (clear, copy, paste) in the name row: on the drums, and on a synth in Steps */
+  .patgrp { display: flex; align-items: center; gap: 3px; background: var(--band); border-radius: 12px; padding: 3px; flex: none; }
+  .patgrp .iconbtn { padding: 5px 6px; }
+  .patgrp .iconbtn:disabled { opacity: 0.4; cursor: default; }
+  body[data-view="song"] .patgrp, body[data-view="synth"][data-mode="pad"] .patgrp { display: none; }
   /* arp hold: always there, dimmed until there's something to hold; fills from the left while the notes count up, solid once held */
   .holdbtn { background: linear-gradient(to right, var(--hit) calc(var(--fill, 0) * 100%), var(--control) 0); }
   .holdbtn.off { color: var(--muted); border-color: transparent; }
@@ -141,23 +146,41 @@
   .songlist { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 2px; padding-right: 2px; }
   .songrow.now { background: var(--line); }
   .barnum { font-size: 0.75rem; font-weight: 600; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+  /* a row's bar number: tap to play from that bar */
+  button.barnum { font-family: inherit; background: none; border: 0; border-radius: 8px; height: 34px; padding: 0; cursor: pointer; }
   .songrow.now .barnum { color: var(--ink); font-weight: 800; }
+  /* where play starts from (stopped), or the bar it jumps to next (playing) */
+  .songrow.cue { box-shadow: inset 0 0 0 1.5px var(--line); }
+  .songrow.cue .barnum { color: var(--ink); font-weight: 800; }
   .songlist .slot {
     font: inherit; font-size: 0.9rem; font-weight: 800; color: var(--ink); min-width: 0; height: 34px;
     background: var(--control); border: 1.5px solid var(--line); border-radius: 8px; cursor: pointer;
   }
   .songlist .slot.off { background: var(--band); border-color: transparent; color: var(--muted); font-weight: 600; }
   .rowdel { font: inherit; font-size: 1.1rem; color: var(--muted); background: none; border: 0; border-radius: 8px; height: 34px; cursor: pointer; }
-  .slot:focus-visible, .rowdel:focus-visible { outline: 3px solid var(--root); outline-offset: 1px; }
+  .slot:focus-visible, .rowdel:focus-visible, .barnum:focus-visible { outline: 3px solid var(--root); outline-offset: 1px; }
   .addrow { margin: 6px auto 4px; padding: 8px 18px; flex: none; }
   /* the pattern picker that opens from a slot */
   .patpick {
-    position: fixed; z-index: 21; display: grid; grid-template-columns: repeat(3, 3rem); gap: 4px; padding: 6px;
+    position: fixed; z-index: 21; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; padding: 6px;
+    width: min(22rem, calc(100vw - 16px));
     background: var(--bg); border: 1.5px solid var(--line); border-radius: 14px; box-shadow: 0 12px 32px rgb(0 0 0 / 0.25);
   }
   .patpick[hidden] { display: none; }
-  .patpick .btn { padding: 8px 0; font-size: 0.95rem; }
+  .patpick .btn { padding: 8px 0; font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+  .patpick .btn:first-child { grid-column: 1 / -1; }
+  .patpick .btn.empty { background: var(--band); border-color: transparent; color: var(--muted); }   /* nothing in it */
   .patpick .btn[aria-pressed="true"] { background: var(--hit); border-color: var(--hit); color: var(--bg); }
+  /* the "are you sure" box, centred over the scrim */
+  .confirm {
+    position: fixed; z-index: 21; left: 50%; top: 30%; transform: translate(-50%, -50%);
+    width: min(300px, calc(100vw - 32px)); display: grid; gap: 12px; padding: 14px;
+    background: var(--bg); border: 1.5px solid var(--line); border-radius: 16px; box-shadow: 0 12px 32px rgb(0 0 0 / 0.25);
+  }
+  .confirm[hidden] { display: none; }
+  .confirm p { margin: 0; font-size: 0.95rem; line-height: 1.4; }
+  .confirmbtns { display: flex; justify-content: flex-end; gap: 8px; }
+  .confirmbtns .btn { padding: 7px 16px; font-size: 0.9rem; }
   body[data-mode="steps"] .padonly, body:not([data-mode="steps"]) .stepsonly { display: none; }
   .btn[hidden] { display: none; }
   .btn.wanted { background: var(--hit); border-color: var(--hit); color: var(--bg); }
@@ -165,6 +188,12 @@
   /* step grids: the drums, and a synth in Steps mode */
   .beatsbar { display: flex; gap: 8px; align-items: center; }
   .seg.pats { flex: 1; }
+  .seg.pats label[hidden] { display: none; }            /* 32 patterns, 8 at a time */
+  .pagectl { display: flex; gap: 3px; flex: none; }
+  .pagectl .iconbtn { padding: 5px 6px; }
+  .pagectl svg { width: 18px; height: 18px; }
+  .pagectl .btn:disabled { opacity: 0.4; cursor: default; }
+  .pagectl .btn.playing { box-shadow: inset 0 -3px 0 var(--hit); }   /* the playing pattern is on that side */
   /* buttons that open a list and show what's picked: a small down arrow after the name, which trims with … if short of room */
   .pickbtn { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; white-space: nowrap; }
   .pickbtn > span { overflow: hidden; text-overflow: ellipsis; }
@@ -397,6 +426,7 @@
     .beatsview .seg.pats { flex: 1 0 100%; flex-wrap: wrap; }
     .beatsview .seg.pats label { flex: 1 0 20%; }
     .beatsview .beatsbar .btn { flex: 1; }
+    .beatsview .pagectl { flex: 1; }
     .beatsview .fxgroup { align-self: start; grid-template-columns: 1fr; }
     .msends { flex-direction: row; justify-content: space-between; gap: 2px; }
     .msend { flex: 1; font-size: 0.66rem; }
@@ -480,6 +510,18 @@
   <div class="barrow namerow">
     <button class="btn pickbtn synthonly" id="soundBtn" data-menu="presetMenu" aria-haspopup="dialog" aria-expanded="false" aria-controls="presetMenu"><span></span></button>
     <button class="btn pickbtn beatsonly" id="kitBtn" data-menu="kitMenu" aria-haspopup="dialog" aria-expanded="false" aria-controls="kitMenu"><span></span></button>
+    <!-- the pattern on screen (drums, or a synth in Steps): clear it, copy it, paste a copy over it -->
+    <div class="patgrp" role="group" aria-label="Pattern">
+      <button class="btn iconbtn" id="clearPat" aria-label="Clear this pattern" title="Clear this pattern">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 3.5h4M6.5 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h6a1.5 1.5 0 0 0 1.5-1.5l1-12.5M10 11v6M14 11v6"/></svg>
+      </button>
+      <button class="btn iconbtn" id="copyPat" aria-label="Copy this pattern" title="Copy this pattern">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12" height="12" rx="2"/><path d="M15.5 8.5V5.5a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></svg>
+      </button>
+      <button class="btn iconbtn" id="pastePat" aria-label="Paste into this pattern" title="Copy a pattern first" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 4.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-13a2 2 0 0 0-2-2h-1.5"/><rect x="8.5" y="2.5" width="7" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+      </button>
+    </div>
     <button class="btn beatsonly" id="loadBreak" aria-label="Load a sample" hidden>Load</button>
     <!-- how many bars the loaded loop is: guessed on load, tap to change -->
     <button class="btn beatsonly" id="breakBars" hidden></button>
@@ -500,7 +542,7 @@
   </div>
   <!-- the song view's hint -->
   <div class="barrow row3">
-    <p class="songhint songonly">A row is a bar. Tap a slot to pick its pattern.</p>
+    <p class="songhint songonly">Tap a slot to pick a pattern, or a bar number to play from it.</p>
   </div>
   </div>
 </nav>
@@ -514,12 +556,15 @@
   <div class="synthseq stepsonly">
     <div class="beatsbar">
       <div class="seg pats" role="radiogroup" aria-label="Pattern" id="spats"></div>
+      <div class="pagectl" role="group" aria-label="More patterns">
+        <button class="btn iconbtn" id="spatUp" aria-label="Patterns before these" title="Patterns before these"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>
+        <button class="btn iconbtn" id="spatDown" aria-label="More patterns" title="More patterns"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+      </div>
       <div class="octctl">
         <button class="btn" id="octDown" aria-label="Octave down">−</button>
         <output id="octOut" title="Lowest note"></output>
         <button class="btn" id="octUp" aria-label="Octave up">+</button>
       </div>
-      <button class="btn" id="sClear">Clear</button>
     </div>
     <div class="grid sgrid" id="sgrid"></div>
   </div>
@@ -619,7 +664,7 @@
         <h3>The buttons at the top</h3>
         <p><strong>First row:</strong> Live or Song, play and stop, the tempo (tap the number to change it), then the mixer, settings and help.</p>
         <p><strong>Second row:</strong> the keyboard and <strong>1 2 3</strong> are the synths; the drum and <strong>A B C</strong> are the drum machines. A dot shows which ones are playing, and flashes with each note. On a synth, the two buttons after the tabs pick Pad or Steps. The waves button at the end opens the effects.</p>
-        <p><strong>Third row:</strong> the sound of the synth or drum machine on screen. Tap its name to change it and shape it. On a synth, the arpeggio and the scale (the steps button) follow. On the Sample kit it shows the loaded file, with Load and the loop's length next to it. On the drums, the patterns and Clear come next.</p>
+        <p><strong>Third row:</strong> the sound of the synth or drum machine on screen. Tap its name to change it and shape it. On a synth, the arpeggio and the scale (the steps button) follow. On the drums and on a synth in Steps, the bin clears the pattern on screen, and the next two buttons copy it and paste a copy over it (both ask first if steps would be lost). On the Sample kit it shows the loaded file, with Load and the loop's length next to it. On the drums, the patterns come next.</p>
         <h3>The pad</h3>
         <p>Slide left and right for pitch, up and down for the filter: brighter at the top of each keyboard, darker at the bottom.</p>
         <h3>Arpeggio and chords</h3>
@@ -628,16 +673,16 @@
         <h3>Three synths</h3>
         <p><strong>1 2 3</strong> are three synths, each with its own sound, scale and effects. Whatever one is playing carries on when you switch to another.</p>
         <h3>Steps</h3>
-        <p>Switch a synth to <strong>Steps</strong> to write a pattern on a grid of its notes. Steps play along with the beats, so press play to hear them.</p>
+        <p>Switch a synth to <strong>Steps</strong> to write a pattern on a grid of its notes. Steps play along with the beats, so press play to hear them. Each synth has 32 patterns, 8 at a time: the down arrow shows 9 to 16 and so on, the up arrow goes back.</p>
         <h3>Drums</h3>
-        <p><strong>A B C</strong> are three drum machines. They all play together, each with its own kit, patterns and effects. Tap steps to add hits and switch between 8 patterns. The name under the tabs shows the kit: <strong>909</strong>, <strong>808</strong> or <strong>Sample</strong>; tap it to change. The Sample kit cuts a loop you load into 8 slices. It guesses whether the loop is 1, 2 or 4 bars long and fits it to the tempo; if it sounds too fast or slow, tap the bars button next to Load.</p>
+        <p><strong>A B C</strong> are three drum machines. They all play together, each with its own kit, patterns and effects. Tap steps to add hits and switch between 32 patterns, 8 at a time: the down arrow shows 9 to 16 and so on, the up arrow goes back. An arrow is underlined when the pattern playing is that way. The name under the tabs shows the kit: <strong>909</strong>, <strong>808</strong> or <strong>Sample</strong>; tap it to change. The Sample kit cuts a loop you load into 8 slices. It guesses whether the loop is 1, 2 or 4 bars long and fits it to the tempo; if it sounds too fast or slow, tap the bars button next to Load.</p>
         <h3>Sound and effects</h3>
         <p>Tap the sound's name to open its menu. A synth's has its sounds, the envelope, the <strong>Filter</strong> and distortion. The drums' has the kits, a Filter and distortion. Turn Cutoff down for a darker, duller sound, and Resonance up for a ringing edge. Knobs work by pressing one and sliding up or down. <strong>Effects</strong> (the waves button) has delay and reverb, for the synths and the drums. Tempo sets the speed of everything.</p>
         <h3>Mixer</h3>
         <p>The faders button opens the <strong>Mixer</strong>. A channel's name lights up while it plays and flashes with each note. Each has a level, <strong>M</strong> to mute, <strong>S</strong> to solo, how much reverb, delay and distortion each one gets, and its filter's cutoff. These are the same knobs as in the effects and sound menus.</p>
         <h3>Live and Song</h3>
         <p>In <strong>Live</strong>, play loops the patterns picked on each screen. In <strong>Song</strong>, it plays the song from the top, one row per bar, and goes round again at the end.</p>
-        <p>Each row has a slot for synths 1 2 3 and drums A B C. Tap a slot to pick a pattern, or Off. <strong>+ Add a bar</strong> copies the last row; × removes one. In Song the synths play their Steps patterns even in Pad mode, so you can still play the pad over the top.</p>
+        <p>Each row has a slot for synths 1 2 3 and drums A B C. Tap a slot to pick a pattern, or Off. Tap a bar number to play from that bar: stopped, play starts there; playing, the song jumps there at the end of the bar. <strong>+ Add a bar</strong> copies the last row; × removes one. In Song the synths play their Steps patterns even in Pad mode, so you can still play the pad over the top.</p>
         <p>While the song plays, <strong>1 2 3</strong> and <strong>A B C</strong> still open each synth and drum machine so you can change patterns. Tap <strong>Song</strong> to get back to the song.</p>
         <p>Stop cuts all sound, echoes and reverb too, and stops any arpeggios.</p>
         <h3>Crackles?</h3>
@@ -646,6 +691,7 @@
       <div class="helppane historypane">
         <!-- newest first; the first entry's number is shown next to the title -->
         <ul class="history" id="history">
+          <li><span class="ver">v3.9</span>32 patterns for every synth and drum machine, 8 at a time with up and down arrows. Clear is a bin next to the kit, with copy and paste, and asks before anything is lost. Tap a bar number in the song to play from there.</li>
           <li><span class="ver">v3.8</span>The sound menu (tap the sound's name) holds the envelope, filter and distortion, for synths and drums. Effects is just delay and reverb. The mixer has a Cutoff knob for every channel.</li>
           <li><span class="ver">v3.7</span>Synth controls fit on fewer rows: Pad and Steps are icons next to the tabs, the arp and scale sit next to the sound. Load no longer shows on synth screens.</li>
           <li><span class="ver">v3.6</span>iPhone: if the sound hasn't started, a button asks for one tap. Synth 2 starts on Acid, synth 3 on Soft sine.</li>
@@ -683,6 +729,14 @@
   <button class="btn soundask" id="soundAsk" hidden>Tap to turn the sound on</button>
   <!-- the pattern picker for a song slot; its buttons are added by the song code -->
   <div class="patpick" id="patPick" role="dialog" aria-label="Pick a pattern" hidden></div>
+  <!-- asks before clearing a pattern, or pasting over one that has steps in it (askConfirm) -->
+  <div class="confirm" id="confirmBox" role="alertdialog" aria-modal="true" aria-labelledby="confirmText" hidden>
+    <p id="confirmText"></p>
+    <div class="confirmbtns">
+      <button class="btn" id="confirmNo">Cancel</button>
+      <button class="btn wanted" id="confirmYes"></button>
+    </div>
+  </div>
   <!-- the song: a row per bar, a column per synth and drum machine. Rows are built by renderSong() -->
   <section class="songview" aria-label="Song">
     <div class="songrow songhead" id="songHead" aria-hidden="true"></div>
@@ -691,7 +745,10 @@
   <section class="beatsview" aria-label="Beats">
     <div class="beatsbar">
       <div class="seg pats" role="radiogroup" aria-label="Pattern" id="pats"></div>
-      <button class="btn" id="clearPat">Clear</button>
+      <div class="pagectl" role="group" aria-label="More patterns">
+        <button class="btn iconbtn" id="patUp" aria-label="Patterns before these" title="Patterns before these"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>
+        <button class="btn iconbtn" id="patDown" aria-label="More patterns" title="More patterns"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+      </div>
     </div>
     <div class="grid" id="grid"></div>
     <section class="fx drumfx">
@@ -1159,7 +1216,7 @@
       voices: new Map(),                 // pointerId -> voice, for fingers playing their own note
       tails: new Set(),                  // arp and step notes, scheduled with their own release
       arp: null, latch: null,
-      pats: null, editPat: 0, playPat: 0,
+      pats: null, editPat: 0, playPat: 0, page: 0,   // page: which 8 of the 32 pattern buttons show
     };
     loadPreset(syn, d.preset);
     buildNotes(syn);
@@ -1176,7 +1233,7 @@
     rack: makeRack("k", { dAmount: 0, rMix: 0, xAmount: 0 }),    // drums start dry
     bus: null,                           // everything this machine plays goes through here, then its rack
     openHat: null,                       // { choke, start } so a closed hat can cut a ringing open hat off
-    banks: null, editPat: 0, playPat: 0, // patterns: filled in with the patterns code
+    banks: null, editPat: 0, playPat: 0, page: 0,   // patterns: filled in with the patterns code; page as for synths
     brk: { buf: null, name: "", bytes: null, bars: 1, voice: null },   // a loaded break, if the kit is Break
   }));
   let dcur = drums[0];
@@ -2030,7 +2087,7 @@
   });
 
   // ---------- patterns ----------
-  const STEPS = 16, PATTERN_COUNT = 8;
+  const STEPS = 16, PATTERN_COUNT = 32, PAGE = 8;       // 32 patterns per synth and drum machine, shown 8 at a time
   const PRESET_BEATS = [
     { bd: "x.....x...x.....", sd: "....x.......x..x", ch: "x.x.x.x.x.x.x.x.", oh: "..............x." },
     { bd: "x..x..x...x..x..", sd: "....x.......x...", rs: "..x....x.x....x.", lt: "..........x..x..", ch: "xxxxxxxxxxxxxxxx" },
@@ -2051,12 +2108,14 @@
       return pat;
     });
   }
+  // saves from before there were 32 patterns have 8: they keep those, and the rest start empty
+  const fillBank = (pats, empty) => [...pats, ...Array.from({ length: PATTERN_COUNT - pats.length }, empty)];
   function loadBank(bank) {
     try {
       const p = JSON.parse(localStorage.getItem(bank.key));
-      const ok = Array.isArray(p) && p.length === PATTERN_COUNT &&
+      const ok = Array.isArray(p) && p.length > 0 && p.length <= PATTERN_COUNT &&
         p.every(pat => pat.length === DRUM_ROWS.length && pat.every(row => row.length === STEPS));
-      if (ok) return p;
+      if (ok) return fillBank(p, emptyPattern);
     } catch {}
     return bank.defaults();
   }
@@ -2086,7 +2145,8 @@
   // same lookahead idea as the arp: every 25 ms, schedule any steps due in the next 100 ms.
   // One clock runs the drums and every synth in Steps mode
   // bar counts bars since play (or since switching to Song), songRow is the song row being played (-1 in Live)
-  const seq = { playing: false, timer: null, step: 0, count: 0, bar: 0, songRow: -1, nextTime: 0, queue: [] };
+  // jump is a song row to go to at the next bar (tapping a bar number while playing), -1 for none
+  const seq = { playing: false, timer: null, step: 0, count: 0, bar: 0, songRow: -1, jump: -1, nextTime: 0, queue: [] };
   const stepLen = () => 60 / tempo() / 4;                // one 1/16 step, in seconds
   const swingAmount = () => ($("kSwing").value / 100 - 0.5) * 2;   // 50% straight, 75% = triplet feel
 
@@ -2095,6 +2155,7 @@
   function barStart() {
     const rows = song.rows;
     if (playMode === "song" && rows.length) {
+      if (seq.jump >= 0) { seq.bar = seq.jump; seq.jump = -1; }
       seq.songRow = seq.bar % rows.length;
       engines.forEach((e, k) => { e.playPat = rows[seq.songRow][k]; });
     } else {
@@ -2139,7 +2200,7 @@
     ensureAudio();
     // if an arp is already running, start the beats on its next note so they line up
     const running = synths.find(syn => syn.arp);
-    Object.assign(seq, { playing: true, step: 0, count: 0, bar: 0, songRow: -1, queue: [],
+    Object.assign(seq, { playing: true, step: 0, count: 0, bar: songStart(), songRow: -1, jump: -1, queue: [],
                          nextTime: running ? running.arp.nextTime : ctx.currentTime + 0.05 });
     seqTick();
     seq.timer = setInterval(seqTick, 25);
@@ -2148,7 +2209,7 @@
   }
   function stopSeq() {
     clearInterval(seq.timer);
-    Object.assign(seq, { playing: false, queue: [], bar: 0, songRow: -1 });
+    Object.assign(seq, { playing: false, queue: [], bar: 0, songRow: -1, jump: -1 });
     engines.forEach(e => { e.playPat = e.editPat; });
     playBtn.setAttribute("aria-pressed", "false");
     playBtn.setAttribute("aria-label", "Play");
@@ -2250,7 +2311,7 @@
     if (label) c.setAttribute("aria-label", label);
     return c;
   };
-  // pattern buttons 1 to 8; onPick(i) when one is chosen
+  // pattern buttons 1 to 32; onPick(i) when one is chosen. A pager shows them 8 at a time
   function patternButtons(el, name, onPick) {
     const labels = [];
     for (let i = 0; i < PATTERN_COUNT; i++) {
@@ -2261,6 +2322,31 @@
       labels.push(lab);
     }
     return labels;
+  }
+  // the up and down arrows next to the pattern buttons: down shows the next 8 (9 to 16, and so on), up the 8 before.
+  // Each synth and drum machine remembers its own page (eng().page). An arrow is underlined while the pattern playing
+  // is off that way
+  function pager(labels, upId, downId, eng) {
+    const up = $(upId), down = $(downId), last = PATTERN_COUNT / PAGE - 1;
+    const pg = { labels, playing: -1 };
+    pg.hint = () => {
+      const pp = pg.playing < 0 ? -1 : Math.floor(pg.playing / PAGE), p = eng().page;
+      up.classList.toggle("playing", pp >= 0 && pp < p);
+      down.classList.toggle("playing", pp > p);
+    };
+    pg.show = () => {
+      const p = eng().page;
+      labels.forEach((l, i) => { l.hidden = Math.floor(i / PAGE) !== p; });
+      up.disabled = p <= 0;
+      down.disabled = p >= last;
+      pg.hint();
+    };
+    [[up, -1], [down, 1]].forEach(([b, d]) => b.addEventListener("click", () => {
+      const e = eng();
+      e.page = Math.min(last, Math.max(0, e.page + d));
+      pg.show();
+    }));
+    return pg;
   }
 
   // ---------- beats UI ----------
@@ -2309,15 +2395,11 @@
     save: () => savePatterns(),
   });
 
-  const patLabels = patternButtons($("pats"), "pat", i => {
+  const patPager = pager(patternButtons($("pats"), "pat", i => {
     dcur.editPat = i;
     if (!seq.playing) dcur.playPat = i;
     renderGrid();
-  });
-  $("clearPat").addEventListener("click", () => {
-    patsOf(dcur)[dcur.editPat] = emptyPattern();
-    renderGrid(); savePatterns();
-  });
+  }), "patUp", "patDown", () => dcur);
 
   // the kit button shows which kit is on (909, 808 or Sample, plus the loaded file's name without its extension).
   // The Load button only shows for the Sample kit, and stands out until a loop is loaded
@@ -2353,6 +2435,7 @@
     kitSel.value = dcur.kit;
     listSyncs.kit();
     renderGrid(); updateRowLabels(); updateBreakUI();
+    patPager.show();
     loadFxUI(dcur.rack);
     $("kLevel").value = dcur.chan.level;
     $("kLevelOut").textContent = fmtLevel(dcur.chan.level);
@@ -2360,7 +2443,7 @@
   }
 
   // ---------- synth steps ----------
-  // each synth has 8 patterns of [row][step], rows counted up the scale from the grid's lowest note, so a pattern
+  // each synth has 32 patterns of [row][step], rows counted up the scale from the grid's lowest note, so a pattern
   // follows the synth's scale and octave. Saved in localStorage like the drum patterns
   const SEQ_ROWS_MAX = 25;                                // two octaves of the chromatic scale, the most rows a grid can have
   const SYNTH_PATS_KEY = "xysynth.synthPatterns.v1";      // bump when the defaults change
@@ -2374,9 +2457,9 @@
   function loadSynthPatterns() {
     try {
       const p = JSON.parse(localStorage.getItem(SYNTH_PATS_KEY));
-      const ok = Array.isArray(p) && p.length === synths.length && p.every(bank => bank.length === PATTERN_COUNT &&
+      const ok = Array.isArray(p) && p.length === synths.length && p.every(bank => bank.length > 0 && bank.length <= PATTERN_COUNT &&
         bank.every(pat => pat.length === SEQ_ROWS_MAX && pat.every(row => row.length === STEPS)));
-      if (ok) return p;
+      if (ok) return p.map(bank => fillBank(bank, emptySynthPattern));
     } catch {}
     return defaultSynthPatterns();
   }
@@ -2433,20 +2516,79 @@
     ensureAudio();
     auditionStep(+lab.dataset.r);
   });
-  const sPatLabels = patternButtons($("spats"), "spat", i => {
+  const sPager = pager(patternButtons($("spats"), "spat", i => {
     cur.editPat = i;
     if (!seq.playing) cur.playPat = i;
     renderSynthGrid();
-  });
-  $("sClear").addEventListener("click", () => {
-    cur.pats[cur.editPat] = emptySynthPattern();
-    renderSynthGrid(); saveSynthPatterns();
-  });
+  }), "spatUp", "spatDown", () => cur);
   [["octDown", -1], ["octUp", 1]].forEach(([id, d]) => $(id).addEventListener("click", () => {
     cur.oct = Math.min(4, Math.max(0, cur.oct + d));
     buildNotes(cur);
     renderSynthGrid();
   }));
+
+  // ---------- clear, copy and paste ----------
+  // one set of buttons, in the name row, for the pattern on screen: the drum machine's (beats view) or the synth's
+  // (Steps). Drum patterns copy between drum machines and kits, synth patterns between synths. Clearing always asks
+  // first; pasting asks if it would replace steps
+  const clip = { drums: null, synth: null };             // { pat, from } once something's copied
+  const hasSteps = pat => pat.some(row => row.some(Boolean));
+  const clonePat = pat => pat.map(row => [...row]);
+  function onScreen() {
+    return document.body.dataset.view === "beats"
+      ? { kind: "drums", pats: patsOf(dcur), i: dcur.editPat, name: "Drums " + dcur.name, empty: emptyPattern,
+          done: () => { renderGrid(); savePatterns(); } }
+      : { kind: "synth", pats: cur.pats, i: cur.editPat, name: "Synth " + (cur.i + 1), empty: emptySynthPattern,
+          done: () => { renderSynthGrid(); saveSynthPatterns(); } };
+  }
+  // paste works once there's a copy of the right kind
+  function showPasteBtn() {
+    const c = clip[onScreen().kind], b = $("pastePat");
+    b.disabled = !c;
+    b.title = c ? `Paste ${c.from} here` : "Copy a pattern first";
+    b.setAttribute("aria-label", c ? `Paste ${c.from} into this pattern` : "Paste. Copy a pattern first");
+  }
+  $("clearPat").addEventListener("click", e => {
+    const o = onScreen();
+    askConfirm(e.currentTarget, `Clear pattern ${o.i + 1}?`, "Clear", () => { o.pats[o.i] = o.empty(); o.done(); });
+  });
+  $("copyPat").addEventListener("click", e => {
+    const o = onScreen();
+    clip[o.kind] = { pat: clonePat(o.pats[o.i]), from: `${o.name} pattern ${o.i + 1}` };
+    showPasteBtn();
+    const b = e.currentTarget, css = getComputedStyle(b);   // a quick flash to show it's copied
+    b.animate([{ background: css.getPropertyValue("--hit"), color: css.getPropertyValue("--bg") }, {}], { duration: 350, easing: "ease-out" });
+  });
+  $("pastePat").addEventListener("click", e => {
+    const o = onScreen(), c = clip[o.kind];
+    if (!c) return;
+    const paste = () => { o.pats[o.i] = clonePat(c.pat); o.done(); };
+    if (hasSteps(o.pats[o.i])) askConfirm(e.currentTarget, `Pattern ${o.i + 1} has steps in it. Replace them with ${c.from}?`, "Replace", paste);
+    else paste();
+  });
+
+  // the "are you sure" box: Cancel (picked to start with) or the action. Escape or tapping outside cancels
+  const confirmBox = $("confirmBox");
+  let confirmDo = null, confirmFrom = null;
+  function askConfirm(from, text, yes, onYes) {
+    closeConfirm();
+    $("confirmText").textContent = text;
+    $("confirmYes").textContent = yes;
+    confirmDo = onYes; confirmFrom = from;
+    confirmBox.hidden = false;
+    scrim.hidden = false;
+    $("confirmNo").focus({ preventScroll: true });
+  }
+  function closeConfirm() {
+    if (!confirmDo) return;
+    confirmBox.hidden = true;
+    scrim.hidden = !openMenuBtn && !pickSlot;
+    confirmDo = null;
+    confirmFrom.focus({ preventScroll: true });
+    confirmFrom = null;
+  }
+  $("confirmNo").addEventListener("click", closeConfirm);
+  $("confirmYes").addEventListener("click", () => { const act = confirmDo; closeConfirm(); act?.(); });
 
   // playheads and "which pattern is playing", kept in step with what's audible
   const heads = { drums: { step: -1, pat: -1 }, synth: { step: -1, pat: -1 } };
@@ -2456,10 +2598,11 @@
     if (step >= 0) grid.forEach(row => row[step].classList.add("now"));
     h.step = step;
   }
-  function markPat(h, labels, pat) {
+  function markPat(h, pg, pat) {
     if (pat === h.pat) return;
-    labels.forEach((l, i) => l.classList.toggle("playing", i === pat));
+    pg.labels.forEach((l, i) => l.classList.toggle("playing", i === pat));
     h.pat = pat;
+    pg.playing = pat; pg.hint();
   }
   let seqNow = null;                                     // the step being heard
   function updateSeqUI() {
@@ -2467,10 +2610,11 @@
     else while (seq.queue.length && seq.queue[0].time <= ctx.currentTime) seqNow = seq.queue.shift();
     const steps = cur.mode === "steps";
     moveHead(heads.drums, cells, seqNow ? seqNow.step : -1);
-    markPat(heads.drums, patLabels, seqNow ? seqNow.pats[engines.indexOf(dcur)] : -1);
+    markPat(heads.drums, patPager, seqNow ? seqNow.pats[engines.indexOf(dcur)] : -1);
     moveHead(heads.synth, sCells, seqNow && steps ? seqNow.step : -1);
-    markPat(heads.synth, sPatLabels, seqNow && steps ? seqNow.pats[cur.i] : -1);
+    markPat(heads.synth, sPager, seqNow && steps ? seqNow.pats[cur.i] : -1);
     markSongRow(seqNow ? seqNow.row : -1);
+    markCue(seq.playing ? seq.jump : songPos);
     updateTabs();
     pulseNotes();
   }
@@ -2580,6 +2724,7 @@
     document.querySelector(`input[name="mode"][value="${cur.mode}"]`).checked = true;
     document.body.dataset.mode = cur.mode;
     renderSynthGrid();
+    sPager.show();
     holdKey = "";
     shownHold = null; updateHoldBtn(0);
     document.querySelectorAll(".synName").forEach(s => { s.textContent = cur.i + 1; });
@@ -2589,8 +2734,9 @@
   let engineView = "synth";                              // the last synth or beats screen, for going back from the song
   function setView(v) {
     dropPointers();
-    closeMenu(); closePicker();
+    closeMenu(); closePicker(); closeConfirm();
     document.body.dataset.view = v;
+    showPasteBtn();
     if (v !== "song") engineView = v;
     // the tabs show which synth or drum machine is on screen, and none while the song is
     const tab = v === "song" ? null : v === "beats" ? "d" + dcur.i : String(cur.i);
@@ -2616,7 +2762,7 @@
   document.querySelectorAll('input[name="playMode"]').forEach(r => r.addEventListener("click", () => {
     if (r.value !== playMode) {
       playMode = r.value;
-      seq.bar = 0;
+      seq.bar = songStart(); seq.jump = -1;
       document.body.dataset.play = playMode;
     }
     setView(playMode === "song" ? "song" : engineView);
@@ -2624,7 +2770,7 @@
 
   // ---------- song ----------
   // a list of rows, one per bar, played top to bottom. Each row gives every engine (synths 1 2 3, drums A B C) a
-  // pattern, 0 to 7, or -1 for off. Saved on this device
+  // pattern, 0 to 31, or -1 for off. Saved on this device
   const SONG_KEY = "xysynth.song.v1";                    // bump if the default song changes
   function defaultSong() {
     // drums A on their own for two bars, then synth 1's acid line comes in
@@ -2641,6 +2787,14 @@
   }
   const song = loadSong();
   const saveSong = () => { try { localStorage.setItem(SONG_KEY, JSON.stringify(song)); } catch {} };
+  // the song position: the row play starts from, set by tapping a bar number (row 0 is bar 1). Tapped while the song
+  // plays, it also jumps there at the next bar
+  let songPos = 0;
+  const songStart = () => songPos < song.rows.length ? songPos : 0;
+  function cueBar(b) {
+    songPos = b;
+    if (seq.playing && playMode === "song") seq.jump = b;
+  }
 
   const songList = $("songList");
   const slotText = p => p < 0 ? "–" : String(p + 1);
@@ -2658,7 +2812,7 @@
     song.rows.forEach((row, b) => {
       const el = document.createElement("div");
       el.className = "songrow";
-      el.innerHTML = `<span class="barnum">${b + 1}</span>` +
+      el.innerHTML = `<button class="barnum" data-b="${b}" aria-label="Play from bar ${b + 1}" title="Play from this bar">${b + 1}</button>` +
         row.map((_, k) => `<button class="slot${k === synths.length ? " first" : ""}" data-b="${b}" data-k="${k}" aria-haspopup="dialog"></button>`).join("") +
         `<button class="rowdel" data-b="${b}" aria-label="Remove bar ${b + 1}" title="Remove this bar">×</button>`;
       el.querySelectorAll(".slot").forEach(s => showSlot(s, b, +s.dataset.k));
@@ -2668,13 +2822,18 @@
     add.className = "btn addrow";
     add.textContent = "+ Add a bar";
     songList.append(add);
-    shownRow = -1;                                       // the playing row is marked again next frame
+    shownRow = -1; shownCue = -1;                        // the playing and cued rows are marked again next frame
   }
   songList.addEventListener("click", e => {
-    const slot = e.target.closest(".slot"), del = e.target.closest(".rowdel");
+    const slot = e.target.closest(".slot"), del = e.target.closest(".rowdel"), num = e.target.closest(".barnum");
     if (slot) return openPicker(slot);
+    if (num) return cueBar(+num.dataset.b);
     if (del) {
-      song.rows.splice(+del.dataset.b, 1);
+      // the song position stays on the same bar, or moves up if that bar went
+      const d = +del.dataset.b;
+      song.rows.splice(d, 1);
+      if (d < songPos || songPos >= song.rows.length) songPos = Math.max(0, songPos - 1);
+      if (seq.jump >= song.rows.length) seq.jump = -1;
     } else if (e.target.closest(".addrow")) {
       // a new bar starts as a copy of the last one, which is usually what comes next
       song.rows.push(song.rows.length ? [...song.rows[song.rows.length - 1]] : engines.map(() => -1));
@@ -2696,7 +2855,16 @@
     shownRow = row;
   }
 
-  // tapping a slot opens a small picker: Off or a pattern number
+  // the song position (stopped) or the bar it jumps to next (playing) gets an outline
+  let shownCue = -1;
+  function markCue(row) {
+    if (row === shownCue) return;
+    songList.children[shownCue]?.classList.remove("cue");
+    if (row >= 0 && row < song.rows.length) songList.children[row].classList.add("cue");
+    shownCue = row;
+  }
+
+  // tapping a slot opens a small picker: Off, then the 32 patterns, a row of 8 per page. Empty ones are dimmed
   const picker = $("patPick");
   let pickSlot = null;
   ["Off", ...Array.from({ length: PATTERN_COUNT }, (_, i) => String(i + 1))].forEach((label, i) => {
@@ -2710,8 +2878,12 @@
   function openPicker(slot) {
     closePicker();
     pickSlot = slot;
-    const p = song.rows[+slot.dataset.b][+slot.dataset.k];
-    picker.querySelectorAll("button").forEach(btn => btn.setAttribute("aria-pressed", +btn.dataset.p === p));
+    const k = +slot.dataset.k, p = song.rows[+slot.dataset.b][k];
+    const pats = k < synths.length ? engines[k].pats : patsOf(engines[k]);
+    picker.querySelectorAll("button").forEach(btn => {
+      btn.setAttribute("aria-pressed", +btn.dataset.p === p);
+      btn.classList.toggle("empty", +btn.dataset.p >= 0 && !hasSteps(pats[+btn.dataset.p]));
+    });
     picker.setAttribute("aria-label", slot.getAttribute("aria-label").replace(/:.*/, ": pick a pattern"));
     picker.hidden = false;
     scrim.hidden = false;
@@ -2789,9 +2961,10 @@
     (sheet.querySelector("input:checked") || sheet.querySelector("input, a"))?.focus({ preventScroll: true });
   }
   menuBtns.forEach(btn => btn.addEventListener("click", () => openMenuBtn === btn ? closeMenu() : openMenu(btn)));
-  scrim.addEventListener("click", () => { closeMenu(); closePicker(); });
+  scrim.addEventListener("click", () => { closeMenu(); closePicker(); closeConfirm(); });
   document.addEventListener("keydown", e => {
-    if (e.key === "Escape" && pickSlot) closePicker().focus();
+    if (e.key === "Escape" && confirmDo) closeConfirm();
+    else if (e.key === "Escape" && pickSlot) closePicker().focus();
     else if (e.key === "Escape" && openMenuBtn) { const b = openMenuBtn; closeMenu(); b.focus(); }
   });
   phoneMQ.addEventListener("change", closeMenu);
@@ -2969,6 +3142,7 @@
   bindDrumUI();
   bindSynthUI();
   renderSong();
+  showPasteBtn();
 })();
 </script>
 </body>
