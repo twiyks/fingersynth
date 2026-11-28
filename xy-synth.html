@@ -69,17 +69,18 @@
 
   /* the top bar, three rows on every screen size:
      1. Live / Song, play, tempo, then Mixer, Settings and Help
-     2. the synths (keyboard, 1 2 3) and the drum machines (drum, A B C), then on a synth Pad / Steps, then Effects
+     2. the synths (keyboard, 1 2 3) and the drum machines (drum, A B C), then Pad / Piano roll (a synth) or Pads / Steps
+        (drums), then Effects
      3. the name row: the synth's sound then the arp group with Scale, or the drums' kit (and the Sample kit's Load
         and loop length). The song view has its hint (row3) here instead. On the drums, the patterns bar follows in the beats view */
   .bar { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px 10px; }
   .barrow { display: flex; align-items: center; gap: 8px; min-width: 0; }
   body:not([data-view="song"]) .row3, body[data-view="song"] .namerow { display: none; }
-  /* Pad / Steps as icons, at the end of row 2 (before Effects on phones) */
+  /* Pad / Piano roll as icons, at the end of row 2 (before Effects on phones) */
   .seg.modes { margin-left: auto; }
   .seg.modes span { display: grid; place-items: center; padding: 5px 8px; }
   .seg.modes svg { display: block; width: 20px; height: 20px; }
-  body[data-view="synth"] .btn.fxbtn { margin-left: 0; }
+  .row2 .btn.fxbtn { margin-left: 0; }   /* the modes before it are pushed right instead */
   /* the name row and row 3 stack; on a phone on its side they share a line */
   .lowrows { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
   .namerow .btn { white-space: nowrap; }
@@ -116,11 +117,11 @@
   .arpgrp { display: flex; align-items: center; gap: 3px; background: var(--band); border-radius: 12px; padding: 3px; }
   .arpgrp .iconbtn { padding: 5px 6px; }
   .arpgrp .iconbtn:not(.scalebtn) { display: none; }   /* settings menu: phones only, bigger screens have the panel */
-  /* the pattern tools (clear, copy, paste) in the name row: on the drums, and on a synth in Steps */
+  /* the pattern tools (clear, copy, paste) in the name row: on the drums, and on a synth in Piano roll */
   .patgrp { display: flex; align-items: center; gap: 3px; background: var(--band); border-radius: 12px; padding: 3px; flex: none; }
   .patgrp .iconbtn { padding: 5px 6px; }
   .patgrp .iconbtn:disabled { opacity: 0.4; cursor: default; }
-  body[data-view="song"] .patgrp, body[data-view="synth"][data-mode="pad"] .patgrp { display: none; }
+  body[data-view="song"] .patgrp, body[data-view="synth"][data-mode="pad"] .patgrp, body[data-view="beats"][data-dmode="pads"] .patgrp { display: none; }
   /* arp hold: always there, dimmed until there's something to hold; fills from the left while the notes count up, solid once held */
   .holdbtn { background: linear-gradient(to right, var(--hit) calc(var(--fill, 0) * 100%), var(--control) 0); }
   .holdbtn.off { color: var(--muted); border-color: transparent; }
@@ -131,7 +132,7 @@
   .tempoline input { margin: 0; flex: 1; min-width: 0; }
   .tempoline .btn { padding: 5px 12px; font-size: 1rem; }
 
-  /* the views: a synth (pad or steps) or the beats */
+  /* the views: a synth (pad or piano roll) or the beats */
   .synthview, .beatsview { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
   body:not([data-view="synth"]) .synthview, body:not([data-view="beats"]) .beatsview, body:not([data-view="song"]) .songview { display: none; }
   body:not([data-view="synth"]) .synthonly, body:not([data-view="beats"]) .beatsonly, body:not([data-view="song"]) .songonly { display: none; }
@@ -183,14 +184,32 @@
   .confirm p { margin: 0; font-size: 0.95rem; line-height: 1.4; }
   .confirmbtns { display: flex; justify-content: flex-end; gap: 8px; }
   .confirmbtns .btn { padding: 7px 16px; font-size: 0.9rem; }
-  /* .stepsonly shows in Steps and Piano roll (both write patterns); .gridonly and .rollonly pick between the two */
-  body:not([data-mode="pad"]) .padonly, body[data-mode="pad"] .stepsonly { display: none; }
-  body:not([data-mode="steps"]) .gridonly, body:not([data-mode="roll"]) .rollonly { display: none; }
+  body:not([data-mode="pad"]) .padonly, body:not([data-mode="roll"]) .rollonly { display: none; }
+  /* the drum machine on screen: Pads or Steps */
+  body:not([data-dmode="pads"]) .dpadsonly, body:not([data-dmode="steps"]) .dstepsonly { display: none; }
   .btn[hidden] { display: none; }
   .btn.wanted { background: var(--hit); border-color: var(--hit); color: var(--bg); }
 
-  /* step grids: the drums, and a synth in Steps mode */
+  /* the drums' step grid, and the pattern bars (drums, and a synth in Piano roll) */
   .beatsbar { display: flex; gap: 8px; align-items: center; }
+  /* drum pads: four across and two down, or two across on a phone held upright. Pressed, a pad lights up */
+  .dpads {
+    flex: 1; min-height: 0; display: grid; gap: 8px; touch-action: none;
+    grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+  .dpad {
+    font: inherit; color: var(--muted); background: var(--field); border: 1.5px solid var(--line); border-radius: 16px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px;
+    cursor: pointer; touch-action: none; transition: background .25s ease-out, color .25s ease-out;
+  }
+  .dpad b { font-size: 1.3rem; font-weight: 800; color: var(--ink); transition: color .25s ease-out; }
+  .dpad span { font-size: 0.78rem; font-weight: 600; }
+  .dpad.down { background: var(--hit); border-color: var(--hit); color: var(--bg); transition: none; }
+  .dpad.down b { color: var(--bg); transition: none; }
+  .dpad:focus-visible { outline: 3px solid var(--root); outline-offset: 2px; }
+  @media (orientation: portrait) and (max-width: 520px) {
+    .dpads { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); }
+  }
   .seg.pats { flex: 1; }
   .seg.pats label[hidden] { display: none; }            /* 32 patterns, 8 at a time */
   .pagectl { display: flex; gap: 3px; flex: none; }
@@ -212,20 +231,15 @@
     grid-template-rows: repeat(8, minmax(0, 1fr));
     background: var(--field); border-radius: 14px; padding: 6px;
   }
-  .grid.sgrid { grid-template-columns: 2rem repeat(16, minmax(0, 1fr)); grid-template-rows: repeat(var(--rows, 11), minmax(0, 1fr)); gap: 2px; }
   .rowlab {
     font: inherit; font-size: 0.62rem; font-weight: 800; color: var(--muted);
     background: none; border: 0; border-radius: 6px; padding: 0; cursor: pointer;
   }
-  .sgrid .rowlab { font-weight: 600; }
-  .sgrid .rowlab.root { color: var(--ink); font-weight: 800; }
   .cell { border: 0; padding: 0; min-width: 0; border-radius: 4px; background: var(--control); cursor: pointer; }
   .cell.alt { background: var(--bg); }
   .cell.now { background: var(--line); }
   .cell.on { background: var(--hit); }
   .cell.on.now { background: var(--hit-now); }
-  .cell.tail { background: color-mix(in srgb, var(--hit) 55%, var(--control)); }   /* the rest of a long note */
-  .cell.tail.now { background: var(--hit-now); }
   .synthseq { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
   /* the piano roll: keys down the left, a lane per note, notes as bars placed by the grid. The box scrolls up and down
      (drag the keys, or the mouse wheel); the lanes don't scroll, so dragging there edits */
@@ -247,7 +261,7 @@
   .rkey.sharp { background: var(--band); }
   .rkey.root { color: var(--ink); font-weight: 800; }
   .rkey:focus-visible { outline: 3px solid var(--root); outline-offset: 1px; }
-  /* a lane: four steps light, four darker (like the step grid), with a thin line between steps */
+  /* a lane: four steps light, four darker (like the drum grid), with a thin line between steps */
   .rlane {
     grid-column: 2 / -1; border-radius: 4px; touch-action: none; cursor: crosshair;
     background:
@@ -419,21 +433,17 @@
     .fxpair { gap: 6px; }
     .fxpair .fxgroup { padding: 8px 8px 10px; }
   }
-  /* narrow phones: tighter tabs so row 2 (tabs, Pad / Steps, Effects) fits on one line */
+  /* narrow phones: tighter tabs so row 2 (tabs, Pad / Piano roll, Effects) fits on one line */
   @media (max-width: 400px) {
     .row2 { gap: 4px; }
     .seg.icons span { padding: 5px 6px; }
     .kindlbl { padding: 5px 4px; }
-    .seg.modes { gap: 2px; }
-    .seg.modes span { padding: 5px 3px; }
+    .seg.modes span { padding: 5px 5px; }
     .row2 .btn.fxbtn { padding: 5px 5px; }
   }
   @media (max-width: 340px) {
     .seg.icons span { padding: 5px 3px; }
     .seg.icons, .seg.modes { gap: 2px; }
-    .seg.modes span { padding: 5px 1px; }
-    .kindlbl { padding: 5px 2px; }
-    .row2 .btn.fxbtn { padding: 5px 3px; }
   }
   /* Help: title and version, a website button top right, then tabs for how to use and version history */
   .helphead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -468,7 +478,7 @@
     .lowrows { flex: 1 0 100%; flex-direction: row; align-items: center; }
     .row3 { flex: 1 1 auto; }
     .beatsview { display: grid; grid-template-columns: minmax(0, 1fr) 210px; grid-template-rows: auto 1fr; gap: 8px 10px; }
-    .beatsview .grid { grid-row: 1 / -1; padding: 6px; }
+    .beatsview .grid, .beatsview .dpads { grid-row: 1 / -1; padding: 6px; }
     .beatsview .beatsbar { flex-wrap: wrap; align-items: stretch; }
     .beatsview .seg.pats { flex: 1 0 100%; flex-wrap: wrap; }
     .beatsview .seg.pats label { flex: 1 0 20%; }
@@ -495,7 +505,7 @@
   .fx .fxgroup.knobs, .sheet .fxgroup.knobs, .beatsview .fxgroup.knobs { grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 6px 8px; }
 </style>
 </head>
-<body data-view="synth" data-mode="pad" data-play="live">
+<body data-view="synth" data-mode="pad" data-dmode="steps" data-play="live">
 <!-- the selects behind the scale and kit lists: the lists drive them, the code reads them. The sound is a dropdown in its menu -->
 <div hidden>
   <select id="scale" aria-label="Scale"></select>
@@ -544,16 +554,22 @@
         <label title="Drums C" id="tabd2"><input type="radio" name="view" value="d2" aria-label="Drums C"><span class="num">C</span></label>
       </div>
     </div>
-    <!-- a synth plays from the pad, the step grid or the piano roll -->
+    <!-- a synth plays from the pad or the piano roll -->
     <div class="seg modes synthonly" role="radiogroup" aria-label="Play with">
       <label title="Pad"><input type="radio" name="mode" value="pad" aria-label="Pad" checked><span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M14 7v10M7 14h10" opacity=".45"/><circle cx="14" cy="14" r="2.6" fill="currentColor" stroke="none"/></svg>
       </span></label>
-      <label title="Steps"><input type="radio" name="mode" value="steps" aria-label="Steps"><span>
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="2.5" y="5" width="4" height="5.5" rx="1"/><rect x="7.8" y="5" width="4" height="5.5" rx="1" opacity=".35"/><rect x="13.1" y="5" width="4" height="5.5" rx="1" opacity=".35"/><rect x="18.4" y="5" width="4" height="5.5" rx="1"/><rect x="2.5" y="13.5" width="4" height="5.5" rx="1" opacity=".35"/><rect x="7.8" y="13.5" width="4" height="5.5" rx="1"/><rect x="13.1" y="13.5" width="4" height="5.5" rx="1"/><rect x="18.4" y="13.5" width="4" height="5.5" rx="1" opacity=".35"/></svg>
-      </span></label>
       <label title="Piano roll"><input type="radio" name="mode" value="roll" aria-label="Piano roll"><span>
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="2" y="3" width="3.5" height="18" rx="1" opacity=".35"/><rect x="7.5" y="4.5" width="7" height="4" rx="1"/><rect x="11.5" y="10" width="10.5" height="4" rx="1"/><rect x="7.5" y="15.5" width="5" height="4" rx="1"/></svg>
+      </span></label>
+    </div>
+    <!-- a drum machine plays from its pads or its step grid -->
+    <div class="seg modes beatsonly" role="radiogroup" aria-label="Play drums with">
+      <label title="Pads"><input type="radio" name="dmode" value="pads" aria-label="Pads"><span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2" fill="currentColor"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></svg>
+      </span></label>
+      <label title="Steps"><input type="radio" name="dmode" value="steps" aria-label="Steps" checked><span>
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="2.5" y="5" width="4" height="5.5" rx="1"/><rect x="7.8" y="5" width="4" height="5.5" rx="1" opacity=".35"/><rect x="13.1" y="5" width="4" height="5.5" rx="1" opacity=".35"/><rect x="18.4" y="5" width="4" height="5.5" rx="1"/><rect x="2.5" y="13.5" width="4" height="5.5" rx="1" opacity=".35"/><rect x="7.8" y="13.5" width="4" height="5.5" rx="1"/><rect x="13.1" y="13.5" width="4" height="5.5" rx="1"/><rect x="18.4" y="13.5" width="4" height="5.5" rx="1" opacity=".35"/></svg>
       </span></label>
     </div>
     <button class="btn iconbtn fxbtn synthonly" data-menu="fxMenu" aria-label="Effects" title="Effects" aria-haspopup="dialog" aria-expanded="false" aria-controls="fxMenu">
@@ -569,7 +585,7 @@
   <div class="barrow namerow">
     <button class="btn pickbtn synthonly" id="soundBtn" data-menu="presetMenu" aria-haspopup="dialog" aria-expanded="false" aria-controls="presetMenu"><span></span></button>
     <button class="btn pickbtn beatsonly" id="kitBtn" data-menu="kitMenu" aria-haspopup="dialog" aria-expanded="false" aria-controls="kitMenu"><span></span></button>
-    <!-- the pattern on screen (drums, or a synth in Steps or Piano roll): clear it, copy it, paste a copy over it -->
+    <!-- the pattern on screen (drums, or a synth in Piano roll): clear it, copy it, paste a copy over it -->
     <div class="patgrp" role="group" aria-label="Pattern">
       <button class="btn iconbtn" id="clearPat" aria-label="Clear this pattern" title="Clear this pattern">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 3.5h4M6.5 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h6a1.5 1.5 0 0 0 1.5-1.5l1-12.5M10 11v6M14 11v6"/></svg>
@@ -611,8 +627,8 @@
     <canvas id="pad" aria-label="Play area. Drag left and right to change pitch, up and down to open or close the filter."></canvas>
     <div class="hint" id="hint">Drag anywhere to play</div>
   </div>
-  <!-- Steps and Piano roll: the synth's patterns, on a step grid or as notes with lengths, played in time with the beats -->
-  <div class="synthseq stepsonly">
+  <!-- Piano roll: the synth's patterns, as notes with lengths, played in time with the beats -->
+  <div class="synthseq rollonly">
     <div class="beatsbar">
       <div class="seg pats" role="radiogroup" aria-label="Pattern" id="spats"></div>
       <div class="pagectl" role="group" aria-label="More patterns">
@@ -625,8 +641,7 @@
         <button class="btn" id="octUp" aria-label="Octave up">+</button>
       </div>
     </div>
-    <div class="grid sgrid gridonly" id="sgrid"></div>
-    <div class="roll rollonly" id="roll" role="group" aria-label="Piano roll"><div class="rollbody" id="rollBody"></div></div>
+    <div class="roll" id="roll" role="group" aria-label="Piano roll"><div class="rollbody" id="rollBody"></div></div>
   </div>
   <section class="fx">
     <!-- on phones each .sheet is an overlay menu; on bigger screens the wrappers vanish (display: contents) -->
@@ -724,8 +739,8 @@
       <div class="helppane usepane">
         <h3>The buttons at the top</h3>
         <p><strong>First row:</strong> Live or Song, play and stop, the tempo (tap the number to change it), then the mixer, settings and help.</p>
-        <p><strong>Second row:</strong> the keyboard and <strong>1 2 3</strong> are the synths; the drum and <strong>A B C</strong> are the drum machines. A dot shows which ones are playing, and flashes with each note. On a synth, the three buttons after the tabs pick Pad, Steps or Piano roll. The waves button at the end opens the effects.</p>
-        <p><strong>Third row:</strong> the sound of the synth or drum machine on screen. Tap its name to change it and shape it. On a synth, the arpeggio and the scale (the steps button) follow. On the drums and on a synth in Steps or Piano roll, the bin clears the pattern on screen, and the next two buttons copy it and paste a copy over it (both ask first if steps would be lost). On the Sample kit it shows the loaded file, with Load and the loop's length next to it. On the drums, the patterns come next.</p>
+        <p><strong>Second row:</strong> the keyboard and <strong>1 2 3</strong> are the synths; the drum and <strong>A B C</strong> are the drum machines. A dot shows which ones are playing, and flashes with each note. The two buttons after the tabs pick how to play: <strong>Pad</strong> or <strong>Piano roll</strong> on a synth, <strong>Pads</strong> or <strong>Steps</strong> on a drum machine. The waves button at the end opens the effects.</p>
+        <p><strong>Third row:</strong> the sound of the synth or drum machine on screen. Tap its name to change it and shape it. On a synth, the arpeggio and the scale (the steps button) follow. On a drum machine in Steps and on a synth in Piano roll, the bin clears the pattern on screen, and the next two buttons copy it and paste a copy over it (both ask first if anything would be lost). On the Sample kit it shows the loaded file, with Load and the loop's length next to it. On the drums in Steps, the patterns come next.</p>
         <h3>The pad</h3>
         <p>Slide left and right for pitch, up and down for the filter: brighter at the top of each keyboard, darker at the bottom.</p>
         <h3>Arpeggio and chords</h3>
@@ -733,20 +748,19 @@
         <p>Keep the same notes down for a couple of seconds and <strong>Hold</strong> lights up: let go and the arpeggio keeps playing, so you can change the sound. Play a new chord to change it, or tap Hold to stop it. Change the scale while it's held and the notes move onto the new scale.</p>
         <h3>Three synths</h3>
         <p><strong>1 2 3</strong> are three synths, each with its own sound, scale and effects. Whatever one is playing carries on when you switch to another.</p>
-        <h3>Steps</h3>
-        <p>Switch a synth to <strong>Steps</strong> to write a pattern on a grid of its notes. Steps play along with the beats, so press play to hear them. Each synth has 32 patterns, 8 at a time: the down arrow shows 9 to 16 and so on, the up arrow goes back.</p>
         <h3>Piano roll</h3>
-        <p><strong>Piano roll</strong> shows the same patterns as Steps, but notes can be long. Press an empty spot to add a note, and drag right to make it longer. Drag the end of a note to stretch or shorten it, drag the rest of it to move it, and tap it to take it out. New notes are as long as the last one you drew.</p>
-        <p>Scroll the notes on the left to move up and down the keyboard. Press one to hear it; it plays for as long as you hold it. The roll covers four octaves from the lowest note; Steps shows the bottom two. In Steps, a long note lights its first step and shades the rest; tap any of them to take it out.</p>
+        <p>Switch a synth to <strong>Piano roll</strong> to write a pattern of its notes. Patterns play along with the beats, so press play to hear them. Each synth has 32 patterns, 8 at a time: the down arrow shows 9 to 16 and so on, the up arrow goes back.</p>
+        <p>Press an empty spot to add a note, and drag right to make it longer. Drag the end of a note to stretch or shorten it, drag the rest of it to move it, and tap it to take it out. New notes are as long as the last one you drew.</p>
+        <p>Scroll the notes on the left to move up and down the keyboard. Press one to hear it; it plays for as long as you hold it. The roll covers four octaves; − and + move the whole pattern down or up an octave.</p>
         <h3>Drums</h3>
-        <p><strong>A B C</strong> are three drum machines. They all play together, each with its own kit, patterns and effects. Tap steps to add hits and switch between 32 patterns, 8 at a time: the down arrow shows 9 to 16 and so on, the up arrow goes back. An arrow is underlined when the pattern playing is that way. The name under the tabs shows the kit: <strong>909</strong>, <strong>808</strong> or <strong>Sample</strong>; tap it to change. The Sample kit cuts a loop you load into 8 slices. It guesses whether the loop is 1, 2 or 4 bars long and fits it to the tempo; if it sounds too fast or slow, tap the bars button next to Load.</p>
+        <p><strong>A B C</strong> are three drum machines. They all play together, each with its own kit, patterns and effects. In <strong>Pads</strong>, tap the pads to play the drums live, with as many fingers as you like. In <strong>Steps</strong>, tap steps to add hits and switch between 32 patterns, 8 at a time: the down arrow shows 9 to 16 and so on, the up arrow goes back. An arrow is underlined when the pattern playing is that way. The name under the tabs shows the kit: <strong>909</strong>, <strong>808</strong> or <strong>Sample</strong>; tap it to change. The Sample kit cuts a loop you load into 8 slices. It guesses whether the loop is 1, 2 or 4 bars long and fits it to the tempo; if it sounds too fast or slow, tap the bars button next to Load.</p>
         <h3>Sound and effects</h3>
         <p>Tap the sound's name to open its menu. A synth's has a list of sounds (bass, lead and pad), the envelope, the <strong>Filter</strong> and distortion. On a tablet held upright, the filter and distortion sit under the pad instead, next to the delay and reverb. The drums' has the kits, a Filter and distortion. Turn Cutoff down for a darker, duller sound, and Resonance up for a ringing edge. Knobs work by pressing one and sliding up or down. <strong>Effects</strong> (the waves button) has delay and reverb, for the synths and the drums. Tempo sets the speed of everything.</p>
         <h3>Mixer</h3>
         <p>The faders button opens the <strong>Mixer</strong>. A channel's name lights up while it plays and flashes with each note. Each has a level, <strong>M</strong> to mute, <strong>S</strong> to solo, how much reverb, delay and distortion each one gets, and its filter's cutoff. These are the same knobs as in the effects and sound menus.</p>
         <h3>Live and Song</h3>
         <p>In <strong>Live</strong>, play loops the patterns picked on each screen. In <strong>Song</strong>, it plays the song from the top, one row per bar, and goes round again at the end.</p>
-        <p>Each row has a slot for synths 1 2 3 and drums A B C. Tap a slot to pick a pattern, or Off. Tap a bar number to play from that bar: stopped, play starts there; playing, the song jumps there at the end of the bar. <strong>+ Add a bar</strong> copies the last row; × removes one. In Song the synths play their patterns even in Pad mode, so you can still play the pad over the top.</p>
+        <p>Each row has a slot for synths 1 2 3 and drums A B C. Tap a slot to pick a pattern, or Off. Tap a bar number to play from that bar: stopped, play starts there; playing, the song jumps there at the end of the bar. <strong>+ Add a bar</strong> copies the last row; × removes one. In Live, a synth on Pad or a drum machine on Pads doesn't play its pattern, so you can jam over the others. In Song everything plays its patterns, so you can still play the pads over the top.</p>
         <p>While the song plays, <strong>1 2 3</strong> and <strong>A B C</strong> still open each synth and drum machine so you can change patterns. Tap <strong>Song</strong> to get back to the song.</p>
         <p>Stop cuts all sound, echoes and reverb too, and stops any arpeggios.</p>
         <h3>Crackles?</h3>
@@ -755,6 +769,7 @@
       <div class="helppane historypane">
         <!-- newest first; the first entry's number is shown next to the title -->
         <ul class="history" id="history">
+          <li><span class="ver">v4.3</span>Synths and drums work the same way: a synth has Pad and Piano roll (Steps is gone, its patterns open in the piano roll), a drum machine has Pads to play live and Steps.</li>
           <li><span class="ver">v4.2</span>The note names next to Steps and the piano roll play as soon as you press them, and keep playing while held. Drum names play on press too.</li>
           <li><span class="ver">v4.1</span>Piano roll: a third way to write a synth's patterns, with notes you can stretch and shorten. Scroll the keys on the left to move up and down four octaves.</li>
           <li><span class="ver">v4.0</span>Changing the scale moves a held arpeggio onto the new scale. More sounds, in a dropdown grouped Bass, Lead and Pad. Phones show the arpeggio settings button again. Tablets held upright get three keyboards, with Filter, Distortion, Delay and Reverb under the pad.</li>
@@ -810,14 +825,16 @@
     <div class="songlist" id="songList"></div>
   </section>
   <section class="beatsview" aria-label="Beats">
-    <div class="beatsbar">
+    <!-- Pads mode: a pad per drum (or slice), played straight away -->
+    <div class="dpads dpadsonly" id="dpads" role="group" aria-label="Drum pads"></div>
+    <div class="beatsbar dstepsonly">
       <div class="seg pats" role="radiogroup" aria-label="Pattern" id="pats"></div>
       <div class="pagectl" role="group" aria-label="More patterns">
         <button class="btn iconbtn" id="patUp" aria-label="Patterns before these" title="Patterns before these"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>
         <button class="btn iconbtn" id="patDown" aria-label="More patterns" title="More patterns"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
       </div>
     </div>
-    <div class="grid" id="grid"></div>
+    <div class="grid dstepsonly" id="grid"></div>
     <section class="fx drumfx">
       <div class="fxgroup drumsgroup" style="--cols: 2">
         <h2>Drums <span class="dmName">A</span></h2>
@@ -1299,7 +1316,7 @@
   }, 500);
 
   // ---------- synths ----------
-  // three synths, each with its own sound, scale, envelope, filter, effects, arp settings and mode (pad or steps).
+  // three synths, each with its own sound, scale, envelope, filter, effects, arp settings and mode (pad or piano roll).
   // They all keep playing (held arps, step patterns) whichever one is on screen; `cur` is the one on screen
   const ARP_RATES = [[1, "1/4"], [1/2, "1/8"], [1/3, "1/8T"], [1/4, "1/16"], [1/6, "1/16T"], [1/8, "1/32"]];   // [beats, label]
   const ARP_HOLDS = [[0, "Off"], [0.5, "0.5 s"], [1, "1 s"], [1.5, "1.5 s"], [2, "2 s"], [3, "3 s"], [4, "4 s"], [5, "5 s"]];
@@ -1315,20 +1332,18 @@
     syn.env = { a: p.atk, d: p.dec, s: p.sus, r: p.rel };
     syn.filt[syn.mode].res = p.q;
   }
-  // the pad's notes (two octaves per row from C2), the piano roll's rows (four octaves from the chosen C) and the
-  // step grid's (the bottom two of those). A pattern's row r is rollNotes[r]
+  // the pad's notes (two octaves per row from C2) and the piano roll's rows (four octaves from the chosen C). A
+  // pattern's row r is rollNotes[r]
   function buildNotes(syn) {
     const from = 24 + 12 * syn.oct;
     syn.notes = scaleNotes(syn.scale, LOW);
     syn.rollNotes = scaleNotes(syn.scale, from, ROLL_SPAN);
-    syn.seqNotes = syn.rollNotes.filter(m => m <= from + SPAN);
   }
   function makeSynth(d, i) {
     const syn = {
       i, scale: d.scale, mode: "pad", oct: 1,
-      // Pad and Steps each have their own filter (cut in Hz, res a filter Q); Piano roll shares the Steps one (added
-      // below). Pad starts fully open, Steps at the sliders' midpoints
-      filt: { pad: { cut: CUT_MAX, res: 0 }, steps: { cut: cutFromSlider(50), res: 50 / RES_SCALE } },
+      // each mode has its own filter (cut in Hz, res a filter Q). Pad starts fully open, Piano roll at the sliders' midpoints
+      filt: { pad: { cut: CUT_MAX, res: 0 }, roll: { cut: cutFromSlider(50), res: 50 / RES_SCALE } },
       arpOn: true, arpRate: 3, arpDir: "up", arpHold: 4,
       rack: makeRack("", { xAmount: 0, dAmount: 25, rMix: 25 }),
       bus: null,                         // everything this synth plays goes through here, then its rack
@@ -1338,7 +1353,6 @@
       arp: null, latch: null,
       pats: null, editPat: 0, playPat: 0, page: 0,   // page: which 8 of the 32 pattern buttons show
     };
-    syn.filt.roll = syn.filt.steps;      // the same object, so syn.filt[syn.mode] works in every mode
     loadPreset(syn, d.preset);
     buildNotes(syn);
     return syn;
@@ -1355,6 +1369,7 @@
     bus: null,                           // everything this machine plays goes through here, then its rack
     openHat: null,                       // { choke, start } so a closed hat can cut a ringing open hat off
     banks: null, editPat: 0, playPat: 0, page: 0,   // patterns: filled in with the patterns code; page as for synths
+    mode: "steps",                       // "pads" to play live, "steps" to play its patterns (like a synth's Pad / Piano roll)
     brk: { buf: null, name: "", bytes: null, bars: 1, voice: null },   // a loaded break, if the kit is Break
   }));
   let dcur = drums[0];
@@ -1484,9 +1499,9 @@
   // ---------- voices ----------
   // the pad's filter: from CUT_MIN at the bottom of a row (ly = 1) up to the Pad Cutoff at the top (ly = 0)
   const cutoffFor = (ly, syn) => CUT_MIN * Math.pow(syn.filt.pad.cut / CUT_MIN, 1 - ly);
-  // step notes (no ly) use the Steps filter; everything else the Pad filter
-  const filtFor = (ly, syn) => ly == null ? syn.filt.steps : syn.filt.pad;
-  const voiceCut = (v, syn) => v.ly == null ? syn.filt.steps.cut : cutoffFor(v.ly, syn);
+  // pattern notes (no ly) use the Piano roll filter; everything else the Pad filter
+  const filtFor = (ly, syn) => ly == null ? syn.filt.roll : syn.filt.pad;
+  const voiceCut = (v, syn) => v.ly == null ? syn.filt.roll.cut : cutoffFor(v.ly, syn);
 
   // the amp follows the envelope: up to full over the attack, then down to the sustain level over the decay.
   // gate (arp and step notes): seconds until the release starts. If that comes before the attack has finished, the
@@ -1500,7 +1515,7 @@
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";
     filter.Q.value = filtFor(ly, syn).res;
-    filter.frequency.setValueAtTime(ly == null ? syn.filt.steps.cut : cutoffFor(ly, syn), now);
+    filter.frequency.setValueAtTime(ly == null ? syn.filt.roll.cut : cutoffFor(ly, syn), now);
     const amp = ctx.createGain();
     amp.gain.setValueAtTime(0, now);
     if (gate != null && gate < a) amp.gain.linearRampToValueAtTime(gate / a, now + gate);
@@ -1569,7 +1584,7 @@
     v.filter.frequency.setTargetAtTime(cutoff, now, FILTER_GLIDE);
   }
 
-  // an arp or step note: starts at t, releases after gate. ly is the pad height it takes its filter from (null for steps)
+  // an arp or step note: starts at t, releases after gate. ly is the pad height it takes its filter from (null for pattern notes)
   function playTail(syn, midi, t, gate, ly) {
     if (syn.tails.size >= MAX_TAILS) {                 // a Set keeps its order, so the first one is the oldest
       const oldest = syn.tails.values().next().value;
@@ -1791,8 +1806,8 @@
       if (e.latch) return true;
       const p = seqNow ? seqNow.pats[k] : -1;
       if (p < 0) return false;
-      if (e.chan.dm) return hasNotes(patsOf(e)[p]);
-      return (playMode === "song" || e.mode !== "pad") && hasNotes(e.pats[p]);
+      if (playMode === "live" && (e.chan.dm ? e.mode === "pads" : e.mode === "pad")) return false;
+      return hasNotes(e.chan.dm ? patsOf(e)[p] : e.pats[p]);
     });
     const key = on.join();
     if (key === shownDots) return;
@@ -1923,7 +1938,7 @@
     });
 
     // only redraw when something has changed or is moving; otherwise the last frame stays on screen.
-    // Hidden (beats view or Steps), the canvas has no size and nothing is drawn
+    // Hidden (beats view or Piano roll), the canvas has no size and nothing is drawn
     if (!W || !H || (!padDirty && !pointers.size && !trail.length)) return;
     padDirty = false;
     const { band, line, root, muted, ink, rowBright, rowDark, bg } = colors || (colors = readColors());
@@ -2281,7 +2296,7 @@
 
   // ---------- sequencer ----------
   // same lookahead idea as the arp: every 25 ms, schedule any steps due in the next 100 ms.
-  // One clock runs the drums and every synth in Steps or Piano roll
+  // One clock runs the drums and every synth in Piano roll
   // bar counts bars since play (or since switching to Song), songRow is the song row being played (-1 in Live)
   // jump is a song row to go to at the next bar (tapping a bar number while playing), -1 for none
   const seq = { playing: false, timer: null, step: 0, count: 0, bar: 0, songRow: -1, jump: -1, nextTime: 0, queue: [] };
@@ -2309,9 +2324,10 @@
       const len = stepLen();
       const t = seq.nextTime + (seq.step % 2 ? swingAmount() * len : 0);   // swing pushes back every other 1/16
       drums.forEach(dm => {
-        if (dm.playPat >= 0) patsOf(dm)[dm.playPat].forEach((row, r) => { if (row[seq.step]) playRow(dm, r, t); });
+        if (dm.playPat < 0 || (playMode === "live" && dm.mode === "pads")) return;   // in Live, Pads plays only what's tapped
+        patsOf(dm)[dm.playPat].forEach((row, r) => { if (row[seq.step]) playRow(dm, r, t); });
       });
-      // in Live a synth's patterns only play in Steps or Piano roll; in Song they play whenever the song asks. A note
+      // in Live a synth's patterns only play in Piano roll; in Song they play whenever the song asks. A note
       // n steps long holds through n - 1 steps and lets go GATE of the way through its last
       synths.forEach(syn => {
         if (syn.playPat < 0 || (playMode === "live" && syn.mode === "pad")) return;
@@ -2414,8 +2430,8 @@
   });
 
   // ---------- step grids ----------
-  // press a step to toggle it, then drag to paint the same state across other steps. Shared by the drum grid and the
-  // synth grid: cells carry data-r and data-s, and the grid says how to read, write, audition and save them
+  // press a step to toggle it, then drag to paint the same state across other steps. Used by the drum grid: cells
+  // carry data-r and data-s, and the grid says how to read, write, audition and save them
   function paintable(el, { get, set, audition, save }) {
     let paint = null;
     el.addEventListener("pointerdown", e => {
@@ -2443,7 +2459,7 @@
       save();
     });
   }
-  // row labels and keys that play as soon as they're pressed: hold(label) when a pointer goes down on one, and the
+  // row labels and piano keys that play as soon as they're pressed: hold(label) when a pointer goes down on one, and the
   // function it returns (if any) when that pointer lifts, or is cancelled (a scroll starting on the piano roll's keys).
   // The keyboard still works through click, with tap(label)
   function pressPlays(el, sel, hold, tap) {
@@ -2531,11 +2547,29 @@
   // a row label plays its drum (or slice) as soon as it's pressed
   const hitRow = lab => { playRow(dcur, +lab.dataset.r, ctx.currentTime + 0.01); };
   pressPlays(gridEl, ".rowlab", hitRow, hitRow);
-  // drum kits label rows by drum, the break by slice number
+  // Pads mode: a pad per row, which plays the moment it's pressed and lights while held. Several fingers at once work
+  const padsEl = $("dpads");
+  const dpads = DRUM_ROWS.map((d, r) => {
+    const b = document.createElement("button");
+    b.className = "dpad";
+    b.dataset.r = r;
+    b.innerHTML = "<b></b><span></span>";
+    padsEl.append(b);
+    return b;
+  });
+  pressPlays(padsEl, ".dpad", pad => {
+    hitRow(pad);
+    pad.classList.add("down");
+    return () => pad.classList.remove("down");
+  }, hitRow);
+  padsEl.addEventListener("pointerdown", e => { if (e.target.closest(".dpad")) e.preventDefault(); });   // no focus ring, no text selection
+  // drum kits label rows (and pads) by drum, the break by slice number
   function updateRowLabels() {
     DRUM_ROWS.forEach((d, r) => {
       const short = isBreakKit() ? String(r + 1) : d.short;
       const name = isBreakKit() ? "Slice " + (r + 1) : d.name;
+      dpads[r].firstChild.textContent = short; dpads[r].lastChild.textContent = name;
+      dpads[r].setAttribute("aria-label", "Play " + name.toLowerCase());
       rowLabs[r].textContent = short; rowLabs[r].title = name;
       rowLabs[r].setAttribute("aria-label", "Play " + name.toLowerCase());
       cells[r].forEach((c, s) => c.setAttribute("aria-label", `${name}, step ${s + 1}`));
@@ -2596,6 +2630,8 @@
 
   // put the drum machine on screen into every Beats control
   function bindDrumUI() {
+    document.querySelector(`input[name="dmode"][value="${dcur.mode}"]`).checked = true;
+    document.body.dataset.dmode = dcur.mode;
     kitSel.value = dcur.kit;
     listSyncs.kit();
     renderGrid(); updateRowLabels(); updateBreakUI();
@@ -2606,10 +2642,17 @@
     document.querySelectorAll(".dmName").forEach(s => { s.textContent = dcur.name; });
   }
 
-  // ---------- synth steps ----------
-  // each synth has 32 patterns of [row][step], rows counted up the scale from the grid's lowest note, so a pattern
+  // Pads or Steps, for the drum machine on screen
+  document.querySelectorAll('input[name="dmode"]').forEach(r => r.addEventListener("change", () => {
+    dcur.mode = r.value;
+    document.body.dataset.dmode = dcur.mode;
+    updateTabs();
+  }));
+
+  // ---------- synth patterns ----------
+  // each synth has 32 patterns of [row][step], rows counted up the scale from the roll's lowest note, so a pattern
   // follows the synth's scale and octave. Saved in localStorage like the drum patterns. A step holds the length of the
-  // note that starts there, in steps (1 is a single step, as the step grid writes), or 0. Notes in a row never overlap
+  // note that starts there, in steps (1 is a single step), or 0. Notes in a row never overlap
   const SEQ_ROWS_MAX = ROLL_SPAN + 1;                     // four octaves of the chromatic scale, the most rows the roll can have
   const SYNTH_PATS_KEY = "xysynth.synthPatterns.v1";      // bump when the defaults change
   const emptySynthPattern = () => Array.from({ length: SEQ_ROWS_MAX }, () => Array(STEPS).fill(0));
@@ -2635,8 +2678,6 @@
     try { localStorage.setItem(SYNTH_PATS_KEY, JSON.stringify(synths.map(syn => syn.pats))); } catch {}
   }
 
-  const sgridEl = $("sgrid");
-  let sCells = [];                                       // sCells[row][step] for the synth on screen, row 0 = lowest note
   // the start of the note that covers step s of a row, or -1
   function noteStart(row, s) {
     for (let k = s; k >= 0; k--) if (row[k]) return k + row[k] > s ? k : -1;
@@ -2648,80 +2689,37 @@
     while (k < STEPS && !row[k]) k++;
     return k - s;
   }
-  // a note's first step is lit, the rest of a long note shaded (.tail)
-  function renderSRow(r) {
-    const row = cur.pats[cur.editPat][r];
-    sCells[r].forEach((c, s) => {
-      const on = row[s] > 0, tail = !on && noteStart(row, s) >= 0;
-      c.classList.toggle("on", on);
-      c.classList.toggle("tail", tail);
-      c.setAttribute("aria-pressed", on || tail);
-    });
-  }
-  // rebuilt whenever the synth, its scale, its octave or the pattern changes, since the number of rows changes.
-  // Redraws the piano roll too, and brings its notes into view next time it shows
-  function renderSynthGrid() {
-    const rows = cur.seqNotes;
-    sgridEl.style.setProperty("--rows", rows.length);
-    sgridEl.textContent = "";
-    sCells = [];
-    for (let r = rows.length - 1; r >= 0; r--) {         // highest note at the top
-      const midi = rows[r], isRoot = midi % 12 === 0;
-      const lab = document.createElement("button");
-      lab.className = "rowlab" + (isRoot ? " root" : "");
-      lab.textContent = isRoot ? noteName(midi) : NOTE_NAMES[midi % 12];
-      lab.dataset.r = r;
-      lab.setAttribute("aria-label", "Play " + noteName(midi));
-      sgridEl.append(lab);
-      sCells[r] = [];
-      for (let s = 0; s < STEPS; s++) {
-        const c = makeCell(r, s, `${noteName(midi)}, step ${s + 1}`);
-        sgridEl.append(c);
-        sCells[r][s] = c;
-      }
-      renderSRow(r);
-    }
+  // the pattern bar and the piano roll, redrawn whenever the synth, its scale, its octave or the pattern changes (the
+  // number of rows changes). Brings the notes into view next time the roll shows
+  function renderSynthPats() {
     $("spats").querySelectorAll("input")[cur.editPat].checked = true;
-    $("octOut").textContent = noteName(rows[0]);
+    $("octOut").textContent = noteName(cur.rollNotes[0]);
     $("octDown").disabled = cur.oct <= 0;
     $("octUp").disabled = cur.oct >= 4;
-    heads.synth.step = -1; heads.synth.pat = -1;         // fresh cells: the playhead goes back on next frame
+    heads.synth.pat = -1;                                // the playing pattern's underline is redone next frame
     renderRoll();
     rollScroll = true;
   }
-  const auditionStep = r => playTail(cur, cur.rollNotes[r], ctx.currentTime + 0.01, stepLen() * GATE, null);
-  // pressing any step of a note takes the whole note out; pressing an empty step adds a one-step note
-  paintable(sgridEl, {
-    get: (r, s) => noteStart(cur.pats[cur.editPat][r], s) >= 0,
-    set: (r, s, on) => {
-      const row = cur.pats[cur.editPat][r], k = noteStart(row, s);
-      if (on && k < 0) row[s] = 1;
-      if (!on && k >= 0) row[k] = 0;
-      renderSRow(r);
-    },
-    audition: auditionStep,
-    save: saveSynthPatterns,
-  });
-  // the row labels (and the piano roll's keys) play their note while they're held down
+  const auditionNote = r => playTail(cur, cur.rollNotes[r], ctx.currentTime + 0.01, stepLen() * GATE, null);
+  // the piano roll's keys play their note while they're held down
   function holdNote(lab) {
     const syn = cur, v = startVoice(syn, syn.rollNotes[+lab.dataset.r], null);
     syn.held.add(v);
     return () => { if (syn.held.delete(v)) stopVoice(v); };   // stop cuts it first, and empties held
   }
-  pressPlays(sgridEl, ".rowlab", holdNote, lab => auditionStep(+lab.dataset.r));
   const sPager = pager(patternButtons($("spats"), "spat", i => {
     cur.editPat = i;
     if (!seq.playing) cur.playPat = i;
-    renderSynthGrid();
+    renderSynthPats();
   }), "spatUp", "spatDown", () => cur);
   [["octDown", -1], ["octUp", 1]].forEach(([id, d]) => $(id).addEventListener("click", () => {
     cur.oct = Math.min(4, Math.max(0, cur.oct + d));
     buildNotes(cur);
-    renderSynthGrid();
+    renderSynthPats();
   }));
 
   // ---------- piano roll ----------
-  // the same patterns as the step grid, over four octaves (rollNotes), with notes as bars that can be any length.
+  // the synth's patterns over four octaves of its scale (rollNotes), with notes as bars that can be any length.
   // The keys down the left scroll it up and down (the lanes don't scroll, so dragging there edits); tapping a key
   // plays it. In a lane: press an empty spot to add a note and drag right to lengthen it, drag a note's last step to
   // stretch or shorten it, drag the rest of it to move it, tap it to take it out. New notes are as long as the last
@@ -2818,7 +2816,7 @@
       row[s] = Math.min(rollLen, roomFrom(row, s));
       Object.assign(d, { kind: "new", s, changed: true });
       renderRollNotes();
-      if (!seq.playing) auditionStep(r);
+      if (!seq.playing) auditionNote(r);
     } else {
       // a one-step note: its right half stretches it, its left half moves it
       const end = k + row[k] - 1;
@@ -2837,7 +2835,7 @@
       pat[d.r][d.s] = 0;                                 // lift it, and put it down where there's room
       if (noteStart(pat[nr], ns) < 0 && roomFrom(pat[nr], ns) >= len) {
         pat[nr][ns] = len;
-        if (nr !== d.r && !seq.playing) auditionStep(nr);
+        if (nr !== d.r && !seq.playing) auditionNote(nr);
         Object.assign(d, { r: nr, s: ns, changed: true });
       } else pat[d.r][d.s] = len;                        // no room there: it stays put
     } else {
@@ -2863,11 +2861,11 @@
   }
   rollBody.addEventListener("pointerup", e => endRollDrag(e, false));
   rollBody.addEventListener("pointercancel", e => endRollDrag(e, true));
-  pressPlays(rollBody, ".rkey", holdNote, key => auditionStep(+key.dataset.r));   // the keys play while held
+  pressPlays(rollBody, ".rkey", holdNote, key => auditionNote(+key.dataset.r));   // the keys play while held
 
   // ---------- clear, copy and paste ----------
   // one set of buttons, in the name row, for the pattern on screen: the drum machine's (beats view) or the synth's
-  // (Steps). Drum patterns copy between drum machines and kits, synth patterns between synths. Clearing always asks
+  // (Piano roll). Drum patterns copy between drum machines and kits, synth patterns between synths. Clearing always asks
   // first; pasting asks if it would replace steps
   const clip = { drums: null, synth: null };             // { pat, from } once something's copied
   const hasSteps = pat => pat.some(row => row.some(Boolean));
@@ -2877,7 +2875,7 @@
       ? { kind: "drums", pats: patsOf(dcur), i: dcur.editPat, name: "Drums " + dcur.name, empty: emptyPattern,
           done: () => { renderGrid(); savePatterns(); } }
       : { kind: "synth", pats: cur.pats, i: cur.editPat, name: "Synth " + (cur.i + 1), empty: emptySynthPattern,
-          done: () => { renderSynthGrid(); saveSynthPatterns(); } };
+          done: () => { renderSynthPats(); saveSynthPatterns(); } };
   }
   // paste works once there's a copy of the right kind
   function showPasteBtn() {
@@ -2901,7 +2899,7 @@
     const o = onScreen(), c = clip[o.kind];
     if (!c) return;
     const paste = () => { o.pats[o.i] = clonePat(c.pat); o.done(); };
-    if (hasSteps(o.pats[o.i])) askConfirm(e.currentTarget, `Pattern ${o.i + 1} has steps in it. Replace them with ${c.from}?`, "Replace", paste);
+    if (hasSteps(o.pats[o.i])) askConfirm(e.currentTarget, `Pattern ${o.i + 1} has ${o.kind === "synth" ? "notes" : "steps"} in it. Replace them with ${c.from}?`, "Replace", paste);
     else paste();
   });
 
@@ -2929,7 +2927,7 @@
   $("confirmYes").addEventListener("click", () => { const act = confirmDo; closeConfirm(); act?.(); });
 
   // playheads and "which pattern is playing", kept in step with what's audible
-  const heads = { drums: { step: -1, pat: -1 }, synth: { step: -1, pat: -1 }, roll: { step: -1 } };
+  const heads = { drums: { step: -1, pat: -1 }, synth: { pat: -1 }, roll: { step: -1 } };
   function moveHead(h, grid, step) {
     if (step === h.step) return;
     if (h.step >= 0) grid.forEach(row => row[h.step].classList.remove("now"));
@@ -2949,9 +2947,8 @@
     const mode = cur.mode;
     moveHead(heads.drums, cells, seqNow ? seqNow.step : -1);
     markPat(heads.drums, patPager, seqNow ? seqNow.pats[engines.indexOf(dcur)] : -1);
-    moveHead(heads.synth, sCells, seqNow && mode === "steps" ? seqNow.step : -1);
     moveRollHead(seqNow && mode === "roll" ? seqNow.step : -1);
-    markPat(heads.synth, sPager, seqNow && mode !== "pad" ? seqNow.pats[cur.i] : -1);
+    markPat(heads.synth, sPager, seqNow && mode === "roll" ? seqNow.pats[cur.i] : -1);
     scrollRoll();
     markSongRow(seqNow ? seqNow.row : -1);
     markCue(seq.playing ? seq.jump : songPos);
@@ -2996,7 +2993,7 @@
     buildNotes(cur);
     if (cur.latch) latchNotes(cur);                      // a held arp moves onto the new scale, like the step grid
     remapPointers();
-    renderSynthGrid();
+    renderSynthPats();
   });
   // a new sound brings its own envelope and resonance; fingers already down switch to it
   presetSel.addEventListener("change", () => {
@@ -3032,14 +3029,13 @@
     shownHold = null; updateHoldBtn(0);
   });
 
-  // ---------- pad, steps or piano roll, and which synth is on screen ----------
+  // ---------- pad or piano roll, and which synth is on screen ----------
   document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener("change", () => {
     cur.latch = null;                                    // a held arp stops when the synth changes mode
     cur.mode = r.value;
     dropPointers();
     document.body.dataset.mode = cur.mode;
-    renderSynthGrid();                                   // the step grid and the roll show the same pattern
-    loadSoundUI(cur);                                    // Pad has its own filter settings
+    loadSoundUI(cur);                                    // each mode has its own filter settings
     updateTabs();
     shownHold = null; updateHoldBtn(0);
     closeMenu();
@@ -3065,7 +3061,7 @@
     showArpUI(cur);
     document.querySelector(`input[name="mode"][value="${cur.mode}"]`).checked = true;
     document.body.dataset.mode = cur.mode;
-    renderSynthGrid();
+    renderSynthPats();
     sPager.show();
     holdKey = "";
     shownHold = null; updateHoldBtn(0);
