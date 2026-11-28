@@ -121,7 +121,7 @@
   .patgrp { display: flex; align-items: center; gap: 3px; background: var(--band); border-radius: 12px; padding: 3px; flex: none; }
   .patgrp .iconbtn { padding: 5px 6px; }
   .patgrp .iconbtn:disabled { opacity: 0.4; cursor: default; }
-  body[data-view="song"] .patgrp, body[data-view="synth"][data-mode="pad"] .patgrp, body[data-view="beats"][data-dmode="pads"] .patgrp { display: none; }
+  body[data-view="song"] .patgrp, body[data-view="synth"][data-mode="pad"] .patgrp { display: none; }
   /* arp hold: always there, dimmed until there's something to hold; fills from the left while the notes count up, solid once held */
   .holdbtn { background: linear-gradient(to right, var(--hit) calc(var(--fill, 0) * 100%), var(--control) 0); }
   .holdbtn.off { color: var(--muted); border-color: transparent; }
@@ -207,6 +207,9 @@
   .dpad.down { background: var(--hit); border-color: var(--hit); color: var(--bg); transition: none; }
   .dpad.down b { color: var(--bg); transition: none; }
   .dpad:focus-visible { outline: 3px solid var(--root); outline-offset: 2px; }
+  /* Rec: a dot before the word */
+  .recbtn { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+  .recbtn::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
   @media (orientation: portrait) and (max-width: 520px) {
     .dpads { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); }
   }
@@ -597,6 +600,8 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 4.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-13a2 2 0 0 0-2-2h-1.5"/><rect x="8.5" y="2.5" width="7" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
       </button>
     </div>
+    <!-- Pads: record what's played into the pattern -->
+    <button class="btn togglebtn recbtn beatsonly dpadsonly" id="recBtn" aria-pressed="false" title="Record the pads into the pattern">Rec</button>
     <button class="btn beatsonly" id="loadBreak" aria-label="Load a sample" hidden>Load</button>
     <!-- how many bars the loaded loop is: guessed on load, tap to change -->
     <button class="btn beatsonly" id="breakBars" hidden></button>
@@ -740,7 +745,7 @@
         <h3>The buttons at the top</h3>
         <p><strong>First row:</strong> Live or Song, play and stop, the tempo (tap the number to change it), then the mixer, settings and help.</p>
         <p><strong>Second row:</strong> the keyboard and <strong>1 2 3</strong> are the synths; the drum and <strong>A B C</strong> are the drum machines. A dot shows which ones are playing, and flashes with each note. The two buttons after the tabs pick how to play: <strong>Pad</strong> or <strong>Piano roll</strong> on a synth, <strong>Pads</strong> or <strong>Steps</strong> on a drum machine. The waves button at the end opens the effects.</p>
-        <p><strong>Third row:</strong> the sound of the synth or drum machine on screen. Tap its name to change it and shape it. On a synth, the arpeggio and the scale (the steps button) follow. On a drum machine in Steps and on a synth in Piano roll, the bin clears the pattern on screen, and the next two buttons copy it and paste a copy over it (both ask first if anything would be lost). On the Sample kit it shows the loaded file, with Load and the loop's length next to it. On the drums in Steps, the patterns come next.</p>
+        <p><strong>Third row:</strong> the sound of the synth or drum machine on screen. Tap its name to change it and shape it. On a synth, the arpeggio and the scale (the steps button) follow. On the drums and on a synth in Piano roll, the bin clears the pattern on screen, and the next two buttons copy it and paste a copy over it (both ask first if anything would be lost). On the Sample kit it shows the loaded file, with Load and the loop's length next to it. On the drums, the patterns come next, and in Pads, <strong>Rec</strong>.</p>
         <h3>The pad</h3>
         <p>Slide left and right for pitch, up and down for the filter: brighter at the top of each keyboard, darker at the bottom.</p>
         <h3>Arpeggio and chords</h3>
@@ -753,14 +758,14 @@
         <p>Press an empty spot to add a note, and drag right to make it longer. Drag the end of a note to stretch or shorten it, drag the rest of it to move it, and tap it to take it out. New notes are as long as the last one you drew.</p>
         <p>Scroll the notes on the left to move up and down the keyboard. Press one to hear it; it plays for as long as you hold it. The roll covers four octaves; − and + move the whole pattern down or up an octave.</p>
         <h3>Drums</h3>
-        <p><strong>A B C</strong> are three drum machines. They all play together, each with its own kit, patterns and effects. In <strong>Pads</strong>, tap the pads to play the drums live, with as many fingers as you like. In <strong>Steps</strong>, tap steps to add hits and switch between 32 patterns, 8 at a time: the down arrow shows 9 to 16 and so on, the up arrow goes back. An arrow is underlined when the pattern playing is that way. The name under the tabs shows the kit: <strong>909</strong>, <strong>808</strong> or <strong>Sample</strong>; tap it to change. The Sample kit cuts a loop you load into 8 slices. It guesses whether the loop is 1, 2 or 4 bars long and fits it to the tempo; if it sounds too fast or slow, tap the bars button next to Load.</p>
+        <p><strong>A B C</strong> are three drum machines. They all play together, each with its own kit, patterns and effects. In <strong>Pads</strong>, tap the pads to play the drums live, with as many fingers as you like. Tap <strong>Rec</strong> to record: the beats start if they're stopped, the pattern plays, and every pad you hit is added to it on the nearest step. Tap Rec again, or stop, to finish. In <strong>Steps</strong>, tap steps to add hits and switch between 32 patterns, 8 at a time: the down arrow shows 9 to 16 and so on, the up arrow goes back. An arrow is underlined when the pattern playing is that way. The name under the tabs shows the kit: <strong>909</strong>, <strong>808</strong> or <strong>Sample</strong>; tap it to change. The Sample kit cuts a loop you load into 8 slices. It guesses whether the loop is 1, 2 or 4 bars long and fits it to the tempo; if it sounds too fast or slow, tap the bars button next to Load.</p>
         <h3>Sound and effects</h3>
         <p>Tap the sound's name to open its menu. A synth's has a list of sounds (bass, lead and pad), the envelope, the <strong>Filter</strong> and distortion. On a tablet held upright, the filter and distortion sit under the pad instead, next to the delay and reverb. The drums' has the kits, a Filter and distortion. Turn Cutoff down for a darker, duller sound, and Resonance up for a ringing edge. Knobs work by pressing one and sliding up or down. <strong>Effects</strong> (the waves button) has delay and reverb, for the synths and the drums. Tempo sets the speed of everything.</p>
         <h3>Mixer</h3>
         <p>The faders button opens the <strong>Mixer</strong>. A channel's name lights up while it plays and flashes with each note. Each has a level, <strong>M</strong> to mute, <strong>S</strong> to solo, how much reverb, delay and distortion each one gets, and its filter's cutoff. These are the same knobs as in the effects and sound menus.</p>
         <h3>Live and Song</h3>
         <p>In <strong>Live</strong>, play loops the patterns picked on each screen. In <strong>Song</strong>, it plays the song from the top, one row per bar, and goes round again at the end.</p>
-        <p>Each row has a slot for synths 1 2 3 and drums A B C. Tap a slot to pick a pattern, or Off. Tap a bar number to play from that bar: stopped, play starts there; playing, the song jumps there at the end of the bar. <strong>+ Add a bar</strong> copies the last row; × removes one. In Live, a synth on Pad or a drum machine on Pads doesn't play its pattern, so you can jam over the others. In Song everything plays its patterns, so you can still play the pads over the top.</p>
+        <p>Each row has a slot for synths 1 2 3 and drums A B C. Tap a slot to pick a pattern, or Off. Tap a bar number to play from that bar: stopped, play starts there; playing, the song jumps there at the end of the bar. <strong>+ Add a bar</strong> copies the last row; × removes one. In Live, a synth on Pad or a drum machine on Pads doesn't play its pattern (unless Rec is on), so you can jam over the others. In Song everything plays its patterns, so you can still play the pads over the top.</p>
         <p>While the song plays, <strong>1 2 3</strong> and <strong>A B C</strong> still open each synth and drum machine so you can change patterns. Tap <strong>Song</strong> to get back to the song.</p>
         <p>Stop cuts all sound, echoes and reverb too, and stops any arpeggios.</p>
         <h3>Crackles?</h3>
@@ -769,6 +774,7 @@
       <div class="helppane historypane">
         <!-- newest first; the first entry's number is shown next to the title -->
         <ul class="history" id="history">
+          <li><span class="ver">v4.4</span>Record on the drum pads: tap Rec and what you play is added to the pattern, on the beat.</li>
           <li><span class="ver">v4.3</span>Synths and drums work the same way: a synth has Pad and Piano roll (Steps is gone, its patterns open in the piano roll), a drum machine has Pads to play live and Steps.</li>
           <li><span class="ver">v4.2</span>The note names next to Steps and the piano roll play as soon as you press them, and keep playing while held. Drum names play on press too.</li>
           <li><span class="ver">v4.1</span>Piano roll: a third way to write a synth's patterns, with notes you can stretch and shorten. Scroll the keys on the left to move up and down four octaves.</li>
@@ -825,15 +831,15 @@
     <div class="songlist" id="songList"></div>
   </section>
   <section class="beatsview" aria-label="Beats">
-    <!-- Pads mode: a pad per drum (or slice), played straight away -->
-    <div class="dpads dpadsonly" id="dpads" role="group" aria-label="Drum pads"></div>
-    <div class="beatsbar dstepsonly">
+    <div class="beatsbar">
       <div class="seg pats" role="radiogroup" aria-label="Pattern" id="pats"></div>
       <div class="pagectl" role="group" aria-label="More patterns">
         <button class="btn iconbtn" id="patUp" aria-label="Patterns before these" title="Patterns before these"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>
         <button class="btn iconbtn" id="patDown" aria-label="More patterns" title="More patterns"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
       </div>
     </div>
+    <!-- Pads mode: a pad per drum (or slice), played straight away -->
+    <div class="dpads dpadsonly" id="dpads" role="group" aria-label="Drum pads"></div>
     <div class="grid dstepsonly" id="grid"></div>
     <section class="fx drumfx">
       <div class="fxgroup drumsgroup" style="--cols: 2">
@@ -1370,6 +1376,7 @@
     openHat: null,                       // { choke, start } so a closed hat can cut a ringing open hat off
     banks: null, editPat: 0, playPat: 0, page: 0,   // patterns: filled in with the patterns code; page as for synths
     mode: "steps",                       // "pads" to play live, "steps" to play its patterns (like a synth's Pad / Piano roll)
+    rec: false,                          // Pads with Rec on: hits are written into the pattern, and the pattern plays
     brk: { buf: null, name: "", bytes: null, bars: 1, voice: null },   // a loaded break, if the kit is Break
   }));
   let dcur = drums[0];
@@ -1806,8 +1813,7 @@
       if (e.latch) return true;
       const p = seqNow ? seqNow.pats[k] : -1;
       if (p < 0) return false;
-      if (playMode === "live" && (e.chan.dm ? e.mode === "pads" : e.mode === "pad")) return false;
-      return hasNotes(e.chan.dm ? patsOf(e)[p] : e.pats[p]);
+      return playsPattern(e) && hasNotes(e.chan.dm ? patsOf(e)[p] : e.pats[p]);
     });
     const key = on.join();
     if (key === shownDots) return;
@@ -2299,7 +2305,8 @@
   // One clock runs the drums and every synth in Piano roll
   // bar counts bars since play (or since switching to Song), songRow is the song row being played (-1 in Live)
   // jump is a song row to go to at the next bar (tapping a bar number while playing), -1 for none
-  const seq = { playing: false, timer: null, step: 0, count: 0, bar: 0, songRow: -1, jump: -1, nextTime: 0, queue: [] };
+  // log keeps the last steps scheduled (the queue loses them once heard), so Rec can find the step a hit belongs to
+  const seq = { playing: false, timer: null, step: 0, count: 0, bar: 0, songRow: -1, jump: -1, nextTime: 0, queue: [], log: [] };
   const stepLen = () => 60 / tempo() / 4;                // one 1/16 step, in seconds
   const swingAmount = () => ($("kSwing").value / 100 - 0.5) * 2;   // 50% straight, 75% = triplet feel
 
@@ -2318,23 +2325,29 @@
     seq.bar++;
   }
 
+  // in Live a synth's pattern plays in Piano roll, a drum machine's in Steps or with Rec on; in Song, whatever the
+  // song gives them
+  const playsPattern = e => playMode === "song" || (e.chan.dm ? e.mode === "steps" || e.rec : e.mode === "roll");
   function seqTick() {
     while (seq.nextTime < ctx.currentTime + 0.1) {
       if (seq.step === 0) barStart();
       const len = stepLen();
       const t = seq.nextTime + (seq.step % 2 ? swingAmount() * len : 0);   // swing pushes back every other 1/16
       drums.forEach(dm => {
-        if (dm.playPat < 0 || (playMode === "live" && dm.mode === "pads")) return;   // in Live, Pads plays only what's tapped
+        if (dm.playPat < 0 || !playsPattern(dm)) return;
         patsOf(dm)[dm.playPat].forEach((row, r) => { if (row[seq.step]) playRow(dm, r, t); });
       });
       // in Live a synth's patterns only play in Piano roll; in Song they play whenever the song asks. A note
       // n steps long holds through n - 1 steps and lets go GATE of the way through its last
       synths.forEach(syn => {
-        if (syn.playPat < 0 || (playMode === "live" && syn.mode === "pad")) return;
+        if (syn.playPat < 0 || !playsPattern(syn)) return;
         const pat = syn.pats[syn.playPat];
         syn.rollNotes.forEach((midi, r) => { const n = pat[r][seq.step]; if (n) playTail(syn, midi, t, (n - 1 + GATE) * len, null); });
       });
-      seq.queue.push({ time: t, step: seq.step, pats: engines.map(e => e.playPat), row: seq.songRow });
+      const q = { time: t, step: seq.step, pats: engines.map(e => e.playPat), row: seq.songRow };
+      seq.queue.push(q);
+      seq.log.push(q);
+      if (seq.log.length > 48) seq.log.shift();
       seq.nextTime += len;
       seq.step = (seq.step + 1) % STEPS;
       seq.count++;
@@ -2355,7 +2368,7 @@
     ensureAudio();
     // if an arp is already running, start the beats on its next note so they line up
     const running = synths.find(syn => syn.arp);
-    Object.assign(seq, { playing: true, step: 0, count: 0, bar: songStart(), songRow: -1, jump: -1, queue: [],
+    Object.assign(seq, { playing: true, step: 0, count: 0, bar: songStart(), songRow: -1, jump: -1, queue: [], log: [],
                          nextTime: running ? running.arp.nextTime : ctx.currentTime + 0.05 });
     seqTick();
     seq.timer = setInterval(seqTick, 25);
@@ -2364,7 +2377,9 @@
   }
   function stopSeq() {
     clearInterval(seq.timer);
-    Object.assign(seq, { playing: false, queue: [], bar: 0, songRow: -1, jump: -1 });
+    Object.assign(seq, { playing: false, queue: [], log: [], bar: 0, songRow: -1, jump: -1 });
+    drums.forEach(dm => { dm.rec = false; });           // stop ends recording
+    showRec();
     engines.forEach(e => { e.playPat = e.editPat; });
     playBtn.setAttribute("aria-pressed", "false");
     playBtn.setAttribute("aria-label", "Play");
@@ -2559,6 +2574,7 @@
   });
   pressPlays(padsEl, ".dpad", pad => {
     hitRow(pad);
+    recordHit(dcur, +pad.dataset.r);
     pad.classList.add("down");
     return () => pad.classList.remove("down");
   }, hitRow);
@@ -2632,6 +2648,7 @@
   function bindDrumUI() {
     document.querySelector(`input[name="dmode"][value="${dcur.mode}"]`).checked = true;
     document.body.dataset.dmode = dcur.mode;
+    showRec();
     kitSel.value = dcur.kit;
     listSyncs.kit();
     renderGrid(); updateRowLabels(); updateBreakUI();
@@ -2642,12 +2659,39 @@
     document.querySelectorAll(".dmName").forEach(s => { s.textContent = dcur.name; });
   }
 
-  // Pads or Steps, for the drum machine on screen
+  // Pads or Steps, for the drum machine on screen. Leaving Pads ends recording
   document.querySelectorAll('input[name="dmode"]').forEach(r => r.addEventListener("change", () => {
     dcur.mode = r.value;
+    if (dcur.mode !== "pads") dcur.rec = false;
     document.body.dataset.dmode = dcur.mode;
-    updateTabs();
+    renderGrid();                                        // shows anything recorded
+    showRec(); updateTabs();
   }));
+
+  // Rec (Pads): the pattern plays, and every pad hit is written into it on the nearest step. Turning it on starts the
+  // beats if they're stopped; stop turns it off. A hit is placed by when its step was heard, not when it was
+  // scheduled, so a high Latency setting doesn't push recorded hits late
+  const recBtn = $("recBtn");
+  function showRec() {
+    recBtn.setAttribute("aria-pressed", dcur.rec);
+    recBtn.title = dcur.rec ? "Recording. Tap to stop recording" : "Record the pads into the pattern";
+  }
+  recBtn.addEventListener("click", () => {
+    dcur.rec = !dcur.rec;
+    if (dcur.rec && !seq.playing) startSeq();
+    showRec(); updateTabs();
+  });
+  function recordHit(dm, r) {
+    if (!dm.rec || !seq.playing || !seq.log.length) return;
+    const heard = ctx.currentTime - (ctx.baseLatency || 0) - (ctx.outputLatency || 0);
+    let near = seq.log[0];
+    for (const q of seq.log) if (Math.abs(q.time - heard) < Math.abs(near.time - heard)) near = q;
+    const p = near.pats[engines.indexOf(dm)];
+    if (p < 0) return;                                   // the song has this machine off here
+    patsOf(dm)[p][r][near.step] = 1;
+    savePatterns(dm);
+    if (dm === dcur && p === dm.editPat) renderCell(r, near.step);
+  }
 
   // ---------- synth patterns ----------
   // each synth has 32 patterns of [row][step], rows counted up the scale from the roll's lowest note, so a pattern
