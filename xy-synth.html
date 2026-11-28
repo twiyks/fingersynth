@@ -87,8 +87,10 @@
   /* a synths or drums group: its icon, then its three tabs, on one rounded band */
   .tabgrp { display: flex; align-items: center; gap: 2px; background: var(--band); border-radius: 12px; padding: 3px; }
   .tabgrp .seg { background: none; padding: 0; }
-  .btn.kindbtn { background: none; border-color: transparent; color: var(--muted); padding: 5px 6px; }
-  body[data-view="synth"] #synthsBtn:not([aria-expanded="true"]), body[data-view="beats"] #drumsBtn:not([aria-expanded="true"]) { color: var(--ink); }
+  /* the keyboard and drum icons just label their tabs; the one for the screen showing is brighter */
+  .kindlbl { display: grid; place-items: center; padding: 5px 6px; color: var(--muted); }
+  .kindlbl svg { display: block; width: 20px; height: 20px; }
+  body[data-view="synth"] #synthsLbl, body[data-view="beats"] #drumsLbl { color: var(--ink); }
   .btn.fxbtn { margin-left: auto; }
   .btn.tempobtn { font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; min-width: 3.2em; padding: 5px 8px; }
   /* a dot on a synth's or drum machine's tab while it's playing: a held arp, or a pattern with notes in it */
@@ -202,14 +204,18 @@
     transition: opacity .4s ease;
   }
   .hint.gone { opacity: 0; }
-  /* panels under the pad (synth) and under the grid (beats), placed by name */
+  /* panels under the pad (synth) and under the grid (beats), placed by name: the effects (delay and reverb), plus the
+     arpeggio or the Drums panel. The sound panels (envelope, filter, distortion) live in the sound menus */
   .fx {
     display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr));
-    grid-template-areas: "env env filt dist" "delay delay rev arp";
+    grid-template-areas: "delay delay rev arp";
   }
-  .fx.drumfx { grid-template-columns: 2fr 2fr 3fr 2fr 2fr; grid-template-areas: "drums filt delay rev dist"; }
-  .envgroup { grid-area: env; } .filtgroup { grid-area: filt; } .arpgroup { grid-area: arp; } .drumsgroup { grid-area: drums; }
-  .delaygroup { grid-area: delay; } .revgroup { grid-area: rev; } .distgroup { grid-area: dist; }
+  .fx.drumfx { grid-template-columns: 2fr 3fr 2fr; grid-template-areas: "drums delay rev"; }
+  .fx .arpgroup { grid-area: arp; } .fx .drumsgroup { grid-area: drums; }
+  .fx .delaygroup { grid-area: delay; } .fx .revgroup { grid-area: rev; }
+  /* the sound menus: filter and distortion as two panels side by side */
+  .fxpair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .sheet .fxgroup h2 .sub { display: block; margin: 0; }
   .arpgroup .seg { grid-column: 1 / -1; }
   .fxgroup h2 .sub { font-weight: 400; font-size: 0.78rem; color: var(--muted); margin-left: 6px; }
   .seg { display: flex; gap: 4px; background: var(--band); border-radius: 10px; padding: 3px; }
@@ -225,7 +231,7 @@
   .seg.small span { font-size: 0.75rem; padding: 2px 9px; }
   .fxhead { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   @media (max-width: 1000px) {
-    .fx.drumfx { grid-template-columns: 1fr 1fr; grid-template-areas: "drums filt" "delay delay" "rev dist"; }
+    .fx.drumfx { grid-template-columns: 1fr 1fr; grid-template-areas: "drums rev" "delay delay"; }
   }
   /* on bigger screens the effects, synth and arpeggio menus vanish and their panels sit in the .fx grid as before, so
      those buttons hide. The lists (scale, sound, kit) and the pop-ups (tempo, mixer, settings, help) open as menus there too */
@@ -283,7 +289,6 @@
   .fxgroup h2 {
     grid-column: 1 / -1; margin: 0; font-size: 0.95rem; font-weight: 800;
   }
-  .phoneonly { display: none; }          /* the sound list in the synth menu: bigger screens have their own list menu */
   .slider { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   /* knobs: label, dial, readout. The range input sits invisibly on the dial for the keyboard; dragging is on the dial */
   .knob { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; font-size: 0.8rem; color: var(--muted); }
@@ -304,11 +309,10 @@
   input[type="range"] { width: 100%; margin: 4px 0 0; accent-color: var(--root); cursor: pointer; }
   input[type="range"]:focus-visible { outline: 3px solid var(--root); outline-offset: 3px; border-radius: 4px; }
   @media (max-width: 700px) {
-    .fx { gap: 8px; grid-template-columns: 1fr 1fr; grid-template-areas: "env env" "filt dist" "delay delay" "rev arp"; }
+    .fx { gap: 8px; grid-template-columns: 1fr 1fr; grid-template-areas: "delay delay" "rev arp"; }
     .fxgroup { padding: 8px 12px 10px; }
     .fxgroup h2 .sub { display: block; margin: 0; }
     .fx .fxgroup:not(.delaygroup) { grid-template-columns: 1fr; }
-    .fx .fxgroup.envgroup { grid-template-columns: 1fr 1fr; }
   }
   footer {
     display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--muted);
@@ -339,14 +343,15 @@
     .msend .short { display: inline; }
     .sheet .fxgroup { grid-template-columns: 1fr; }   /* full-width sliders are easier to hit */
     .sheet .fxgroup.envgroup { grid-template-columns: 1fr 1fr; }
-    .fxgroup { grid-area: auto; }                      /* the named areas are for bigger screens only */
-    .phoneonly { display: grid; }
+    .fx .fxgroup { grid-area: auto; }                  /* the named areas are for bigger screens only */
+    .fxpair { gap: 6px; }
+    .fxpair .fxgroup { padding: 8px 8px 10px; }
   }
   /* narrow phones: tighter tabs so row 2 (tabs, Pad / Steps, Effects) fits on one line */
   @media (max-width: 400px) {
     .row2 { gap: 4px; }
     .seg.icons span { padding: 5px 6px; }
-    .btn.kindbtn { padding: 5px 4px; }
+    .kindlbl { padding: 5px 4px; }
     .seg.modes span { padding: 5px 5px; }
     .row2 .btn.fxbtn { padding: 5px 5px; }
   }
@@ -434,13 +439,11 @@
       </button>
     </div>
   </div>
-  <!-- every synth and drum machine tab is one radio group (name="view"), split into two bands, each led by its icon.
-       Tapping the icon goes to that kind of screen; on it already, it opens the synth's sound or the drums' kit -->
+  <!-- every synth and drum machine tab is one radio group (name="view"), split into two bands, each led by its icon
+     (just a label) -->
   <div class="barrow row2">
     <div class="tabgrp" role="group" aria-label="Synths">
-      <button class="btn iconbtn kindbtn" id="synthsBtn" aria-label="Synths" title="Synths. On a synth, tap for its sound" aria-haspopup="dialog" aria-expanded="false">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 13v7M15 13v7"/><path d="M7.5 4h3v9h-3zM13.5 4h3v9h-3z" fill="currentColor"/></svg>
-      </button>
+      <span class="kindlbl" id="synthsLbl" title="Synths"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 13v7M15 13v7"/><path d="M7.5 4h3v9h-3zM13.5 4h3v9h-3z" fill="currentColor"/></svg></span>
       <div class="seg icons views" role="radiogroup" aria-label="Synth">
         <label title="Synth 1" id="tab0"><input type="radio" name="view" value="0" aria-label="Synth 1" checked><span class="num">1</span></label>
         <label title="Synth 2" id="tab1"><input type="radio" name="view" value="1" aria-label="Synth 2"><span class="num">2</span></label>
@@ -448,9 +451,7 @@
       </div>
     </div>
     <div class="tabgrp" role="group" aria-label="Drums">
-      <button class="btn iconbtn kindbtn" id="drumsBtn" aria-label="Drums" title="Drums. On the drums, tap for the kit" aria-haspopup="dialog" aria-expanded="false">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><ellipse cx="12" cy="10" rx="8" ry="3"/><path d="M4 10v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/><path d="M8 2.5l3 6M17 3l-4 5.5"/></svg>
-      </button>
+      <span class="kindlbl" id="drumsLbl" title="Drums"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><ellipse cx="12" cy="10" rx="8" ry="3"/><path d="M4 10v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/><path d="M8 2.5l3 6M17 3l-4 5.5"/></svg></span>
       <div class="seg icons views" role="radiogroup" aria-label="Drum machine">
         <label title="Drums A" id="tabd0"><input type="radio" name="view" value="d0" aria-label="Drums A"><span class="num">A</span></label>
         <label title="Drums B" id="tabd1"><input type="radio" name="view" value="d1" aria-label="Drums B"><span class="num">B</span></label>
@@ -524,40 +525,6 @@
   </div>
   <section class="fx">
     <!-- on phones each .sheet is an overlay menu; on bigger screens the wrappers vanish (display: contents) -->
-    <div class="sheet" id="soundMenu" role="dialog" aria-label="Synth">
-      <div class="fxgroup phoneonly" style="--cols: 1"><h2>Synth <span class="synName">1</span></h2><div class="list" role="radiogroup" aria-label="Sound" data-for="preset"></div></div>
-      <div class="fxgroup envgroup" style="--cols: 4">
-        <h2>Envelope</h2>
-        <div class="slider">
-          <div class="top"><label for="envA">Attack</label><output id="envAOut"></output></div>
-          <input type="range" id="envA" min="0" max="100">
-        </div>
-        <div class="slider">
-          <div class="top"><label for="envD">Decay</label><output id="envDOut"></output></div>
-          <input type="range" id="envD" min="0" max="100">
-        </div>
-        <div class="slider">
-          <div class="top"><label for="envS">Sustain</label><output id="envSOut"></output></div>
-          <input type="range" id="envS" min="0" max="100">
-        </div>
-        <div class="slider">
-          <div class="top"><label for="envR">Release</label><output id="envROut"></output></div>
-          <input type="range" id="envR" min="0" max="100">
-        </div>
-      </div>
-      <div class="fxgroup filtgroup" style="--cols: 2">
-        <h2>Filter <span class="sub padonly">Cutoff is the top of the pad</span></h2>
-        <div class="slider">
-          <div class="top"><label for="fCut">Cutoff</label><output id="fCutOut"></output></div>
-          <input type="range" id="fCut" min="0" max="100">
-        </div>
-        <div class="slider">
-          <div class="top"><label for="fRes">Resonance</label><output id="fResOut"></output></div>
-          <input type="range" id="fRes" min="0" max="100">
-        </div>
-      </div>
-      <!-- the Distortion panel is added here by distHTML() -->
-    </div>
     <!-- delay and reverb panels are built by delayRevHTML(), the same for the synths and the drums -->
     <div class="sheet" id="fxMenu" role="dialog" aria-label="Effects"></div>
     <div class="sheet padonly" id="arpMenu" role="dialog" aria-label="Arpeggio settings">
@@ -584,12 +551,32 @@
   <div class="sheet listsheet" id="scaleMenu" role="dialog" aria-label="Scale">
     <div class="fxgroup" style="--cols: 1"><h2>Scale</h2><div class="list" role="radiogroup" aria-label="Scale" data-for="scale"></div></div>
   </div>
-  <div class="sheet listsheet" id="kitMenu" role="dialog" aria-label="Kit">
+  <!-- the drums' sound: the kit list, then the filter and distortion side by side (added by the script) -->
+  <div class="sheet listsheet soundsheet" id="kitMenu" role="dialog" aria-label="Kit">
     <div class="fxgroup" style="--cols: 1"><h2>Kit <span class="sub">Drums <span class="dmName">A</span></span></h2><div class="list" role="radiogroup" aria-label="Kit" data-for="kit"></div></div>
   </div>
-  <!-- bigger screens: the synth's sound list on its own (phones have it at the top of the synth menu, with the panels) -->
-  <div class="sheet listsheet" id="presetMenu" role="dialog" aria-label="Synth sound">
+  <!-- the synth's sound: the list, the envelope, then the filter and distortion side by side (added by the script) -->
+  <div class="sheet listsheet soundsheet" id="presetMenu" role="dialog" aria-label="Synth sound">
     <div class="fxgroup" style="--cols: 1"><h2>Synth <span class="synName">1</span></h2><div class="list" role="radiogroup" aria-label="Sound" data-for="preset"></div></div>
+    <div class="fxgroup envgroup" style="--cols: 2">
+      <h2>Envelope</h2>
+      <div class="slider">
+        <div class="top"><label for="envA">Attack</label><output id="envAOut"></output></div>
+        <input type="range" id="envA" min="0" max="100">
+      </div>
+      <div class="slider">
+        <div class="top"><label for="envD">Decay</label><output id="envDOut"></output></div>
+        <input type="range" id="envD" min="0" max="100">
+      </div>
+      <div class="slider">
+        <div class="top"><label for="envS">Sustain</label><output id="envSOut"></output></div>
+        <input type="range" id="envS" min="0" max="100">
+      </div>
+      <div class="slider">
+        <div class="top"><label for="envR">Release</label><output id="envROut"></output></div>
+        <input type="range" id="envR" min="0" max="100">
+      </div>
+    </div>
   </div>
   <!-- Tempo, Mixer, Settings and Help open as menus on every screen size -->
   <div class="sheet popsheet anchored" id="tempoMenu" role="dialog" aria-label="Tempo">
@@ -631,8 +618,8 @@
       <div class="helppane usepane">
         <h3>The buttons at the top</h3>
         <p><strong>First row:</strong> Live or Song, play and stop, the tempo (tap the number to change it), then the mixer, settings and help.</p>
-        <p><strong>Second row:</strong> the keyboard and <strong>1 2 3</strong> are the synths; the drum and <strong>A B C</strong> are the drum machines. A dot shows which ones are playing, and flashes with each note. On a synth, tap the keyboard again to pick its sound and shape it; on the drums, tap the drum again to pick the kit. On a synth, the two buttons after the tabs pick Pad or Steps. The waves button at the end opens the effects.</p>
-        <p><strong>Third row:</strong> the sound of the synth or drum machine on screen. Tap its name to change it. On a synth, the arpeggio and the scale (the steps button) follow. On the Sample kit it shows the loaded file, with Load and the loop's length next to it. On the drums, the patterns and Clear come next.</p>
+        <p><strong>Second row:</strong> the keyboard and <strong>1 2 3</strong> are the synths; the drum and <strong>A B C</strong> are the drum machines. A dot shows which ones are playing, and flashes with each note. On a synth, the two buttons after the tabs pick Pad or Steps. The waves button at the end opens the effects.</p>
+        <p><strong>Third row:</strong> the sound of the synth or drum machine on screen. Tap its name to change it and shape it. On a synth, the arpeggio and the scale (the steps button) follow. On the Sample kit it shows the loaded file, with Load and the loop's length next to it. On the drums, the patterns and Clear come next.</p>
         <h3>The pad</h3>
         <p>Slide left and right for pitch, up and down for the filter: brighter at the top of each keyboard, darker at the bottom.</p>
         <h3>Arpeggio and chords</h3>
@@ -645,9 +632,9 @@
         <h3>Drums</h3>
         <p><strong>A B C</strong> are three drum machines. They all play together, each with its own kit, patterns and effects. Tap steps to add hits and switch between 8 patterns. The name under the tabs shows the kit: <strong>909</strong>, <strong>808</strong> or <strong>Sample</strong>; tap it to change. The Sample kit cuts a loop you load into 8 slices. It guesses whether the loop is 1, 2 or 4 bars long and fits it to the tempo; if it sounds too fast or slow, tap the bars button next to Load.</p>
         <h3>Sound and effects</h3>
-        <p>A synth's menu (tap the keyboard while on a synth) has its sound, the envelope, filter and distortion. <strong>Effects</strong> has delay and reverb. Effect settings are knobs: press one and slide up or down. On the drums, Effects has distortion, a <strong>Filter</strong> (turn Cutoff down to make them darker and duller, Resonance up for a ringing edge), delay and reverb. Tempo sets the speed of everything.</p>
+        <p>Tap the sound's name to open its menu. A synth's has its sounds, the envelope, the <strong>Filter</strong> and distortion. The drums' has the kits, a Filter and distortion. Turn Cutoff down for a darker, duller sound, and Resonance up for a ringing edge. Knobs work by pressing one and sliding up or down. <strong>Effects</strong> (the waves button) has delay and reverb, for the synths and the drums. Tempo sets the speed of everything.</p>
         <h3>Mixer</h3>
-        <p>The faders button opens the <strong>Mixer</strong>. A channel's name lights up while it plays and flashes with each note. Each has a level, <strong>M</strong> to mute, <strong>S</strong> to solo, and how much reverb, delay and distortion each one gets. These are the same as the Amount sliders in the effects panels.</p>
+        <p>The faders button opens the <strong>Mixer</strong>. A channel's name lights up while it plays and flashes with each note. Each has a level, <strong>M</strong> to mute, <strong>S</strong> to solo, how much reverb, delay and distortion each one gets, and its filter's cutoff. These are the same knobs as in the effects and sound menus.</p>
         <h3>Live and Song</h3>
         <p>In <strong>Live</strong>, play loops the patterns picked on each screen. In <strong>Song</strong>, it plays the song from the top, one row per bar, and goes round again at the end.</p>
         <p>Each row has a slot for synths 1 2 3 and drums A B C. Tap a slot to pick a pattern, or Off. <strong>+ Add a bar</strong> copies the last row; × removes one. In Song the synths play their Steps patterns even in Pad mode, so you can still play the pad over the top.</p>
@@ -659,6 +646,7 @@
       <div class="helppane historypane">
         <!-- newest first; the first entry's number is shown next to the title -->
         <ul class="history" id="history">
+          <li><span class="ver">v3.8</span>The sound menu (tap the sound's name) holds the envelope, filter and distortion, for synths and drums. Effects is just delay and reverb. The mixer has a Cutoff knob for every channel.</li>
           <li><span class="ver">v3.7</span>Synth controls fit on fewer rows: Pad and Steps are icons next to the tabs, the arp and scale sit next to the sound. Load no longer shows on synth screens.</li>
           <li><span class="ver">v3.6</span>iPhone: if the sound hasn't started, a button asks for one tap. Synth 2 starts on Acid, synth 3 on Soft sine.</li>
           <li><span class="ver">v3.5</span>The sound or kit has its own row (tap to change), with a loaded sample's file name. Effects are knobs. Drums get a filter. Tabs and mixer flash with each note. Synth 1 starts on Glass.</li>
@@ -718,7 +706,7 @@
           <input type="range" id="kSwing" min="50" max="75" value="50">
         </div>
       </div>
-      <!-- filled by distHTML() and delayRevHTML(), like the synths' -->
+      <!-- filled by delayRevHTML(), like the synths' -->
       <div class="sheet" id="drumFxMenu" role="dialog" aria-label="Drum effects"></div>
     </section>
   </section>
@@ -743,7 +731,7 @@
   };
 
   // q is the filter resonance; atk, dec, rel in seconds and sus 0 to 1 are the starting envelope.
-  // Picking a sound loads these into the Sound panel, and the sliders take over from there
+  // Picking a sound loads these into the sound menu, and its controls take over from there
   const PRESETS = {
     soft:     { name: "Soft sine", q: 0.8, atk: 0.04, dec: 0.3, sus: 1, rel: 0.5, vib: 6,
                 oscs: [{type:"sine", g:0.55}, {type:"triangle", oct:-1, g:0.3}] },
@@ -833,11 +821,12 @@
       ${knobHTML(p + "xAmount", "Amount", 0, 100)}
       ${knobHTML(p + "xTone", "Tone", 0, 100)}
     </div>`;
-  const filterHTML = p => `
+  // ids: the drums' rack filter is kfltCut / kfltRes; the synths' own filter (every note has one) is fCut / fRes
+  const filterHTML = (cut, res, sub = "") => `
     <div class="fxgroup filtgroup knobs" style="--cols: 2">
-      <h2>Filter</h2>
-      ${knobHTML(p + "fltCut", "Cutoff", 0, 100)}
-      ${knobHTML(p + "fltRes", "Resonance", 0, 100)}
+      <h2>Filter${sub}</h2>
+      ${knobHTML(cut, "Cutoff", 0, 100)}
+      ${knobHTML(res, "Resonance", 0, 100)}
     </div>`;
   const delayRevHTML = p => `
     <div class="fxgroup delaygroup knobs" style="--cols: 3">
@@ -857,10 +846,14 @@
       ${knobHTML(p + "rSize", "Room size", 0, 100)}
       ${knobHTML(p + "rMix", "Amount", 0, 100)}
     </div>`;
-  // synths: distortion sits in the Sound panel, delay and reverb in Effects. Drums: those three plus a filter in Drum effects
-  $("soundMenu").insertAdjacentHTML("beforeend", distHTML(""));
+  // the sound menus (the synth's sound, the drums' kit) end with the filter and distortion side by side.
+  // Effects is just delay and reverb, for the synths and the drums
+  const pairHTML = (a, b) => `<div class="fxpair">${a}${b}</div>`;
+  $("presetMenu").insertAdjacentHTML("beforeend",
+    pairHTML(filterHTML("fCut", "fRes", ` <span class="sub padonly">Cutoff is the top of the pad</span>`), distHTML("")));
+  $("kitMenu").insertAdjacentHTML("beforeend", pairHTML(filterHTML("kfltCut", "kfltRes"), distHTML("k")));
   $("fxMenu").innerHTML = delayRevHTML("");
-  $("drumFxMenu").innerHTML = distHTML("k") + filterHTML("k") + delayRevHTML("k");
+  $("drumFxMenu").innerHTML = delayRevHTML("k");
 
   // a knob: a 270° arc from bottom left round to bottom right. Dragging up turns it up; a full sweep is KNOB_TRAVEL px
   const KNOB_TRAVEL = 160, ARC = 2 * Math.PI * 16;
@@ -2759,7 +2752,7 @@
       lab.querySelector("input").addEventListener("change", () => {
         sel.value = o.value;
         sel.dispatchEvent(new Event("change"));
-        closeMenu();
+        if (!list.closest(".soundsheet")) closeMenu();        // the sound menus stay open to shape the new sound
       });
       list.append(lab);
     });
@@ -2803,18 +2796,6 @@
   });
   phoneMQ.addEventListener("change", closeMenu);
 
-  // the synths' keyboard and the drums' drum: from another screen they go to the synth or drum machine last shown.
-  // Already there, the keyboard opens the synth's sound (on phones the whole synth menu: sound list, envelope, filter,
-  // distortion; on bigger screens, where those panels are on screen, just the sound list) and the drum opens the kit list
-  [[$("synthsBtn"), "synth", () => phoneMQ.matches ? "soundMenu" : "presetMenu"],
-   [$("drumsBtn"), "beats", () => "kitMenu"]].forEach(([btn, view, menu]) => btn.addEventListener("click", () => {
-    if (openMenuBtn === btn) return closeMenu();
-    if (document.body.dataset.view !== view) return setView(view);
-    btn.dataset.menu = menu();
-    btn.setAttribute("aria-controls", btn.dataset.menu);
-    openMenu(btn);
-  }));
-
   // tempo nudges, one BPM at a time
   document.querySelectorAll("[data-nudge]").forEach(b => b.addEventListener("click", () => {
     const t = $("tempo");
@@ -2824,9 +2805,12 @@
 
   // ---------- mixer ----------
   // a strip each for the three synths and the three drum machines, side by side so all six fit on one screen.
-  // Reverb, Delay and Distortion are the racks' own Amount settings, so moving one here moves the matching slider in
-  // the effects panels too. A drum machine's Level is also the Level in its Drums panel
-  const MIX_SENDS = [["rMix", "Reverb", "Rev"], ["dAmount", "Delay", "Dly"], ["xAmount", "Distortion", "Dist"]];
+  // Reverb, Delay and Distortion are the racks' own Amount settings, so moving one here moves the matching knob in
+  // the effects and sound menus too. Cutoff is a drum machine's rack filter, or a synth's own filter (the one for the
+  // mode it's in, the same as the Cutoff in its sound menu). A drum machine's Level is also the Level in its Drums panel
+  const MIX_SENDS = [["rMix", "Reverb", "Rev"], ["dAmount", "Delay", "Dly"], ["xAmount", "Distortion", "Dist"], ["fltCut", "Cutoff", "Cut"]];
+  const sendVal = (c, n) => n === "fltCut" && c.syn ? cutToSlider(c.syn.filt[c.syn.mode].cut) : c.rack.values[n];
+  const sendOut = (c, n) => n === "fltCut" && c.syn ? fmtHz(c.syn.filt[c.syn.mode].cut) : c.rack.out[n];
   const mixEl = $("mixMenu");
   mix.forEach((c, i) => {
     const m = "m" + i;
@@ -2863,7 +2847,7 @@
       const m = "m" + i;
       $(m + "name").textContent = c.syn ? PRESETS[c.syn.preset].name : KITS[c.dm.kit].name;
       $(m + "level").value = c.level; $(m + "levelOut").textContent = fmtLevel(c.level);
-      MIX_SENDS.forEach(([n]) => { $(m + n).value = c.rack.values[n]; $(m + n + "Out").textContent = c.rack.out[n]; });
+      MIX_SENDS.forEach(([n]) => { $(m + n).value = sendVal(c, n); $(m + n + "Out").textContent = sendOut(c, n); });
       $(m + "mute").setAttribute("aria-pressed", c.mute);
       $(m + "solo").setAttribute("aria-pressed", c.solo);
     });
@@ -2872,6 +2856,14 @@
     const m = "m" + i;
     $(m + "level").addEventListener("input", e => setLevel(c, +e.target.value));
     MIX_SENDS.forEach(([n]) => $(m + n).addEventListener("input", e => {
+      if (n === "fltCut" && c.syn) {                       // a synth's own filter: sweeps what's already sounding
+        const syn = c.syn;
+        syn.filt[syn.mode].cut = cutFromSlider(+e.target.value);
+        retune(syn);
+        $(m + n + "Out").textContent = sendOut(c, n);
+        if (syn === cur) { $("fCut").value = e.target.value; showSound(cur); showReadout(); }
+        return;
+      }
       const rack = c.rack;
       rack.values[n] = +e.target.value;
       calcFx(rack); applyFx(rack);
