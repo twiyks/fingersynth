@@ -737,7 +737,7 @@
         <p>Switch a synth to <strong>Steps</strong> to write a pattern on a grid of its notes. Steps play along with the beats, so press play to hear them. Each synth has 32 patterns, 8 at a time: the down arrow shows 9 to 16 and so on, the up arrow goes back.</p>
         <h3>Piano roll</h3>
         <p><strong>Piano roll</strong> shows the same patterns as Steps, but notes can be long. Press an empty spot to add a note, and drag right to make it longer. Drag the end of a note to stretch or shorten it, drag the rest of it to move it, and tap it to take it out. New notes are as long as the last one you drew.</p>
-        <p>Scroll the notes on the left to move up and down the keyboard, and tap one to hear it. The roll covers four octaves from the lowest note; Steps shows the bottom two. In Steps, a long note lights its first step and shades the rest; tap any of them to take it out.</p>
+        <p>Scroll the notes on the left to move up and down the keyboard. Press one to hear it; it plays for as long as you hold it. The roll covers four octaves from the lowest note; Steps shows the bottom two. In Steps, a long note lights its first step and shades the rest; tap any of them to take it out.</p>
         <h3>Drums</h3>
         <p><strong>A B C</strong> are three drum machines. They all play together, each with its own kit, patterns and effects. Tap steps to add hits and switch between 32 patterns, 8 at a time: the down arrow shows 9 to 16 and so on, the up arrow goes back. An arrow is underlined when the pattern playing is that way. The name under the tabs shows the kit: <strong>909</strong>, <strong>808</strong> or <strong>Sample</strong>; tap it to change. The Sample kit cuts a loop you load into 8 slices. It guesses whether the loop is 1, 2 or 4 bars long and fits it to the tempo; if it sounds too fast or slow, tap the bars button next to Load.</p>
         <h3>Sound and effects</h3>
@@ -755,6 +755,7 @@
       <div class="helppane historypane">
         <!-- newest first; the first entry's number is shown next to the title -->
         <ul class="history" id="history">
+          <li><span class="ver">v4.2</span>The note names next to Steps and the piano roll play as soon as you press them, and keep playing while held. Drum names play on press too.</li>
           <li><span class="ver">v4.1</span>Piano roll: a third way to write a synth's patterns, with notes you can stretch and shorten. Scroll the keys on the left to move up and down four octaves.</li>
           <li><span class="ver">v4.0</span>Changing the scale moves a held arpeggio onto the new scale. More sounds, in a dropdown grouped Bass, Lead and Pad. Phones show the arpeggio settings button again. Tablets held upright get three keyboards, with Filter, Distortion, Delay and Reverb under the pad.</li>
           <li><span class="ver">v3.9</span>32 patterns for every synth and drum machine, 8 at a time with up and down arrows. Clear is a bin next to the kit, with copy and paste, and asks before anything is lost. Tap a bar number in the song to play from there.</li>
@@ -1292,7 +1293,7 @@
       const tail = release + rack.st.dDecay + 0.3 + rack.st.rSize * 5.7 + 1;    // plus a second to spare
       if (now - n.lastBusy > tail) { n.feedback.disconnect(); n.asleep = true; }
     };
-    synths.forEach(syn => check(syn.rack, syn.voices.size || syn.tails.size || syn.arp, syn.env.r));
+    synths.forEach(syn => check(syn.rack, syn.voices.size || syn.held.size || syn.tails.size || syn.arp, syn.env.r));
     // a drum machine is busy while the beats play, or for a whole loop's length after (a break slice can ring on that long)
     drums.forEach(dm => check(dm.rack, seq.playing, dm.brk.buf ? dm.brk.buf.duration : 2));
   }, 500);
@@ -1333,6 +1334,7 @@
       bus: null,                         // everything this synth plays goes through here, then its rack
       voices: new Map(),                 // pointerId -> voice, for fingers playing their own note
       tails: new Set(),                  // arp and step notes, scheduled with their own release
+      held: new Set(),                   // notes held down on the step grid's row labels or the piano roll's keys
       arp: null, latch: null,
       pats: null, editPat: 0, playPat: 0, page: 0,   // page: which 8 of the 32 pattern buttons show
     };
@@ -1584,7 +1586,7 @@
   function retune(syn) {
     if (!ctx) return;
     const now = ctx.currentTime;
-    [...syn.voices.values(), ...syn.tails].forEach(v => {
+    [...syn.voices.values(), ...syn.held, ...syn.tails].forEach(v => {
       const at = Math.max(now, v.start ?? 0);
       v.filter.frequency.setTargetAtTime(voiceCut(v, syn), at, FILTER_GLIDE);
       v.filter.Q.setTargetAtTime(filtFor(v.ly, syn).res, at, 0.03);
@@ -2370,8 +2372,8 @@
     engines.forEach(newBus);
     const halt = s => { if (s) try { s.stop(now + 0.03); } catch {} };   // free the oscillators, they're on the old buses
     synths.forEach(syn => {
-      [...syn.voices.values(), ...syn.tails].forEach(v => { v.oscs.forEach(o => halt(o.osc)); halt(v.lfo); });
-      syn.voices.clear(); syn.tails.clear();
+      [...syn.voices.values(), ...syn.held, ...syn.tails].forEach(v => { v.oscs.forEach(o => halt(o.osc)); halt(v.lfo); });
+      syn.voices.clear(); syn.held.clear(); syn.tails.clear();
     });
     drums.forEach(dm => { halt(dm.brk.voice?.src); dm.brk.voice = null; dm.openHat = null; });
     setTimeout(() => {
@@ -2441,6 +2443,28 @@
       save();
     });
   }
+  // row labels and keys that play as soon as they're pressed: hold(label) when a pointer goes down on one, and the
+  // function it returns (if any) when that pointer lifts, or is cancelled (a scroll starting on the piano roll's keys).
+  // The keyboard still works through click, with tap(label)
+  function pressPlays(el, sel, hold, tap) {
+    const ups = new Map();
+    el.addEventListener("pointerdown", e => {
+      const lab = e.target.closest(sel);
+      if (!lab || e.button > 0) return;
+      ensureAudio();
+      const up = hold(lab);
+      if (up) ups.set(e.pointerId, up);
+    });
+    const end = e => { ups.get(e.pointerId)?.(); ups.delete(e.pointerId); };
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+    el.addEventListener("click", e => {
+      const lab = e.target.closest(sel);
+      if (!lab || e.detail !== 0) return;
+      ensureAudio();
+      tap(lab);
+    });
+  }
   const makeCell = (r, s, label) => {
     const c = document.createElement("button");
     c.className = "cell" + (Math.floor(s / 4) % 2 ? " alt" : "");
@@ -2494,7 +2518,7 @@
   DRUM_ROWS.forEach((d, r) => {
     const lab = document.createElement("button");
     lab.className = "rowlab";
-    lab.addEventListener("click", () => { ensureAudio(); playRow(dcur, r, ctx.currentTime + 0.01); });
+    lab.dataset.r = r;
     gridEl.append(lab);
     rowLabs.push(lab);
     cells[r] = [];
@@ -2504,6 +2528,9 @@
       cells[r][s] = c;
     }
   });
+  // a row label plays its drum (or slice) as soon as it's pressed
+  const hitRow = lab => { playRow(dcur, +lab.dataset.r, ctx.currentTime + 0.01); };
+  pressPlays(gridEl, ".rowlab", hitRow, hitRow);
   // drum kits label rows by drum, the break by slice number
   function updateRowLabels() {
     DRUM_ROWS.forEach((d, r) => {
@@ -2675,12 +2702,13 @@
     audition: auditionStep,
     save: saveSynthPatterns,
   });
-  sgridEl.addEventListener("click", e => {               // row labels play their note
-    const lab = e.target.closest(".rowlab");
-    if (!lab) return;
-    ensureAudio();
-    auditionStep(+lab.dataset.r);
-  });
+  // the row labels (and the piano roll's keys) play their note while they're held down
+  function holdNote(lab) {
+    const syn = cur, v = startVoice(syn, syn.rollNotes[+lab.dataset.r], null);
+    syn.held.add(v);
+    return () => { if (syn.held.delete(v)) stopVoice(v); };   // stop cuts it first, and empties held
+  }
+  pressPlays(sgridEl, ".rowlab", holdNote, lab => auditionStep(+lab.dataset.r));
   const sPager = pager(patternButtons($("spats"), "spat", i => {
     cur.editPat = i;
     if (!seq.playing) cur.playPat = i;
@@ -2835,12 +2863,7 @@
   }
   rollBody.addEventListener("pointerup", e => endRollDrag(e, false));
   rollBody.addEventListener("pointercancel", e => endRollDrag(e, true));
-  rollBody.addEventListener("click", e => {              // the keys play their note
-    const key = e.target.closest(".rkey");
-    if (!key) return;
-    ensureAudio();
-    auditionStep(+key.dataset.r);
-  });
+  pressPlays(rollBody, ".rkey", holdNote, key => auditionStep(+key.dataset.r));   // the keys play while held
 
   // ---------- clear, copy and paste ----------
   // one set of buttons, in the name row, for the pattern on screen: the drum machine's (beats view) or the synth's
@@ -3387,7 +3410,7 @@
     const mixOpen = mixEl.classList.contains("open");
     mix.forEach((c, i) => {
       const e = c.syn || c.dm;
-      if (mixOpen) mixNames[i].classList.toggle("live", !!(busyNow[i] || (c.syn && (e.voices.size || e.tails.size || e.arp))));
+      if (mixOpen) mixNames[i].classList.toggle("live", !!(busyNow[i] || (c.syn && (e.voices.size || e.held.size || e.tails.size || e.arp))));
       if (!c.hits.some(t => t <= now)) return;
       c.hits = c.hits.filter(t => t > now);
       const dot = tabDots[i], flash = getComputedStyle(dot).getPropertyValue("--hit-now").trim();
@@ -3413,7 +3436,7 @@
     pointers.clear();
     synths.forEach(syn => {
       stopArp(syn);
-      syn.voices.clear(); syn.tails.clear();
+      syn.voices.clear(); syn.held.clear(); syn.tails.clear();
       syn.bus = null; syn.rack.n = null;
     });
     drums.forEach(dm => { dm.rack.n = null; dm.bus = null; dm.openHat = null; dm.brk.voice = null; });
